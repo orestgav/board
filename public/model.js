@@ -121,3 +121,9 @@ export function allAbsoluteRects(layout) {
   walkNodes(layout.children, ({ node }) => result.push({ id: node.id, ...absoluteRect(layout, node.id) }));
   return result;
 }
+
+export function nearestPointParent(layout, point) {
+  const parent = deepestNodeAt(layout, point, { includeLocked: true });
+  const rect = parent ? absoluteRect(layout, parent.id) : { x: 0, y: 0, width: WORLD_SIZE, height: WORLD_SIZE };
+  return { parent, rect };
+}

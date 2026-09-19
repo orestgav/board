@@ -7,10 +7,12 @@ import {
   deepestNodeAt,
   findEntry,
   findNode,
+  nearestPointParent,
   reparentNode,
   reorderNode,
 } from "./model.js";
 import { createStorage } from "./storage.js";
+import { matchesEntity } from "./entities.js";
 
 const MIN_SCALE = 0.08;
 const MAX_SCALE = 4;
@@ -33,6 +35,12 @@ const connectionScreen = document.querySelector("#connection-screen");
 const connectionHint = document.querySelector("#connection-hint");
 const openCampaignButton = document.querySelector("#open-campaign");
 const changeCampaignButton = document.querySelector("#change-campaign");
+const addEntityButton = document.querySelector("#add-entity");
+const entityPicker = document.querySelector("#entity-picker");
+const entitySearch = document.querySelector("#entity-search");
+const entityResults = document.querySelector("#entity-results");
+const entityDetails = document.querySelector("#entity-details");
+const entityDetailsContent = document.querySelector("#entity-details-content");
 
 let storage;
 let layout;
@@ -46,6 +54,10 @@ let spacePressed = false;
 let undoStack = [];
 let redoStack = [];
 let pendingDrop = null;
+let entities = [];
+let entitiesBySlug = new Map();
+let pickerSelection = 0;
+let insertPoint = null;
 const storedView = localStorage.getItem("crown-board.viewport");
 let view = loadView();
 
@@ -63,7 +75,20 @@ function persistView() {
 
 function clamp(value, min, max) { return Math.min(max, Math.max(min, value)); }
 function layoutsEqual(first, second) { return JSON.stringify(first) === JSON.stringify(second); }
-function nodeLabel(node) { return node.type === "image" ? node.image.split("/").at(-1) : (node.title || "Без назви"); }
+function nodeLabel(node) {
+  if (node.type === "image") return node.image.split("/").at(-1);
+  if (node.type === "entity") return entitiesBySlug.get(node.entity)?.name ?? `[[${node.entity}]]`;
+  return node.title || "Без назви";
+}
+
+function plainSummary(source) {
+  return source.replace(/<!--.*?-->/gs, "").replace(/!?\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (_, target, label) => label || target)
+    .replace(/[*_`>#-]/g, "").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+async function setDirectImageSource(image, path) {
+  try { image.src = await storage.mediaUrl(path, false); } catch (error) { console.warn(error); }
+}
 
 async function setImageSource(image, node, thumbnail) {
   const key = `${thumbnail ? "thumb" : "full"}:${node.image}`;
@@ -93,6 +118,10 @@ function applyView() {
   document.querySelector("#zoom-value").textContent = `${Math.round(view.scale * 100)}%`;
   persistView();
   updateImageSources();
+  document.querySelectorAll(".entity-node").forEach((element) => {
+    const node = findNode(layout, element.dataset.id);
+    if (node) element.classList.toggle("entity-far", node.width * view.scale < 180);
+  });
 }
 
 function render() {
@@ -120,7 +149,48 @@ function renderNode(node) {
   element.style.top = `${node.y}%`;
   element.style.width = `${node.width}px`;
   element.style.height = `${node.height}px`;
-  if (node.type === "image") {
+  if (node.type === "entity") {
+    element.classList.add("entity-node");
+    const entity = entitiesBySlug.get(node.entity);
+    if (!entity) {
+      const missing = document.createElement("div");
+      missing.className = "entity-missing";
+      missing.textContent = `Не знайдено картку [[${node.entity}]]`;
+      missing.addEventListener("click", () => select(node.id));
+      element.append(missing);
+    } else {
+      element.classList.toggle("entity-far", node.width * view.scale < 180);
+      const header = document.createElement("div");
+      header.className = "node-header";
+      header.dataset.id = node.id;
+      header.innerHTML = '<span class="node-glyph">◇</span><span class="node-title"></span><span class="entity-type"></span>';
+      header.querySelector(".node-title").textContent = entity.name;
+      header.querySelector(".entity-type").textContent = entity.type;
+      header.addEventListener("pointerdown", onNodePointerDown);
+      element.append(header);
+
+      const content = document.createElement("div");
+      content.className = `entity-content${entity.portrait ? "" : " no-portrait"}`;
+      if (entity.portrait) {
+        const portrait = document.createElement("img");
+        portrait.className = "entity-portrait";
+        portrait.alt = "";
+        portrait.draggable = false;
+        setDirectImageSource(portrait, entity.portrait);
+        content.append(portrait);
+      }
+      const summary = document.createElement("p");
+      summary.className = "entity-summary";
+      summary.textContent = entity.summary ? plainSummary(entity.summary) : "Немає секції «На дошці»";
+      content.append(summary);
+      content.addEventListener("click", (event) => {
+        event.stopPropagation();
+        select(node.id);
+        showEntityDetails(entity);
+      });
+      element.append(content);
+    }
+  } else if (node.type === "image") {
     element.classList.add("image-node");
     const image = document.createElement("img");
     image.className = "node-image";
@@ -176,7 +246,7 @@ function renderLayers() {
       row.className = `layer-row${node.id === selectedId ? " selected" : ""}${node.locked ? " locked" : ""}`;
       row.style.setProperty("--depth", depth);
       row.dataset.id = node.id;
-      row.innerHTML = `<span class="layer-glyph">${node.type === "image" ? "▧" : "◇"}</span><span class="layer-title"></span><button class="layer-lock" type="button"></button>`;
+      row.innerHTML = `<span class="layer-glyph">${node.type === "image" ? "▧" : node.type === "entity" ? "◈" : "◇"}</span><span class="layer-title"></span><button class="layer-lock" type="button"></button>`;
       row.querySelector(".layer-title").textContent = nodeLabel(node);
       const lock = row.querySelector(".layer-lock");
       lock.textContent = node.locked ? "●" : "○";
@@ -275,6 +345,108 @@ function countNodes() {
   return count;
 }
 
+function defaultInsertPoint() {
+  const bounds = viewport.getBoundingClientRect();
+  return screenToWorld(bounds.left + bounds.width / 2, bounds.top + bounds.height / 2);
+}
+
+function openEntityPicker() {
+  if (!layout) return;
+  insertPoint ??= defaultInsertPoint();
+  pickerSelection = 0;
+  entitySearch.value = "";
+  renderEntityResults();
+  entityPicker.showModal();
+  requestAnimationFrame(() => entitySearch.focus());
+}
+
+function filteredEntities() {
+  return entities.filter((entity) => matchesEntity(entity, entitySearch.value)).slice(0, 100);
+}
+
+function renderEntityResults() {
+  const matches = filteredEntities();
+  pickerSelection = clamp(pickerSelection, 0, Math.max(0, matches.length - 1));
+  if (!matches.length) {
+    entityResults.innerHTML = '<div class="entity-picker-empty">Нічого не знайдено</div>';
+    return;
+  }
+  const fragment = document.createDocumentFragment();
+  matches.forEach((entity, index) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `entity-result${index === pickerSelection ? " active" : ""}`;
+    if (entity.portrait) {
+      const image = document.createElement("img");
+      image.alt = "";
+      setDirectImageSource(image, entity.portrait);
+      button.append(image);
+    } else {
+      const placeholder = document.createElement("span");
+      placeholder.className = "entity-result-placeholder";
+      placeholder.textContent = entity.name.slice(0, 1).toLocaleUpperCase("uk");
+      button.append(placeholder);
+    }
+    const label = document.createElement("span");
+    const name = document.createElement("strong");
+    const slug = document.createElement("small");
+    name.textContent = entity.name;
+    slug.textContent = entity.slug;
+    label.append(name, slug);
+    const type = document.createElement("em");
+    type.textContent = entity.type;
+    button.append(label, type);
+    button.addEventListener("mouseenter", () => {
+      pickerSelection = index;
+      entityResults.querySelectorAll(".entity-result").forEach((row, rowIndex) => row.classList.toggle("active", rowIndex === index));
+    });
+    button.addEventListener("click", () => addEntity(entity));
+    fragment.append(button);
+  });
+  entityResults.replaceChildren(fragment);
+  entityResults.querySelector(".active")?.scrollIntoView({ block: "nearest" });
+}
+
+function addEntity(entity) {
+  const point = insertPoint ?? defaultInsertPoint();
+  const { parent, rect } = nearestPointParent(layout, point);
+  executeCommand("Додати картку", () => {
+    const node = {
+      id: crypto.randomUUID(), type: "entity", entity: entity.slug,
+      x: clamp((point.x - rect.x) / rect.width * 100, 0, 100),
+      y: clamp((point.y - rect.y) / rect.height * 100, 0, 100),
+      width: 320, height: 190, locked: false, children: [],
+    };
+    (parent ? parent.children : layout.children).push(node);
+    selectedId = node.id;
+  });
+  entityPicker.close();
+}
+
+function showEntityDetails(entity) {
+  entityDetailsContent.replaceChildren();
+  if (entity.portrait) {
+    const image = document.createElement("img");
+    image.className = "entity-details-portrait";
+    image.alt = "";
+    setDirectImageSource(image, entity.portrait);
+    entityDetailsContent.append(image);
+  }
+  const title = document.createElement("h1");
+  title.textContent = entity.name;
+  const meta = document.createElement("div");
+  meta.className = "entity-details-meta";
+  meta.textContent = entity.type;
+  const path = document.createElement("div");
+  path.className = "entity-details-path";
+  path.textContent = entity.path;
+  const body = document.createElement("pre");
+  body.className = "entity-details-markdown";
+  body.textContent = entity.body;
+  entityDetailsContent.append(title, meta, path, body);
+  entityDetails.hidden = false;
+}
+
 function onNodePointerDown(event) {
   if (event.button !== 0) return;
   event.stopPropagation();
@@ -316,6 +488,7 @@ function beginPan(event) {
 }
 
 function onPointerMove(event) {
+  insertPoint = screenToWorld(event.clientX, event.clientY);
   if (!interaction || event.pointerId !== interaction.pointerId) return;
   const dx = event.clientX - interaction.startX;
   const dy = event.clientY - interaction.startY;
@@ -592,9 +765,14 @@ viewport.addEventListener("drop", (event) => {
 });
 
 window.addEventListener("keydown", (event) => {
+  const command = event.ctrlKey || event.metaKey;
+  if (command && event.key.toLowerCase() === "k") {
+    event.preventDefault();
+    if (!entityPicker.open) openEntityPicker();
+    return;
+  }
   if (event.target.matches("input, textarea, [contenteditable=true]")) return;
   if (!layout) return;
-  const command = event.ctrlKey || event.metaKey;
   if (event.code === "Space") { spacePressed = true; event.preventDefault(); }
   else if (command && event.key.toLowerCase() === "z") { event.preventDefault(); event.shiftKey ? redo() : undo(); }
   else if (command && event.key.toLowerCase() === "y") { event.preventDefault(); redo(); }
@@ -614,6 +792,7 @@ window.addEventListener("blur", () => { spacePressed = false; });
 document.querySelector("#add-frame").addEventListener("click", addFrame);
 document.querySelector("#empty-add").addEventListener("click", addFrame);
 document.querySelector("#fit-all").addEventListener("click", fitAll);
+addEntityButton.addEventListener("click", openEntityPicker);
 undoButton.addEventListener("click", undo);
 redoButton.addEventListener("click", redo);
 layerActions.addEventListener("click", (event) => {
@@ -628,9 +807,29 @@ document.querySelector("#zoom-in").addEventListener("click", () => zoomAt(viewpo
 document.querySelector("#zoom-out").addEventListener("click", () => zoomAt(viewport.getBoundingClientRect().left + viewport.clientWidth / 2, viewport.getBoundingClientRect().top + viewport.clientHeight / 2, 1 / 1.2));
 document.querySelector("#zoom-value").addEventListener("click", () => { view.scale = 1; applyView(); });
 toast.addEventListener("click", () => { toast.hidden = true; });
+document.querySelector("#close-entity-details").addEventListener("click", () => { entityDetails.hidden = true; });
+entitySearch.addEventListener("input", () => { pickerSelection = 0; renderEntityResults(); });
+entitySearch.addEventListener("keydown", (event) => {
+  const matches = filteredEntities();
+  if (event.key === "ArrowDown") {
+    event.preventDefault();
+    pickerSelection = Math.min(matches.length - 1, pickerSelection + 1);
+    renderEntityResults();
+  } else if (event.key === "ArrowUp") {
+    event.preventDefault();
+    pickerSelection = Math.max(0, pickerSelection - 1);
+    renderEntityResults();
+  } else if (event.key === "Enter" && matches[pickerSelection]) {
+    event.preventDefault();
+    addEntity(matches[pickerSelection]);
+  }
+});
 
 async function loadBoard() {
   const state = await storage.loadBoard();
+  setStatus("Індексація карток…", "dirty");
+  entities = await storage.loadEntities();
+  entitiesBySlug = new Map(entities.map((entity) => [entity.slug, entity]));
   layout = state.layout;
   revision = state.revision;
   selectedId = null;

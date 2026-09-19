@@ -2,6 +2,8 @@ const DB_NAME = "crown-board";
 const STORE_NAME = "handles";
 const HANDLE_KEY = "campaign";
 
+import { entityRecord, finalizeEntities } from "./entities.js";
+
 function emptyLayout() {
   return { formatVersion: 1, children: [] };
 }
@@ -95,6 +97,43 @@ async function collectNames(directory, names = new Set()) {
   return names;
 }
 
+async function collectMedia(directory, prefix = "", result = new Map()) {
+  try {
+    for await (const [name, handle] of directory.entries()) {
+      const path = prefix ? `${prefix}/${name}` : name;
+      if (handle.kind === "directory") await collectMedia(handle, path, result);
+      else result.set(name.toLocaleLowerCase("uk"), path);
+    }
+  } catch (error) {
+    if (error.name !== "NotFoundError") throw error;
+  }
+  return result;
+}
+
+async function collectMarkdown(directory, skipDirs, prefix = "", result = []) {
+  for await (const [name, handle] of directory.entries()) {
+    if (handle.kind === "directory") {
+      if (!skipDirs.has(name)) await collectMarkdown(handle, skipDirs, prefix ? `${prefix}/${name}` : name, result);
+    } else if (name.toLowerCase().endsWith(".md")) {
+      const path = prefix ? `${prefix}/${name}` : name;
+      result.push({ path, source: await (await handle.getFile()).text() });
+    }
+  }
+  return result;
+}
+
+async function importFrontmatter(root, path) {
+  const source = await readText(root, path);
+  const url = URL.createObjectURL(new Blob([source], { type: "text/javascript" }));
+  try {
+    const module = await import(url);
+    if (typeof module.parseFrontmatter !== "function") throw new Error(`${path} не експортує parseFrontmatter`);
+    return module.parseFrontmatter;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
 export function webPName(originalName) {
   const stem = originalName.replace(/\.[^.]+$/, "").normalize("NFC")
     .replace(/[<>:"/\\|?*\u0000-\u001f]/g, "-").replace(/[. ]+$/g, "").trim() || "image";
@@ -174,6 +213,18 @@ function createDirectoryStorage() {
       }
       return { campaign: root.name, config, layout: JSON.parse(source), revision: await revisionOf(source) };
     },
+    async loadEntities() {
+      if (!root || !config) throw new Error("Спочатку відкрий папку кампанії");
+      const parseFrontmatter = await importFrontmatter(root, config.frontmatter);
+      const mediaRoot = await directoryAt(root, pathParts(config.media.dir));
+      const mediaByName = await collectMedia(mediaRoot, config.media.dir);
+      const documents = await collectMarkdown(root, new Set(config.entities.skipDirs));
+      const types = new Set(config.entities.types);
+      return finalizeEntities(documents.flatMap(({ path, source }) => {
+        const { meta, body } = parseFrontmatter(source, path);
+        return types.has(meta.type) ? [entityRecord(path, meta, body, config.entities, mediaByName)] : [];
+      }));
+    },
     async saveLayout(layout, expectedRevision) {
       let currentSource;
       try { currentSource = await readText(root, config.layout); }
@@ -225,6 +276,12 @@ function createServerStorage() {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Не вдалося завантажити дошку");
       return result;
+    },
+    async loadEntities() {
+      const response = await fetch("/api/entities");
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Не вдалося завантажити картки");
+      return result.entities;
     },
     async saveLayout(layout, revision) {
       const response = await fetch("/api/layout", {

@@ -3,7 +3,8 @@ import { createReadStream } from "node:fs";
 import { mkdir, readFile, readdir, rename, stat, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { entityRecord, finalizeEntities } from "../public/entities.js";
 
 export const LAYOUT_VERSION = 1;
 const STATIC_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../public");
@@ -55,7 +56,7 @@ export function validateLayout(layout) {
     if (typeof node.id !== "string" || !node.id) throw new Error("Кожен вузол мусить мати id");
     if (ids.has(node.id)) throw new Error(`Повторний id вузла: ${node.id}`);
     ids.add(node.id);
-    if (node.type !== "frame" && node.type !== "image") throw new Error(`Непідтримуваний тип вузла: ${node.type}`);
+    if (!["frame", "image", "entity"].includes(node.type)) throw new Error(`Непідтримуваний тип вузла: ${node.type}`);
     for (const field of ["x", "y", "width", "height"]) {
       if (!Number.isFinite(node[field])) throw new Error(`${node.id}.${field} має бути числом`);
     }
@@ -69,6 +70,9 @@ export function validateLayout(layout) {
       if (!imagePath.toLowerCase().endsWith(".webp") || imagePath.startsWith("/") || imagePath.split("/").includes("..")) {
         throw new Error(`${node.id}.image має бути безпечним відносним шляхом до WebP`);
       }
+    }
+    if (node.type === "entity" && (typeof node.entity !== "string" || !node.entity)) {
+      throw new Error(`${node.id}.entity має бути непорожнім slug`);
     }
     if (!Array.isArray(node.children)) throw new Error(`${node.id}.children має бути масивом`);
     node.children.forEach(visit);
@@ -144,6 +148,50 @@ async function collectFileNames(root, result = new Set()) {
     else result.add(entry.name.toLocaleLowerCase("uk"));
   }
   return result;
+}
+
+async function collectMediaPaths(root, campaignRoot, result = new Map()) {
+  let entries;
+  try {
+    entries = await readdir(root, { withFileTypes: true });
+  } catch (error) {
+    if (error.code === "ENOENT") return result;
+    throw error;
+  }
+  for (const entry of entries) {
+    const path = join(root, entry.name);
+    if (entry.isDirectory()) await collectMediaPaths(path, campaignRoot, result);
+    else result.set(entry.name.toLocaleLowerCase("uk"), relative(campaignRoot, path).split(sep).join("/"));
+  }
+  return result;
+}
+
+async function collectMarkdown(root, skipDirs, campaignRoot = root, result = []) {
+  const entries = await readdir(root, { withFileTypes: true });
+  for (const entry of entries) {
+    const path = join(root, entry.name);
+    if (entry.isDirectory()) {
+      if (!skipDirs.has(entry.name)) await collectMarkdown(path, skipDirs, campaignRoot, result);
+    } else if (entry.name.toLowerCase().endsWith(".md")) {
+      result.push({ path: relative(campaignRoot, path).split(sep).join("/"), source: await readFile(path, "utf8") });
+    }
+  }
+  return result;
+}
+
+async function readEntities(campaignRoot, config) {
+  const parserPath = safePath(campaignRoot, config.frontmatter);
+  const parser = await import(`${pathToFileURL(parserPath).href}?board=${Date.now()}`);
+  if (typeof parser.parseFrontmatter !== "function") throw new Error(`${config.frontmatter} не експортує parseFrontmatter`);
+  const mediaRoot = safePath(campaignRoot, config.media.dir);
+  const mediaByName = await collectMediaPaths(mediaRoot, campaignRoot);
+  const documents = await collectMarkdown(campaignRoot, new Set(config.entities.skipDirs));
+  const types = new Set(config.entities.types);
+  const entities = documents.flatMap(({ path, source }) => {
+    const { meta, body } = parser.parseFrontmatter(source, path);
+    return types.has(meta.type) ? [entityRecord(path, meta, body, config.entities, mediaByName)] : [];
+  });
+  return finalizeEntities(entities);
 }
 
 function safeMediaName(originalName) {
@@ -229,6 +277,9 @@ export async function startServer({ base, host = "127.0.0.1", port = 4173 }) {
       if (url.pathname === "/api/board" && request.method === "GET") {
         const state = await readLayout(layoutPath);
         return json(response, 200, { ...state, campaign: campaignRoot, config }, { etag: state.revision });
+      }
+      if (url.pathname === "/api/entities" && request.method === "GET") {
+        return json(response, 200, { entities: await readEntities(campaignRoot, config) });
       }
       if (url.pathname === "/api/layout" && request.method === "PUT") {
         const expected = request.headers["if-match"];

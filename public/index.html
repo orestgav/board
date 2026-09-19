@@ -15,6 +15,7 @@
       <div class="toolbar" role="toolbar" aria-label="Інструменти канви">
         <button id="add-frame" title="Створити рамку (F)">＋ Рамка</button>
         <button id="change-campaign" title="Обрати іншу локальну папку" hidden>Кампанія…</button>
+        <button id="add-entity" title="Додати картку з репозиторію (Ctrl+K)">⌘ Картка</button>
         <span class="divider"></span>
         <button id="undo" class="icon" title="Скасувати (Ctrl+Z)" disabled>↶</button>
         <button id="redo" class="icon" title="Повторити (Ctrl+Shift+Z)" disabled>↷</button>
@@ -60,6 +61,21 @@
         </div>
       </section>
     </main>
+    <dialog id="entity-picker" class="entity-picker">
+      <form method="dialog" class="entity-picker-panel">
+        <div class="entity-picker-heading">
+          <strong>Картка з репозиторію</strong>
+          <button value="cancel" aria-label="Закрити">×</button>
+        </div>
+        <input id="entity-search" type="search" autocomplete="off" placeholder="Назва, slug або тип…" />
+        <div id="entity-results" class="entity-results"></div>
+        <small>↑↓ — вибір · Enter — додати · Esc — закрити</small>
+      </form>
+    </dialog>
+    <aside id="entity-details" class="entity-details" hidden>
+      <button id="close-entity-details" class="entity-details-close" aria-label="Закрити">×</button>
+      <div id="entity-details-content"></div>
+    </aside>
     <div id="drop-choice" class="drop-choice" hidden>
       <strong id="drop-choice-title">Що це за зображення?</strong>
       <span>Один вибір застосовується до всього дропу.</span>

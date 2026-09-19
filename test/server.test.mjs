@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -33,6 +33,40 @@ test("layout validation accepts WebP image nodes and rejects unsafe paths", () =
     () => validateLayout({ formatVersion: 1, children: [{ ...image, image: "../secret.webp" }] }),
     /безпечним відносним шляхом/,
   );
+});
+
+test("layout validation accepts entity nodes", () => {
+  const entity = { id: "ester-card", type: "entity", entity: "ester", x: 10, y: 20, width: 320, height: 190, children: [] };
+  assert.equal(validateLayout({ formatVersion: 1, children: [entity] }).children[0].entity, "ester");
+  assert.throws(() => validateLayout({ formatVersion: 1, children: [{ ...entity, entity: "" }] }), /непорожнім slug/);
+});
+
+test("entity API indexes configured markdown through the campaign parser", async (context) => {
+  const base = await mkdtemp(join(tmpdir(), "crown-board-entities-"));
+  await mkdir(join(base, "tools"), { recursive: true });
+  await mkdir(join(base, "npcs"), { recursive: true });
+  await mkdir(join(base, "_media", "npcs"), { recursive: true });
+  await writeFile(join(base, "tools", "frontmatter.mjs"), `export function parseFrontmatter(source) {
+    const [, header, body] = source.match(/^---\\n([\\s\\S]*?)\\n---\\n([\\s\\S]*)$/);
+    return { meta: Object.fromEntries(header.split("\\n").map(line => line.split(/: +/, 2))), body };
+  }`);
+  await writeFile(join(base, "npcs", "ester.md"), "---\ntype: npc\nname: Естер\nimage: ester.webp\n---\n## На дошці\nСоюзниця");
+  await writeFile(join(base, "_media", "npcs", "ester.webp"), "webp");
+  await writeFile(join(base, "board.config.json"), JSON.stringify({
+    boardConfigVersion: 1,
+    frontmatter: "tools/frontmatter.mjs",
+    layout: "board/canvas.json",
+    media: { dir: "_media", format: "webp" },
+    entities: { skipDirs: ["tools"], types: ["npc"], summarySection: "## На дошці", portraitField: "image" },
+  }));
+  const running = await startServer({ base, port: 0 });
+  context.after(() => running.server.close());
+  const response = await fetch(`${running.url}/api/entities`);
+  const result = await response.json();
+  assert.equal(response.status, 200);
+  assert.deepEqual(result.entities.map(({ slug, name, portrait, summary }) => ({ slug, name, portrait, summary })), [{
+    slug: "ester", name: "Естер", portrait: "_media/npcs/ester.webp", summary: "Союзниця",
+  }]);
 });
 
 test("API creates and updates canvas.json", async (context) => {
