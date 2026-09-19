@@ -16,6 +16,6 @@ services:
       - key: BOARD_AUTH_USER
         value: dm
       - key: BOARD_AUTH_PASSWORD
-        generateValue: true
+        sync: false
       - key: GITHUB_TOKEN
         sync: false

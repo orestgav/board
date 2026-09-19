@@ -36,7 +36,7 @@ Production-режим запускає Crown Board у Docker, клонує пр�
 1. Запушити `crown-board` і `crown` у GitHub.
 2. У Render вибрати **New → Blueprint** і підключити `orestgav/board`.
 3. Під час створення ввести secret `GITHUB_TOKEN`.
-4. Перевірити згенерований `BOARD_AUTH_PASSWORD` або замінити його власним.
+4. Ввести власний довгий `BOARD_AUTH_PASSWORD`, коли Blueprint попросить секрети.
 5. Після deploy відкрити URL сервісу та ввійти через `BOARD_AUTH_USER` / `BOARD_AUTH_PASSWORD`.
 
 Persistent disk обов'язковий: без нього clone і `.cache/` зникатимуть при рестарті. Канва має відкриватися лише через HTTPS, який Render надає на зовнішньому URL.
