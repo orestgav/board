@@ -113,6 +113,7 @@ async function uniqueName(mediaDirectory, originalName) {
 
 function createDirectoryStorage() {
   let root = null;
+  let rememberedRoot = null;
   let config = null;
   const objectUrls = new Map();
 
@@ -135,12 +136,30 @@ function createDirectoryStorage() {
   return {
     kind: "directory",
     async restore() {
-      try { return await useHandle(await storedHandle(), false); } catch { return false; }
+      try {
+        rememberedRoot = await storedHandle();
+        return await useHandle(rememberedRoot, false);
+      } catch {
+        return false;
+      }
     },
-    async connect() {
+    async connect(chooseNew = false) {
       if (!("showDirectoryPicker" in window)) throw new Error("Потрібен desktop Chrome або Edge із File System Access API");
+
+      // A directory handle can be persisted in IndexedDB, unlike a filesystem
+      // path in localStorage. Browsers may still reset its permission between
+      // sessions, so first re-authorize the remembered handle from this click.
+      if (!chooseNew && rememberedRoot) {
+        try {
+          if (await useHandle(rememberedRoot, true)) return;
+        } catch {
+          // The directory may have been moved or removed; fall back to picker.
+        }
+      }
+
       const handle = await window.showDirectoryPicker({ id: "crown-campaign", mode: "readwrite", startIn: "documents" });
       if (!(await useHandle(handle, true))) throw new Error("Потрібен дозвіл на читання й запис папки кампанії");
+      rememberedRoot = handle;
       await rememberHandle(handle);
     },
     async loadBoard() {

@@ -644,11 +644,11 @@ async function loadBoard() {
   setStatus("Збережено");
 }
 
-async function connectCampaign() {
+async function connectCampaign(chooseNew = false) {
   openCampaignButton.disabled = true;
   connectionHint.textContent = "Очікую вибір папки…";
   try {
-    await storage.connect();
+    await storage.connect(chooseNew);
     await loadBoard();
   } catch (error) {
     if (error.name !== "AbortError") {
@@ -660,8 +660,8 @@ async function connectCampaign() {
   }
 }
 
-openCampaignButton.addEventListener("click", connectCampaign);
-changeCampaignButton.addEventListener("click", connectCampaign);
+openCampaignButton.addEventListener("click", () => connectCampaign(false));
+changeCampaignButton.addEventListener("click", () => connectCampaign(true));
 
 try {
   storage = await createStorage();
