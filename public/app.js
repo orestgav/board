@@ -317,10 +317,6 @@ function renderNode(node, isRoot = false) {
     setImageSource(image, node, node.width * view.scale < 900);
     image.addEventListener("pointerdown", onNodePointerDown);
     element.append(image);
-    const label = document.createElement("span");
-    label.className = "image-label";
-    label.textContent = nodeLabel(node);
-    element.append(label);
   } else {
     const header = document.createElement("div");
     header.className = "node-header";
