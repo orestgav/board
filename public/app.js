@@ -25,6 +25,9 @@ const SAVE_DELAY = 450;
 const viewport = document.querySelector("#viewport");
 const scene = document.querySelector("#scene");
 const grid = document.querySelector("#grid");
+const workspace = document.querySelector(".workspace");
+const toggleLayersButton = document.querySelector("#toggle-layers");
+const canvasActions = document.querySelector(".canvas-actions");
 const status = document.querySelector("#save-status");
 const emptyState = document.querySelector("#empty-state");
 const toast = document.querySelector("#toast");
@@ -68,8 +71,21 @@ const newNoteIds = new Set();
 let pickerSelection = 0;
 let insertPoint = null;
 let renderOrigin = { x: 0, y: 0 };
+let layersOpen = localStorage.getItem("crown-board.layers-open") === "true";
 const storedView = localStorage.getItem("crown-board.viewport");
 let view = loadView();
+
+function setLayersOpen(open, persist = true) {
+  layersOpen = open;
+  workspace.classList.toggle("layers-open", open);
+  toggleLayersButton.textContent = open ? "←" : "☰";
+  toggleLayersButton.title = open ? "Закрити шари" : "Відкрити шари";
+  toggleLayersButton.setAttribute("aria-label", toggleLayersButton.title);
+  toggleLayersButton.setAttribute("aria-expanded", String(open));
+  if (persist) localStorage.setItem("crown-board.layers-open", String(open));
+}
+
+setLayersOpen(layersOpen, false);
 
 function loadView() {
   try {
@@ -1091,8 +1107,17 @@ window.addEventListener("resize", applyView);
 
 document.querySelector("#add-frame").addEventListener("click", addFrame);
 document.querySelector("#empty-add").addEventListener("click", addFrame);
+document.querySelector("#add-note").addEventListener("click", () => {
+  if (layout) createNoteAt(defaultInsertPoint());
+});
 document.querySelector("#fit-all").addEventListener("click", fitAll);
-addEntityButton.addEventListener("click", openEntityPicker);
+addEntityButton.addEventListener("click", () => {
+  insertPoint = defaultInsertPoint();
+  openEntityPicker();
+});
+toggleLayersButton.addEventListener("click", () => setLayersOpen(!layersOpen));
+toggleLayersButton.addEventListener("pointerdown", (event) => event.stopPropagation());
+canvasActions.addEventListener("pointerdown", (event) => event.stopPropagation());
 undoButton.addEventListener("click", undo);
 redoButton.addEventListener("click", redo);
 layerActions.addEventListener("click", (event) => {

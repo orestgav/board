@@ -13,10 +13,7 @@
         <div><strong>Crown Board</strong><small id="campaign-name">Завантаження…</small></div>
       </div>
       <div class="toolbar" role="toolbar" aria-label="Інструменти канви">
-        <button id="add-frame" title="Створити рамку (F)">＋ Рамка</button>
         <button id="change-campaign" title="Обрати іншу локальну папку" hidden>Кампанія…</button>
-        <button id="add-entity" title="Додати картку з репозиторію (Ctrl+K)">⌘ Картка</button>
-        <span class="divider"></span>
         <button id="undo" class="icon" title="Скасувати (Ctrl+Z)" disabled>↶</button>
         <button id="redo" class="icon" title="Повторити (Ctrl+Shift+Z)" disabled>↷</button>
         <span class="divider"></span>
@@ -43,6 +40,12 @@
       <section id="viewport" class="viewport" tabindex="0" aria-label="Полотно">
         <div id="grid" class="grid"></div>
         <div id="scene" class="scene"></div>
+        <button id="toggle-layers" class="layers-toggle" type="button" aria-expanded="false" aria-label="Відкрити шари" title="Відкрити шари">☰</button>
+        <div class="canvas-actions" role="toolbar" aria-label="Додати на полотно">
+          <button id="add-frame" type="button" title="Створити рамку (F)"><span>＋</span>Рамка</button>
+          <button id="add-entity" type="button" title="Додати картку з репозиторію (Ctrl+K)"><span>◇</span>Картка</button>
+          <button id="add-note" type="button" title="Створити нотатку в центрі карти"><span>✦</span>Нотатка</button>
+        </div>
         <div id="empty-state" class="empty-state" hidden>
           <span class="empty-icon">◇</span>
           <h1>Порожнє полотно</h1>
