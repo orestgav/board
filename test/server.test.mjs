@@ -5,14 +5,14 @@ import { join } from "node:path";
 import test from "node:test";
 import { emptyLayout, startServer, validateLayout } from "../src/server.mjs";
 
-async function fixture(options = {}) {
+async function fixture() {
   const base = await mkdtemp(join(tmpdir(), "crown-board-"));
   await writeFile(join(base, "board.config.json"), JSON.stringify({
     boardConfigVersion: 1,
     layout: "board/canvas.json",
     media: { dir: "_media", format: "webp" },
   }));
-  const running = await startServer({ base, port: 0, ...options });
+  const running = await startServer({ base, port: 0 });
   return { base, ...running };
 }
 
@@ -56,42 +56,19 @@ test("API creates and updates canvas.json", async (context) => {
 test("server exposes the editor and its model module", async (context) => {
   const running = await fixture();
   context.after(() => running.server.close());
-  const [page, model] = await Promise.all([
+  const [page, model, storage] = await Promise.all([
     fetch(`${running.url}/`),
     fetch(`${running.url}/model.js`),
+    fetch(`${running.url}/storage.js`),
   ]);
   assert.equal(page.status, 200);
-  assert.match(await page.text(), /id="layer-tree"/);
+  const html = await page.text();
+  assert.match(html, /id="layer-tree"/);
+  assert.doesNotMatch(html, /(?:src|href)="\//);
   assert.equal(model.status, 200);
   assert.match(model.headers.get("content-type"), /text\/javascript/);
-});
-
-test("deployment auth protects the board but leaves health checks available", async (context) => {
-  const running = await fixture({ auth: { user: "dm", password: "secret" } });
-  context.after(() => running.server.close());
-  assert.equal((await fetch(`${running.url}/api/health`)).status, 200);
-  assert.equal((await fetch(`${running.url}/api/board`)).status, 401);
-  const authorized = await fetch(`${running.url}/api/board`, {
-    headers: { authorization: `Basic ${Buffer.from("dm:secret").toString("base64")}` },
-  });
-  assert.equal(authorized.status, 200);
-});
-
-test("mutation hooks wrap persistent layout writes", async (context) => {
-  const calls = [];
-  const running = await fixture({
-    beforeMutation: async () => calls.push("before"),
-    afterMutation: async (paths) => calls.push(paths[0].endsWith("canvas.json") ? "after-layout" : "after-other"),
-  });
-  context.after(() => running.server.close());
-  const initial = await (await fetch(`${running.url}/api/board`)).json();
-  const saved = await fetch(`${running.url}/api/layout`, {
-    method: "PUT",
-    headers: { "content-type": "application/json", "if-match": initial.revision },
-    body: JSON.stringify(initial.layout),
-  });
-  assert.equal(saved.status, 200);
-  assert.deepEqual(calls, ["before", "after-layout"]);
+  assert.equal(storage.status, 200);
+  assert.deepEqual(await (await fetch(`${running.url}/api/health`)).json(), { ok: true });
 });
 
 test("media upload chooses a global unique WebP name and serves its thumbnail", async (context) => {

@@ -1,60 +1,34 @@
-# Приватний deployment
+# GitHub Pages
 
-Production-режим запускає Crown Board у Docker, клонує приватну кампанію на persistent disk і після кожної зміни виконує:
+Crown Board публікується як статичний редактор. Сайт не має сервера, GitHub-токена й доступу до репозиторію кампанії.
 
-1. `git pull --ff-only`;
-2. атомарний запис файлу;
-3. `git add`, `commit`, `push` у кампанію.
+## Як це працює
 
-`.cache/board/` залишається лише на диску сервісу. Медіафайли проходять через Git LFS.
+1. Відкрити Crown Board у desktop Chrome або Edge.
+2. Натиснути **«Обрати папку crown»**.
+3. У системному діалозі вибрати локальний clone кампанії.
+4. Підтвердити доступ на читання й запис.
 
-## Необхідні секрети
+Браузер напряму працює з локальними `board/canvas.json`, `_media/` та `.cache/board/` через File System Access API. Папка кампанії не завантажується на GitHub Pages чи інший сервер.
 
-Створити fine-grained GitHub personal access token:
+Дозвіл і handle папки запам'ятовуються локально в IndexedDB. Після перезапуску браузер може попросити підтвердити доступ повторно. Кнопка **«Кампанія…»** дозволяє вибрати іншу папку.
 
-- repository access: тільки `orestgav/crown`;
-- repository permission **Contents: Read and write**;
-- без доступу до інших репозиторіїв.
+Git залишається звичайним локальним workflow: зміни видно в IDE та `git status`, після чого їх можна перевірити й запушити вручну.
 
-Токен не записувати у файли, git або чат. Він задається лише як secret `GITHUB_TOKEN` у хостингу.
+## Публікація
 
-Змінні середовища:
+Workflow `.github/workflows/pages.yml` публікує теку `public/` після кожного push у `main`.
 
-| Змінна | Значення |
-|---|---|
-| `BOARD_REPOSITORY` | `orestgav/crown` |
-| `BOARD_BRANCH` | `main` |
-| `BOARD_AUTH_USER` | логін для входу, типово `dm` |
-| `BOARD_AUTH_PASSWORD` | довгий випадковий пароль |
-| `GITHUB_TOKEN` | fine-grained PAT із правами вище |
-| `BOARD_DATA_DIR` | `/data` |
+Для першого запуску в налаштуваннях репозиторію `orestgav/board` відкрити **Settings → Pages** і вибрати **Source: GitHub Actions**. Після успішного workflow сайт буде доступний за адресою:
 
-## Render Blueprint
+`https://orestgav.github.io/board/`
 
-У репозиторії є `render.yaml` і `Dockerfile`.
+## Локальний fallback
 
-1. Запушити `crown-board` і `crown` у GitHub.
-2. У Render вибрати **New → Blueprint** і підключити `orestgav/board`.
-3. Під час створення ввести secret `GITHUB_TOKEN`.
-4. Ввести власний довгий `BOARD_AUTH_PASSWORD`, коли Blueprint попросить секрети.
-5. Після deploy відкрити URL сервісу та ввійти через `BOARD_AUTH_USER` / `BOARD_AUTH_PASSWORD`.
-
-Persistent disk обов'язковий: без нього clone і `.cache/` зникатимуть при рестарті. Канва має відкриватися лише через HTTPS, який Render надає на зовнішньому URL.
-
-## Локальна перевірка Docker
+Node-сервер лишається для розробки та браузерів без прямого файлового режиму:
 
 ```powershell
-docker build -t crown-board .
-docker run --rm -p 4173:4173 -v crown-board-data:/data `
-  -e BOARD_REPOSITORY=orestgav/crown `
-  -e BOARD_AUTH_USER=dm `
-  -e BOARD_AUTH_PASSWORD=<password> `
-  -e GITHUB_TOKEN=<token> `
-  crown-board
+node canvas.mjs --base ../crown
 ```
 
-Секрети краще передавати через env-file поза репозиторієм, щоб вони не лишилися в історії shell.
-
-## Конфлікти
-
-Якщо GitHub-репозиторій змінився паралельно, сервер спершу робить fast-forward pull. Якщо merge неможливий, запис і push зупиняються замість автоматичного розв'язання конфлікту. Поточний захист revision/ETag для `canvas.json` залишається активним.
+На `http://127.0.0.1:4173` редактор автоматично використовує локальний HTTP API замість вибору папки.

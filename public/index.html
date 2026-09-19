@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Crown Board</title>
-    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <header class="topbar">
@@ -14,6 +14,7 @@
       </div>
       <div class="toolbar" role="toolbar" aria-label="Інструменти канви">
         <button id="add-frame" title="Створити рамку (F)">＋ Рамка</button>
+        <button id="change-campaign" title="Обрати іншу локальну папку" hidden>Кампанія…</button>
         <span class="divider"></span>
         <button id="undo" class="icon" title="Скасувати (Ctrl+Z)" disabled>↶</button>
         <button id="redo" class="icon" title="Повторити (Ctrl+Shift+Z)" disabled>↷</button>
@@ -50,6 +51,13 @@
         </div>
         <div class="hint">Колесо — зум · Space + drag / середня кнопка — пан</div>
         <div id="drop-overlay" class="drop-overlay" hidden>Відпусти, щоб додати зображення</div>
+        <div id="connection-screen" class="connection-screen">
+          <span class="connection-mark">C</span>
+          <h1>Відкрий локальну кампанію</h1>
+          <p>Канва отримає доступ лише до обраної папки. Файли не завантажуються на сайт.</p>
+          <button id="open-campaign">Обрати папку crown</button>
+          <small id="connection-hint">Потрібен desktop Chrome або Edge.</small>
+        </div>
       </section>
     </main>
     <div id="drop-choice" class="drop-choice" hidden>
@@ -62,6 +70,6 @@
       </div>
     </div>
     <div id="toast" class="toast" role="alert" hidden></div>
-    <script type="module" src="/app.js"></script>
+    <script type="module" src="./app.js"></script>
   </body>
 </html>

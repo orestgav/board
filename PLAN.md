@@ -76,7 +76,12 @@ C:\Crown\
 в окремому репо — це знову два джерела істини, тобто та сама проблема,
 що з Miro.
 
-Канва приймає шлях до бази аргументом, як `build-public.mjs` приймає `--out`:
+Основний режим — статичний редактор на GitHub Pages. Через системний directory
+picker користувач явно надає Chrome/Edge доступ до локального clone бази;
+канва не отримує GitHub-токена й не відправляє вміст на сервер.
+
+Для локальної розробки лишається Node fallback, який приймає шлях до бази
+аргументом, як `build-public.mjs` приймає `--out`:
 
 ```
 node crown-board/canvas.mjs --base ../dnd-campaign
@@ -112,12 +117,13 @@ node crown-board/canvas.mjs --base ../dnd-campaign
 
 Свій парсер у `crown-board` заводити **не можна**: два парсери роз'їдуться,
 і канва запише те, що валідатор вважає помилкою. Канва **імпортує парсер
-бази**, шлях до нього — в `board.config.json`:
+бази**, шлях до нього — в `board.config.json`. У Pages-режимі файл читається
+через directory handle й імпортується як локальний module blob:
 
 ```js
-const { parseFrontmatter } = await import(
-  pathToFileURL(join(base, config.frontmatter))
-);
+const source = await readLocalFile(config.frontmatter);
+const url = URL.createObjectURL(new Blob([source], { type: "text/javascript" }));
+const { parseFrontmatter } = await import(url);
 ```
 
 ## Вирішено

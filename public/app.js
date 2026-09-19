@@ -10,6 +10,7 @@ import {
   reparentNode,
   reorderNode,
 } from "./model.js";
+import { createStorage } from "./storage.js";
 
 const MIN_SCALE = 0.08;
 const MAX_SCALE = 4;
@@ -28,7 +29,12 @@ const redoButton = document.querySelector("#redo");
 const dropOverlay = document.querySelector("#drop-overlay");
 const dropChoice = document.querySelector("#drop-choice");
 const dropChoiceTitle = document.querySelector("#drop-choice-title");
+const connectionScreen = document.querySelector("#connection-screen");
+const connectionHint = document.querySelector("#connection-hint");
+const openCampaignButton = document.querySelector("#open-campaign");
+const changeCampaignButton = document.querySelector("#change-campaign");
 
+let storage;
 let layout;
 let revision;
 let selectedId = null;
@@ -58,7 +64,17 @@ function persistView() {
 function clamp(value, min, max) { return Math.min(max, Math.max(min, value)); }
 function layoutsEqual(first, second) { return JSON.stringify(first) === JSON.stringify(second); }
 function nodeLabel(node) { return node.type === "image" ? node.image.split("/").at(-1) : (node.title || "Без назви"); }
-function mediaUrl(path, thumbnail = false) { return `/api/media?path=${encodeURIComponent(path)}${thumbnail ? "&thumbnail=1" : ""}`; }
+
+async function setImageSource(image, node, thumbnail) {
+  const key = `${thumbnail ? "thumb" : "full"}:${node.image}`;
+  image.dataset.sourceKey = key;
+  try {
+    const url = await storage.mediaUrl(node.image, thumbnail);
+    if (image.dataset.sourceKey === key) image.src = url;
+  } catch (error) {
+    console.warn(error);
+  }
+}
 
 function updateImageSources() {
   if (!layout) return;
@@ -66,8 +82,7 @@ function updateImageSources() {
     const node = findNode(layout, image.closest(".node").dataset.id);
     if (!node) return;
     const full = node.width * view.scale >= 900;
-    const next = mediaUrl(node.image, !full);
-    if (image.getAttribute("src") !== next) image.src = next;
+    setImageSource(image, node, !full);
   });
 }
 
@@ -112,7 +127,7 @@ function renderNode(node) {
     image.dataset.id = node.id;
     image.alt = nodeLabel(node);
     image.draggable = false;
-    image.src = mediaUrl(node.image, node.width * view.scale < 900);
+    setImageSource(image, node, node.width * view.scale < 900);
     image.addEventListener("pointerdown", onNodePointerDown);
     element.append(image);
     const label = document.createElement("span");
@@ -236,6 +251,7 @@ function redo() {
 }
 
 function addFrame() {
+  if (!layout) return;
   const bounds = viewport.getBoundingClientRect();
   const center = screenToWorld(bounds.left + bounds.width / 2, bounds.top + bounds.height / 2);
   executeCommand("Створити рамку", () => {
@@ -406,22 +422,11 @@ async function uploadImage(file, kind) {
     const isAlreadyWebP = file.type === "image/webp" || file.name.toLowerCase().endsWith(".webp");
     const quality = kind === "map" ? 0.9 : 0.82;
     const full = isAlreadyWebP ? file : await canvasBlob(bitmap, quality);
-    const upload = await fetch("/api/media", {
-      method: "POST",
-      headers: { "content-type": "image/webp", "x-media-kind": kind, "x-file-name": encodeURIComponent(file.name) },
-      body: full,
-    });
-    const media = await upload.json();
-    if (!upload.ok) throw new Error(media.error || `Не вдалося зберегти ${file.name}`);
+    const media = await storage.saveMedia(full, kind, file.name);
 
     try {
       const thumbnail = await canvasBlob(bitmap, 0.76, 1200);
-      const thumbResponse = await fetch("/api/thumbnail", {
-        method: "POST",
-        headers: { "content-type": "image/webp", "x-media-path": encodeURIComponent(media.path) },
-        body: thumbnail,
-      });
-      if (!thumbResponse.ok) throw new Error("Не вдалося зберегти мініатюру");
+      await storage.saveThumbnail(thumbnail, media.path);
     } catch (error) {
       console.warn(error);
     }
@@ -489,6 +494,7 @@ function zoomAt(clientX, clientY, factor) {
 }
 
 function fitAll() {
+  if (!layout) return;
   const boxes = allAbsoluteRects(layout);
   if (!boxes.length) {
     view = { x: viewport.clientWidth / 2 - WORLD_SIZE / 2, y: viewport.clientHeight / 2 - WORLD_SIZE / 2, scale: 1 };
@@ -523,11 +529,7 @@ async function save() {
   saving = true;
   setStatus("Збереження…", "dirty");
   try {
-    const response = await fetch("/api/layout", {
-      method: "PUT", headers: { "content-type": "application/json", "if-match": revision }, body: JSON.stringify(layout),
-    });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error || "Не вдалося зберегти");
+    const result = await storage.saveLayout(layout, revision);
     revision = result.revision;
     if (!saveAgain) setStatus("Збережено");
   } catch (error) {
@@ -583,6 +585,7 @@ viewport.addEventListener("dragleave", (event) => {
 viewport.addEventListener("drop", (event) => {
   event.preventDefault();
   dropOverlay.hidden = true;
+  if (!layout) return;
   const files = [...event.dataTransfer.files].filter((file) => /^image\/(png|jpeg|webp)$/i.test(file.type) || /\.(png|jpe?g|webp)$/i.test(file.name));
   if (!files.length) return showToast("У дропі немає підтримуваних зображень");
   openDropChoice(files, event);
@@ -590,6 +593,7 @@ viewport.addEventListener("drop", (event) => {
 
 window.addEventListener("keydown", (event) => {
   if (event.target.matches("input, textarea, [contenteditable=true]")) return;
+  if (!layout) return;
   const command = event.ctrlKey || event.metaKey;
   if (event.code === "Space") { spacePressed = true; event.preventDefault(); }
   else if (command && event.key.toLowerCase() === "z") { event.preventDefault(); event.shiftKey ? redo() : undo(); }
@@ -625,18 +629,51 @@ document.querySelector("#zoom-out").addEventListener("click", () => zoomAt(viewp
 document.querySelector("#zoom-value").addEventListener("click", () => { view.scale = 1; applyView(); });
 toast.addEventListener("click", () => { toast.hidden = true; });
 
-try {
-  const response = await fetch("/api/board");
-  const state = await response.json();
-  if (!response.ok) throw new Error(state.error || "Не вдалося завантажити дошку");
+async function loadBoard() {
+  const state = await storage.loadBoard();
   layout = state.layout;
   revision = state.revision;
+  selectedId = null;
+  undoStack = [];
+  redoStack = [];
   document.querySelector("#campaign-name").textContent = state.campaign;
+  connectionScreen.hidden = true;
   render();
   applyView();
   if (layout.children.length && !storedView) fitAll();
   setStatus("Збережено");
+}
+
+async function connectCampaign() {
+  openCampaignButton.disabled = true;
+  connectionHint.textContent = "Очікую вибір папки…";
+  try {
+    await storage.connect();
+    await loadBoard();
+  } catch (error) {
+    if (error.name !== "AbortError") {
+      connectionHint.textContent = error.message;
+      showToast(error.message);
+    } else connectionHint.textContent = "Вибір скасовано.";
+  } finally {
+    openCampaignButton.disabled = false;
+  }
+}
+
+openCampaignButton.addEventListener("click", connectCampaign);
+changeCampaignButton.addEventListener("click", connectCampaign);
+
+try {
+  storage = await createStorage();
+  changeCampaignButton.hidden = storage.kind !== "directory";
+  if (await storage.restore()) await loadBoard();
+  else {
+    connectionScreen.hidden = false;
+    setStatus("Оберіть кампанію");
+  }
 } catch (error) {
+  connectionScreen.hidden = false;
+  connectionHint.textContent = error.message;
   setStatus("Помилка завантаження", "error");
   showToast(error.message);
 }

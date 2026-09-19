@@ -1,4 +1,4 @@
-import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { mkdir, readFile, readdir, rename, stat, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
@@ -21,25 +21,6 @@ function json(response, status, body, headers = {}) {
 
 function errorResponse(response, status, message) {
   json(response, status, { error: message });
-}
-
-function authorized(request, response, auth) {
-  if (!auth?.password) return true;
-  const header = request.headers.authorization || "";
-  let supplied = "";
-  if (header.startsWith("Basic ")) {
-    try { supplied = Buffer.from(header.slice(6), "base64").toString("utf8"); } catch {}
-  }
-  const expected = `${auth.user || "dm"}:${auth.password}`;
-  const suppliedHash = createHash("sha256").update(supplied).digest();
-  const expectedHash = createHash("sha256").update(expected).digest();
-  if (timingSafeEqual(suppliedHash, expectedHash)) return true;
-  response.writeHead(401, {
-    "content-type": "application/json; charset=utf-8",
-    "www-authenticate": 'Basic realm="Crown Board", charset="UTF-8"',
-  });
-  response.end(JSON.stringify({ error: "Потрібна авторизація" }));
-  return false;
 }
 
 function safePath(root, configuredPath) {
@@ -230,14 +211,7 @@ async function serveStatic(requestPath, response) {
   }
 }
 
-export async function startServer({
-  base,
-  host = "127.0.0.1",
-  port = 4173,
-  auth = null,
-  beforeMutation = null,
-  afterMutation = null,
-}) {
+export async function startServer({ base, host = "127.0.0.1", port = 4173 }) {
   const campaignRoot = resolve(base);
   const { config, layoutPath } = await readConfig(campaignRoot);
   let mutationQueue = Promise.resolve();
@@ -252,7 +226,6 @@ export async function startServer({
     try {
       const url = new URL(request.url, "http://localhost");
       if (url.pathname === "/api/health" && request.method === "GET") return json(response, 200, { ok: true });
-      if (!authorized(request, response, auth)) return;
       if (url.pathname === "/api/board" && request.method === "GET") {
         const state = await readLayout(layoutPath);
         return json(response, 200, { ...state, campaign: campaignRoot, config }, { etag: state.revision });
@@ -266,14 +239,12 @@ export async function startServer({
           return errorResponse(response, 400, error.message);
         }
         const result = await enqueueMutation(async () => {
-          if (beforeMutation) await beforeMutation();
           const current = await readLayout(layoutPath);
           if (!expected || expected !== current.revision) {
             return { conflict: true, revision: current.revision };
           }
           const source = `${JSON.stringify(layout, null, 2)}\n`;
           await atomicWrite(layoutPath, source);
-          if (afterMutation) await afterMutation([layoutPath], "Оновити розкладку Crown Board");
           return { conflict: false, revision: revisionOf(source) };
         });
         if (result.conflict) {
@@ -290,7 +261,6 @@ export async function startServer({
         const buffer = await readBuffer(request, 200_000_000);
         if (!isWebP(buffer)) return errorResponse(response, 415, "Канва приймає лише WebP");
         const result = await enqueueMutation(async () => {
-          if (beforeMutation) await beforeMutation();
           const mediaRoot = safePath(campaignRoot, config.media?.dir);
           const encodedName = request.headers["x-file-name"] || "image";
           let originalName;
@@ -299,7 +269,6 @@ export async function startServer({
           const subdirectory = kind === "map" ? "maps" : "locations";
           const target = join(mediaRoot, subdirectory, name);
           await atomicWrite(target, buffer);
-          if (afterMutation) await afterMutation([target], `Додати ${name} з Crown Board`);
           return { name, path: relative(campaignRoot, target).split(sep).join("/") };
         });
         return json(response, 201, result);

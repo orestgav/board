@@ -104,6 +104,14 @@ button { font: inherit; color: inherit; }
 .drop-choice button:hover { border-color: var(--gold); }
 .drop-choice button small { display: block; margin-top: 3px; color: #928779; font-size: 9px; }
 .drop-choice button.quiet { flex: 0 0 auto; min-width: auto; color: var(--muted); text-align: center; }
+.connection-screen { position: absolute; z-index: 18; inset: 0; display: grid; place-content: center; justify-items: center; padding: 24px; background: radial-gradient(circle at 50% 42%, #24201a 0, #151412 52%); text-align: center; }
+.connection-screen[hidden] { display: none; }
+.connection-mark { width: 64px; height: 64px; display: grid; place-items: center; margin-bottom: 14px; border: 1px solid #78613a; border-radius: 50%; color: var(--gold-bright); font: 34px Georgia, serif; }
+.connection-screen h1 { margin: 0 0 9px; font: 27px Georgia, serif; }
+.connection-screen p { max-width: 480px; margin: 0 0 20px; color: var(--muted); line-height: 1.55; }
+.connection-screen button { padding: 11px 17px; border: 1px solid #80683f; border-radius: 7px; background: #312a21; color: var(--gold-bright); cursor: pointer; }
+.connection-screen button:hover { border-color: var(--gold-bright); }
+.connection-screen small { margin-top: 12px; color: #756e66; }
 
 @media (max-width: 760px) {
   .topbar { grid-template-columns: auto 1fr; height: 106px; align-content: center; gap: 8px 14px; }
