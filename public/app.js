@@ -207,12 +207,13 @@ function renderNode(node, isRoot = false) {
   element.style.fontSize = `${nodeVisualScale(node)}px`;
   if (node.type === "note") {
     element.classList.add("note-node");
-    const header = document.createElement("div");
-    header.className = "node-header";
-    header.dataset.id = node.id;
-    header.innerHTML = '<span class="node-glyph">✦</span><span class="node-title">Нотатка</span>';
-    header.addEventListener("pointerdown", onNodePointerDown);
-    element.append(header);
+    const dragHandle = document.createElement("div");
+    dragHandle.className = "note-drag-handle";
+    dragHandle.dataset.id = node.id;
+    dragHandle.title = "Перетягнути нотатку";
+    dragHandle.setAttribute("aria-label", "Перетягнути нотатку");
+    dragHandle.addEventListener("pointerdown", onNodePointerDown);
+    element.append(dragHandle);
     const note = notesByRef.get(node.note);
     if (editingNoteId === node.id) {
       const editor = document.createElement("textarea");
