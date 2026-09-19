@@ -68,6 +68,7 @@ let boardConfig = null;
 let editingNoteId = null;
 let historyBusy = false;
 const newNoteIds = new Set();
+let pendingNoteInput = null;
 let pickerSelection = 0;
 let insertPoint = null;
 let renderOrigin = { x: 0, y: 0 };
@@ -223,6 +224,7 @@ function renderNode(node, isRoot = false) {
   element.style.fontSize = `${nodeVisualScale(node)}px`;
   if (node.type === "note") {
     element.classList.add("note-node");
+    element.classList.toggle("editing", editingNoteId === node.id);
     const dragHandle = document.createElement("div");
     dragHandle.className = "note-drag-handle";
     dragHandle.dataset.id = node.id;
@@ -232,6 +234,9 @@ function renderNode(node, isRoot = false) {
     element.append(dragHandle);
     const note = notesByRef.get(node.note);
     if (editingNoteId === node.id) {
+      const indicator = document.createElement("span");
+      indicator.className = "note-editing-indicator";
+      indicator.textContent = "Редагування";
       const editor = document.createElement("textarea");
       editor.className = "note-editor";
       editor.value = note?.text ?? "";
@@ -250,17 +255,30 @@ function renderNode(node, isRoot = false) {
       editor.addEventListener("blur", () => {
         if (editor.dataset.cancelled !== "true") finishNoteEdit(node, editor.value);
       }, { once: true });
-      element.append(editor);
-      requestAnimationFrame(() => { editor.focus(); editor.setSelectionRange(editor.value.length, editor.value.length); });
+      element.append(indicator, editor);
+      const pendingKey = pendingNoteInput?.id === node.id ? pendingNoteInput.key : null;
+      if (pendingNoteInput?.id === node.id) pendingNoteInput = null;
+      requestAnimationFrame(() => {
+        editor.focus();
+        let position = editor.value.length;
+        if (pendingKey === "Backspace" && position > 0) {
+          editor.setRangeText("", position - 1, position, "end");
+          position -= 1;
+        } else if (pendingKey && pendingKey.length === 1) {
+          editor.setRangeText(pendingKey, position, position, "end");
+          position += pendingKey.length;
+        }
+        editor.setSelectionRange(position, position);
+      });
     } else {
       const content = document.createElement("div");
       content.className = "note-content";
       content.textContent = note?.text || `Не знайдено ${node.note}`;
       content.addEventListener("pointerdown", (event) => event.stopPropagation());
-      content.addEventListener("click", () => select(node.id));
-      content.addEventListener("dblclick", (event) => {
+      content.addEventListener("click", (event) => {
         event.stopPropagation();
         if (node.locked) return;
+        selectedId = node.id;
         editingNoteId = node.id;
         render();
       });
@@ -395,6 +413,15 @@ function select(id) {
   if (selectedId === id) return;
   selectedId = id;
   render();
+}
+
+function beginNoteEdit(node, key = null) {
+  if (!node || node.type !== "note" || node.locked) return false;
+  selectedId = node.id;
+  editingNoteId = node.id;
+  pendingNoteInput = key ? { id: node.id, key } : null;
+  render();
+  return true;
 }
 
 function screenToWorld(clientX, clientY) {
@@ -1084,6 +1111,16 @@ window.addEventListener("keydown", (event) => {
   }
   if (event.target.matches("input, textarea, [contenteditable=true]")) return;
   if (!layout) return;
+  const selectedNode = findNode(layout, selectedId);
+  const noteEditKey = event.key === "Enter"
+    || event.key === "Backspace"
+    || (event.key === "Delete" && !command)
+    || (event.key.length === 1 && event.code !== "Space" && !command && !event.altKey);
+  if (selectedNode?.type === "note" && noteEditKey) {
+    event.preventDefault();
+    beginNoteEdit(selectedNode, event.key === "Enter" || event.key === "Delete" ? null : event.key);
+    return;
+  }
   if (event.code === "Space") { spacePressed = true; event.preventDefault(); }
   else if (command && event.key.toLowerCase() === "z") { event.preventDefault(); event.shiftKey ? redo() : undo(); }
   else if (command && event.key.toLowerCase() === "y") { event.preventDefault(); redo(); }
