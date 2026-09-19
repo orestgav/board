@@ -7,22 +7,6 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <header class="topbar">
-      <div class="brand" aria-label="Crown Board">
-        <span class="brand-mark">C</span>
-        <div><strong>Crown Board</strong><small id="campaign-name">Завантаження…</small></div>
-      </div>
-      <div class="toolbar" role="toolbar" aria-label="Інструменти канви">
-        <button id="change-campaign" title="Обрати іншу локальну папку" hidden>Кампанія…</button>
-        <button id="undo" class="icon" title="Скасувати (Ctrl+Z)" disabled>↶</button>
-        <button id="redo" class="icon" title="Повторити (Ctrl+Shift+Z)" disabled>↷</button>
-        <span class="divider"></span>
-        <button id="zoom-out" class="icon" title="Віддалити">−</button>
-        <button id="zoom-in" class="icon" title="Наблизити">＋</button>
-        <button id="fit-all" title="Вписати все">Вписати</button>
-      </div>
-      <div id="save-status" class="save-status" role="status">Завантаження…</div>
-    </header>
     <main class="workspace">
       <aside class="layers" aria-label="Шари">
         <div class="layers-heading">
@@ -40,7 +24,20 @@
       <section id="viewport" class="viewport" tabindex="0" aria-label="Полотно">
         <div id="grid" class="grid"></div>
         <div id="scene" class="scene"></div>
-        <button id="toggle-layers" class="layers-toggle" type="button" aria-expanded="false" aria-label="Відкрити шари" title="Відкрити шари">☰</button>
+        <div class="hud hud-left">
+          <button id="toggle-layers" class="hud-button icon" type="button" aria-expanded="false" aria-label="Відкрити шари" title="Відкрити шари">☰</button>
+          <button id="change-campaign" class="hud-button campaign" type="button" title="Обрати іншу локальну папку"><span id="campaign-name">Завантаження…</span></button>
+        </div>
+        <div class="hud hud-right" role="toolbar" aria-label="Інструменти канви">
+          <div class="hud-row">
+            <button id="undo" class="hud-button icon" type="button" title="Скасувати (Ctrl+Z)" disabled>↶</button>
+            <button id="redo" class="hud-button icon" type="button" title="Повторити (Ctrl+Shift+Z)" disabled>↷</button>
+            <button id="zoom-out" class="hud-button icon" type="button" title="Віддалити">−</button>
+            <button id="zoom-in" class="hud-button icon" type="button" title="Наблизити">＋</button>
+            <button id="fit-all" class="hud-button icon" type="button" title="Вписати все">⤢</button>
+          </div>
+          <div id="save-status" class="hud-status" role="status">Завантаження…</div>
+        </div>
         <div class="canvas-actions" role="toolbar" aria-label="Додати на полотно">
           <button id="add-frame" type="button" title="Створити рамку (F)"><span>＋</span>Рамка</button>
           <button id="add-entity" type="button" title="Додати картку з репозиторію (Ctrl+K)"><span>◇</span>Картка</button>
@@ -52,7 +49,6 @@
           <p>Створи першу рамку — далі її можна вкладати, рухати й змінювати розмір.</p>
           <button id="empty-add">Створити рамку</button>
         </div>
-        <div class="hint">Подвійний клік по карті — нотатка · Клік по нотатці — редагування · Колесо — зум · Space + drag — пан</div>
         <div id="drop-overlay" class="drop-overlay" hidden>Відпусти, щоб додати зображення</div>
         <div id="connection-screen" class="connection-screen">
           <span class="connection-mark">C</span>

@@ -1149,8 +1149,9 @@ addEntityButton.addEventListener("click", () => {
   openEntityPicker();
 });
 toggleLayersButton.addEventListener("click", () => setLayersOpen(!layersOpen));
-toggleLayersButton.addEventListener("pointerdown", (event) => event.stopPropagation());
-canvasActions.addEventListener("pointerdown", (event) => event.stopPropagation());
+for (const overlay of [canvasActions, ...document.querySelectorAll(".hud")]) {
+  overlay.addEventListener("pointerdown", (event) => event.stopPropagation());
+}
 undoButton.addEventListener("click", undo);
 redoButton.addEventListener("click", redo);
 layerActions.addEventListener("click", (event) => {
@@ -1224,7 +1225,10 @@ changeCampaignButton.addEventListener("click", () => connectCampaign(true));
 
 try {
   storage = await createStorage();
-  changeCampaignButton.hidden = storage.kind !== "directory";
+  if (storage.kind !== "directory") {
+    changeCampaignButton.disabled = true;
+    changeCampaignButton.title = "Кампанія";
+  }
   if (await storage.restore()) await loadBoard();
   else {
     connectionScreen.hidden = false;
