@@ -33,7 +33,6 @@ button { font: inherit; color: inherit; }
 .toolbar button:active { transform: translateY(1px); }
 .toolbar button:disabled { opacity: .35; cursor: default; transform: none; }
 .toolbar .icon { width: 34px; padding: 0; font-size: 18px; }
-.toolbar .zoom-value { width: 60px; padding: 0; color: var(--muted); font-variant-numeric: tabular-nums; }
 .divider { width: 1px; height: 22px; margin: 0 4px; background: var(--line); }
 .save-status { justify-self: end; color: var(--muted); font-size: 12px; }
 .save-status[data-state="dirty"] { color: var(--gold-bright); }
@@ -97,11 +96,11 @@ button { font: inherit; color: inherit; }
 .node-image:active { cursor: grabbing; }
 .node.locked > .node-image { pointer-events: none; filter: saturate(.75) brightness(.8); }
 .image-label { position: absolute; left: 7px; bottom: 7px; max-width: calc(100% - 14px); overflow: hidden; padding: 4px 7px; border-radius: 4px; background: rgba(18,17,15,.78); color: #d8d0c6; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; pointer-events: none; }
-.resize-handle { position: absolute; z-index: 3; width: 13px; height: 13px; border: 2px solid #191816; border-radius: 3px; background: var(--selection); pointer-events: auto; }
-.resize-handle.nw { left: -7px; top: -7px; cursor: nwse-resize; }
-.resize-handle.ne { right: -7px; top: -7px; cursor: nesw-resize; }
-.resize-handle.sw { left: -7px; bottom: -7px; cursor: nesw-resize; }
-.resize-handle.se { right: -7px; bottom: -7px; cursor: nwse-resize; }
+.resize-handle { position: absolute; z-index: 3; width: var(--resize-handle-size); height: var(--resize-handle-size); border: var(--resize-handle-border) solid #191816; border-radius: var(--resize-handle-radius); background: var(--selection); pointer-events: auto; }
+.resize-handle.nw { left: var(--resize-handle-offset); top: var(--resize-handle-offset); cursor: nwse-resize; }
+.resize-handle.ne { right: var(--resize-handle-offset); top: var(--resize-handle-offset); cursor: nesw-resize; }
+.resize-handle.sw { left: var(--resize-handle-offset); bottom: var(--resize-handle-offset); cursor: nesw-resize; }
+.resize-handle.se { right: var(--resize-handle-offset); bottom: var(--resize-handle-offset); cursor: nwse-resize; }
 
 .empty-state { position: absolute; left: 50%; top: 45%; width: min(420px, 80vw); transform: translate(-50%, -50%); text-align: center; color: var(--muted); }
 .empty-state[hidden] { display: none; }

@@ -15,9 +15,9 @@ import {
 import { createStorage } from "./storage.js";
 import { matchesEntity } from "./entities.js";
 import { mapSlugFromPath } from "./notes.js";
+import { zoomedViewAt } from "./view.js";
 
-const MIN_SCALE = 0.08;
-const MAX_SCALE = 4;
+const MIN_NODE_SIZE = 1;
 const SAVE_DELAY = 450;
 
 const viewport = document.querySelector("#viewport");
@@ -70,7 +70,9 @@ let view = loadView();
 
 function loadView() {
   try {
-    return { x: innerWidth / 2 - WORLD_SIZE / 2, y: innerHeight / 2 - WORLD_SIZE / 2, scale: 1, ...JSON.parse(storedView) };
+    const loaded = { x: innerWidth / 2 - WORLD_SIZE / 2, y: innerHeight / 2 - WORLD_SIZE / 2, scale: 1, ...JSON.parse(storedView) };
+    if (!Number.isFinite(loaded.x) || !Number.isFinite(loaded.y) || !Number.isFinite(loaded.scale) || loaded.scale <= 0) throw new Error("Invalid viewport");
+    return loaded;
   } catch {
     return { x: innerWidth / 2 - WORLD_SIZE / 2, y: innerHeight / 2 - WORLD_SIZE / 2, scale: 1 };
   }
@@ -121,9 +123,12 @@ function updateImageSources() {
 
 function applyView() {
   scene.style.transform = `translate(${view.x}px, ${view.y}px) scale(${view.scale})`;
+  scene.style.setProperty("--resize-handle-size", `${13 / view.scale}px`);
+  scene.style.setProperty("--resize-handle-offset", `${-6.5 / view.scale}px`);
+  scene.style.setProperty("--resize-handle-border", `${2 / view.scale}px`);
+  scene.style.setProperty("--resize-handle-radius", `${3 / view.scale}px`);
   grid.style.backgroundSize = `${24 * view.scale}px ${24 * view.scale}px`;
   grid.style.backgroundPosition = `${view.x}px ${view.y}px`;
-  document.querySelector("#zoom-value").textContent = `${Math.round(view.scale * 100)}%`;
   persistView();
   updateImageSources();
   document.querySelectorAll(".entity-node").forEach((element) => {
@@ -682,15 +687,15 @@ function onPointerMove(event) {
   } else {
     const west = interaction.corner.includes("w");
     const north = interaction.corner.includes("n");
-    let width = Math.max(80, interaction.originWidth + (west ? -worldDx : worldDx));
-    let height = Math.max(60, interaction.originHeight + (north ? -worldDy : worldDy));
+    let width = Math.max(MIN_NODE_SIZE, interaction.originWidth + (west ? -worldDx : worldDx));
+    let height = Math.max(MIN_NODE_SIZE, interaction.originHeight + (north ? -worldDy : worldDy));
     if (interaction.aspect) {
       const widthChange = Math.abs(width / interaction.originWidth - 1);
       const heightChange = Math.abs(height / interaction.originHeight - 1);
       if (widthChange >= heightChange) height = width / interaction.aspect;
       else width = height * interaction.aspect;
-      if (width < 80) { width = 80; height = width / interaction.aspect; }
-      if (height < 60) { height = 60; width = height * interaction.aspect; }
+      if (width < MIN_NODE_SIZE) { width = MIN_NODE_SIZE; height = width / interaction.aspect; }
+      if (height < MIN_NODE_SIZE) { height = MIN_NODE_SIZE; width = height * interaction.aspect; }
     }
     interaction.node.width = width;
     interaction.node.height = height;
@@ -882,12 +887,9 @@ function zoomAt(clientX, clientY, factor) {
   const bounds = viewport.getBoundingClientRect();
   const localX = clientX - bounds.left;
   const localY = clientY - bounds.top;
-  const worldX = (localX - view.x) / view.scale;
-  const worldY = (localY - view.y) / view.scale;
-  const nextScale = clamp(view.scale * factor, MIN_SCALE, MAX_SCALE);
-  view.x = localX - worldX * nextScale;
-  view.y = localY - worldY * nextScale;
-  view.scale = nextScale;
+  const nextView = zoomedViewAt(view, localX, localY, factor);
+  if (!nextView) return;
+  view = nextView;
   applyView();
 }
 
@@ -903,7 +905,9 @@ function fitAll() {
   const minY = Math.min(...boxes.map((box) => box.y));
   const maxX = Math.max(...boxes.map((box) => box.x + box.width));
   const maxY = Math.max(...boxes.map((box) => box.y + box.height));
-  view.scale = clamp(Math.min((viewport.clientWidth - margin * 2) / Math.max(1, maxX - minX), (viewport.clientHeight - margin * 2) / Math.max(1, maxY - minY)), MIN_SCALE, MAX_SCALE);
+  const availableWidth = Math.max(1, viewport.clientWidth - margin * 2);
+  const availableHeight = Math.max(1, viewport.clientHeight - margin * 2);
+  view.scale = Math.min(availableWidth / Math.max(1, maxX - minX), availableHeight / Math.max(1, maxY - minY));
   view.x = (viewport.clientWidth - (maxX - minX) * view.scale) / 2 - minX * view.scale;
   view.y = (viewport.clientHeight - (maxY - minY) * view.scale) / 2 - minY * view.scale;
   applyView();
@@ -1040,7 +1044,6 @@ dropChoice.addEventListener("click", (event) => {
 });
 document.querySelector("#zoom-in").addEventListener("click", () => zoomAt(viewport.getBoundingClientRect().left + viewport.clientWidth / 2, viewport.getBoundingClientRect().top + viewport.clientHeight / 2, 1.2));
 document.querySelector("#zoom-out").addEventListener("click", () => zoomAt(viewport.getBoundingClientRect().left + viewport.clientWidth / 2, viewport.getBoundingClientRect().top + viewport.clientHeight / 2, 1 / 1.2));
-document.querySelector("#zoom-value").addEventListener("click", () => { view.scale = 1; applyView(); });
 toast.addEventListener("click", () => { toast.hidden = true; });
 document.querySelector("#close-entity-details").addEventListener("click", () => { entityDetails.hidden = true; });
 entitySearch.addEventListener("input", () => { pickerSelection = 0; renderEntityResults(); });
