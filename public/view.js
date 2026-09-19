@@ -17,15 +17,14 @@ export function nodeVisualScale(node) {
   return Math.min(node.width / baseWidth, node.height / baseHeight);
 }
 
-export function renderedNodeGeometry(node, parentRenderScale = 1, maximumCssSize = 1_000_000) {
-  const localScale = Math.max(
+export function renderedNodeGeometry(node, parentRenderScale = 1, maximumCssSize = 4096) {
+  const renderScale = Math.max(
     1,
-    node.width / parentRenderScale / maximumCssSize,
-    node.height / parentRenderScale / maximumCssSize,
+    node.width / maximumCssSize,
+    node.height / maximumCssSize,
   );
-  const renderScale = parentRenderScale * localScale;
   return {
-    localScale,
+    localScale: renderScale / parentRenderScale,
     renderScale,
     width: node.width / renderScale,
     height: node.height / renderScale,
