@@ -9,3 +9,10 @@ export function zoomedViewAt(view, localX, localY, factor) {
     scale,
   };
 }
+
+export function nodeVisualScale(node) {
+  const [baseWidth, baseHeight] = node.type === "frame" ? [360, 230]
+    : node.type === "image" ? [480, 320]
+      : [320, 190];
+  return Math.min(node.width / baseWidth, node.height / baseHeight);
+}

@@ -62,10 +62,6 @@ function contains(rect, point) {
   return point.x >= rect.x && point.x <= rect.x + rect.width && point.y >= rect.y && point.y <= rect.y + rect.height;
 }
 
-function percentage(value) {
-  return Math.min(100, Math.max(0, value));
-}
-
 export function deepestNodeAt(layout, point, { includeLocked = false, excludeId = null } = {}) {
   let winner = null;
   let order = 0;
@@ -96,8 +92,8 @@ export function reparentNode(layout, id, newParentId) {
   const destination = newParent ? newParent.children : layout.children;
   const targetRect = parentRect(layout, newParent);
   const [node] = entry.children.splice(entry.index, 1);
-  node.x = percentage((absolute.x - targetRect.x) / targetRect.width * 100);
-  node.y = percentage((absolute.y - targetRect.y) / targetRect.height * 100);
+  node.x = (absolute.x - targetRect.x) / targetRect.width * 100;
+  node.y = (absolute.y - targetRect.y) / targetRect.height * 100;
   destination.push(node);
   return true;
 }

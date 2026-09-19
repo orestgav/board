@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { zoomedViewAt } from "../public/view.js";
+import { nodeVisualScale, zoomedViewAt } from "../public/view.js";
 
 test("zoom has no product-level minimum or maximum", () => {
   assert.equal(zoomedViewAt({ x: 0, y: 0, scale: 1 }, 0, 0, 10).scale, 10);
@@ -20,4 +20,10 @@ test("zoom rejects only non-positive or non-finite results", () => {
   const view = { x: 0, y: 0, scale: 1 };
   assert.equal(zoomedViewAt(view, 0, 0, 0), null);
   assert.equal(zoomedViewAt(view, 0, 0, Infinity), null);
+});
+
+test("node visuals scale with the limiting node dimension", () => {
+  assert.equal(nodeVisualScale({ type: "entity", width: 320, height: 190 }), 1);
+  assert.equal(nodeVisualScale({ type: "entity", width: 32, height: 19 }), 0.1);
+  assert.equal(nodeVisualScale({ type: "entity", width: 640, height: 190 }), 1);
 });

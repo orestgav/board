@@ -26,6 +26,12 @@ test("layout validation rejects duplicate ids", () => {
   assert.throws(() => validateLayout({ formatVersion: 1, children: [node, { ...node }] }), /Повторний id/);
 });
 
+test("layout validation accepts unbounded coordinates and tiny nodes", () => {
+  const node = { id: "far-away", type: "frame", title: "Far", x: -2500, y: 9000, width: 0.001, height: 0.001, children: [] };
+  assert.deepEqual(validateLayout({ formatVersion: 1, children: [node] }).children[0], node);
+  assert.throws(() => validateLayout({ formatVersion: 1, children: [{ ...node, width: 0 }] }), /додатний розмір/);
+});
+
 test("layout validation accepts WebP image nodes and rejects unsafe paths", () => {
   const image = { id: "map", type: "image", image: "_media/maps/world.webp", x: 10, y: 20, width: 800, height: 500, children: [] };
   assert.equal(validateLayout({ formatVersion: 1, children: [image] }).children[0].type, "image");

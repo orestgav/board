@@ -30,11 +30,11 @@ test("a child can be extracted back to the root", () => {
   assert.equal(findEntry(layout, "child").parent, null);
 });
 
-test("reparent clamps coordinates to the valid percentage range", () => {
+test("reparent preserves coordinates outside the parent bounds", () => {
   const layout = { formatVersion: 1, children: [frame("parent", 10, 10, 1000, 800), frame("child", 9, 9, 400, 300)] };
   assert.equal(reparentNode(layout, "child", "parent"), true);
-  assert.equal(findEntry(layout, "child").node.x, 0);
-  assert.equal(findEntry(layout, "child").node.y, 0);
+  assert.equal(findEntry(layout, "child").node.x, -10);
+  assert.equal(findEntry(layout, "child").node.y, -12.5);
 });
 
 test("container hit testing chooses the deepest node", () => {

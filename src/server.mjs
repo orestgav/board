@@ -70,10 +70,7 @@ export function validateLayout(layout) {
     for (const field of ["x", "y", "width", "height"]) {
       if (!Number.isFinite(node[field])) throw new Error(`${node.id}.${field} має бути числом`);
     }
-    if (node.x < 0 || node.x > 100 || node.y < 0 || node.y > 100) {
-      throw new Error(`${node.id}: x та y мають бути в межах 0..100`);
-    }
-    if (node.width < 80 || node.height < 60) throw new Error(`${node.id}: вузол замалий`);
+    if (node.width <= 0 || node.height <= 0) throw new Error(`${node.id}: вузол має мати додатний розмір`);
     if (node.type === "frame" && typeof node.title !== "string") throw new Error(`${node.id}.title має бути рядком`);
     if (node.type === "image") {
       const imagePath = typeof node.image === "string" ? node.image.replaceAll("\\", "/") : "";

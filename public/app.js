@@ -15,9 +15,9 @@ import {
 import { createStorage } from "./storage.js";
 import { matchesEntity } from "./entities.js";
 import { mapSlugFromPath } from "./notes.js";
-import { zoomedViewAt } from "./view.js";
+import { nodeVisualScale, zoomedViewAt } from "./view.js";
 
-const MIN_NODE_SIZE = 1;
+const MIN_NODE_SIZE = Number.EPSILON;
 const SAVE_DELAY = 450;
 
 const viewport = document.querySelector("#viewport");
@@ -152,6 +152,7 @@ function updateNodeGeometry(node) {
   element.style.top = `${node.y}%`;
   element.style.width = `${node.width}px`;
   element.style.height = `${node.height}px`;
+  element.style.fontSize = `${nodeVisualScale(node)}px`;
 }
 
 function renderNode(node) {
@@ -162,6 +163,7 @@ function renderNode(node) {
   element.style.top = `${node.y}%`;
   element.style.width = `${node.width}px`;
   element.style.height = `${node.height}px`;
+  element.style.fontSize = `${nodeVisualScale(node)}px`;
   if (node.type === "note") {
     element.classList.add("note-node");
     const header = document.createElement("div");
@@ -447,8 +449,8 @@ function addFrame() {
     const height = 230;
     const node = {
       id: crypto.randomUUID(), type: "frame", title: `Нова рамка ${countNodes() + 1}`,
-      x: clamp((center.x - width / 2) / WORLD_SIZE * 100, 0, 100),
-      y: clamp((center.y - height / 2) / WORLD_SIZE * 100, 0, 100),
+      x: (center.x - width / 2) / WORLD_SIZE * 100,
+      y: (center.y - height / 2) / WORLD_SIZE * 100,
       width, height, locked: false, children: [],
     };
     layout.children.push(node);
@@ -492,8 +494,8 @@ async function createNoteAt(point) {
     executeCommand("Створити нотатку", () => {
       const node = {
         id, type: "note", note: note.reference,
-        x: clamp((point.x - rect.x) / rect.width * 100, 0, 100),
-        y: clamp((point.y - rect.y) / rect.height * 100, 0, 100),
+        x: (point.x - rect.x) / rect.width * 100,
+        y: (point.y - rect.y) / rect.height * 100,
         width: 320, height: 190, locked: false, children: [],
       };
       (parent ? parent.children : layout.children).push(node);
@@ -591,8 +593,8 @@ function addEntity(entity) {
   executeCommand("Додати картку", () => {
     const node = {
       id: crypto.randomUUID(), type: "entity", entity: entity.slug,
-      x: clamp((point.x - rect.x) / rect.width * 100, 0, 100),
-      y: clamp((point.y - rect.y) / rect.height * 100, 0, 100),
+      x: (point.x - rect.x) / rect.width * 100,
+      y: (point.y - rect.y) / rect.height * 100,
       width: 320, height: 190, locked: false, children: [],
     };
     (parent ? parent.children : layout.children).push(node);
@@ -699,8 +701,8 @@ function onPointerMove(event) {
     }
     interaction.node.width = width;
     interaction.node.height = height;
-    if (west) interaction.node.x = clamp((interaction.originX + interaction.originWidth - width) / interaction.parentWidth * 100, 0, 100);
-    if (north) interaction.node.y = clamp((interaction.originY + interaction.originHeight - height) / interaction.parentHeight * 100, 0, 100);
+    if (west) interaction.node.x = (interaction.originX + interaction.originWidth - width) / interaction.parentWidth * 100;
+    if (north) interaction.node.y = (interaction.originY + interaction.originHeight - height) / interaction.parentHeight * 100;
   }
   updateNodeGeometry(interaction.node);
 }
@@ -714,11 +716,7 @@ async function endInteraction(event) {
     const rect = absoluteRect(layout, finished.node.id);
     const point = { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
     const parent = deepestContainerAt(layout, point, finished.node.id);
-    const reparented = reparentNode(layout, finished.node.id, parent?.id ?? null);
-    if (!reparented) {
-      finished.node.x = clamp(finished.node.x, 0, 100);
-      finished.node.y = clamp(finished.node.y, 0, 100);
-    }
+    reparentNode(layout, finished.node.id, parent?.id ?? null);
     let noteMove = null;
     if (finished.node.type === "note") {
       const oldMap = noteMapContext(finished.before, finished.node.id);
@@ -775,8 +773,8 @@ function nudgeSelected(dx, dy) {
   const parentWidth = entry.parent?.width ?? WORLD_SIZE;
   const parentHeight = entry.parent?.height ?? WORLD_SIZE;
   executeCommand("Посунути вузол", () => {
-    node.x = clamp(node.x + dx / parentWidth * 100, 0, 100);
-    node.y = clamp(node.y + dy / parentHeight * 100, 0, 100);
+    node.x += dx / parentWidth * 100;
+    node.y += dy / parentHeight * 100;
   });
 }
 
@@ -860,8 +858,8 @@ async function processDrop(kind) {
         const offset = index * 28;
         const node = {
           id: crypto.randomUUID(), type: "image", image: item.path,
-          x: clamp((drop.point.x + offset - parentRect.x) / parentRect.width * 100, 0, 100),
-          y: clamp((drop.point.y + offset - parentRect.y) / parentRect.height * 100, 0, 100),
+          x: (drop.point.x + offset - parentRect.x) / parentRect.width * 100,
+          y: (drop.point.y + offset - parentRect.y) / parentRect.height * 100,
           width, height, locked: false, children: [],
         };
         destination.push(node);
