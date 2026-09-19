@@ -41,6 +41,12 @@ test("layout validation accepts entity nodes", () => {
   assert.throws(() => validateLayout({ formatVersion: 1, children: [{ ...entity, entity: "" }] }), /непорожнім slug/);
 });
 
+test("layout validation accepts note references and rejects unsafe ones", () => {
+  const note = { id: "note-1", type: "note", note: "map-world#n1", x: 10, y: 20, width: 320, height: 190, children: [] };
+  assert.equal(validateLayout({ formatVersion: 1, children: [note] }).children[0].note, "map-world#n1");
+  assert.throws(() => validateLayout({ formatVersion: 1, children: [{ ...note, note: "../secret#n1" }] }), /Некоректне посилання/);
+});
+
 test("entity API indexes configured markdown through the campaign parser", async (context) => {
   const base = await mkdtemp(join(tmpdir(), "crown-board-entities-"));
   await mkdir(join(base, "tools"), { recursive: true });
@@ -67,6 +73,42 @@ test("entity API indexes configured markdown through the campaign parser", async
   assert.deepEqual(result.entities.map(({ slug, name, portrait, summary }) => ({ slug, name, portrait, summary })), [{
     slug: "ester", name: "Естер", portrait: "_media/npcs/ester.webp", summary: "Союзниця",
   }]);
+});
+
+test("note API creates, updates and safely moves markdown blocks", async (context) => {
+  const base = await mkdtemp(join(tmpdir(), "crown-board-notes-"));
+  await writeFile(join(base, "board.config.json"), JSON.stringify({
+    boardConfigVersion: 1,
+    layout: "board/canvas.json",
+    notes: { dir: "board/notes", prefix: "map-", type: "board" },
+    media: { dir: "_media", format: "webp" },
+  }));
+  const running = await startServer({ base, port: 0 });
+  context.after(() => running.server.close());
+  const created = await (await fetch(`${running.url}/api/notes`, {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ mapSlug: "world", mapName: "Світ", text: "Початок" }),
+  })).json();
+  assert.equal(created.reference, "map-world#n1");
+  const updated = await (await fetch(`${running.url}/api/notes`, {
+    method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ reference: created.reference, text: "Оновлений [[ester]]" }),
+  })).json();
+  assert.equal(updated.text, "Оновлений [[ester]]");
+  const moved = await (await fetch(`${running.url}/api/notes/move`, {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ reference: created.reference, mapSlug: "kardosa", mapName: "Кардоса" }),
+  })).json();
+  assert.equal(moved.reference, "map-kardosa#n1");
+  const notes = await (await fetch(`${running.url}/api/notes`)).json();
+  assert.deepEqual(notes.notes, [{ reference: "map-kardosa#n1", anchor: "n1", text: "Оновлений [[ester]]" }]);
+  assert.doesNotMatch(await readFile(join(base, "board/notes/map-world.md"), "utf8"), /Оновлений/);
+  const deleted = await (await fetch(`${running.url}/api/notes`, {
+    method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ reference: moved.reference }),
+  })).json();
+  assert.equal(deleted.text, "Оновлений [[ester]]");
+  assert.deepEqual((await (await fetch(`${running.url}/api/notes`)).json()).notes, []);
+  await fetch(`${running.url}/api/notes/restore`, {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(deleted),
+  });
+  assert.equal((await (await fetch(`${running.url}/api/notes`)).json()).notes[0].reference, moved.reference);
 });
 
 test("API creates and updates canvas.json", async (context) => {

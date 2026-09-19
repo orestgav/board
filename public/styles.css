@@ -86,6 +86,12 @@ button { font: inherit; color: inherit; }
 .entity-node.entity-far .entity-portrait { border: 0; opacity: .78; }
 .entity-missing { padding: 16px; color: #e08b7d; font-size: 12px; pointer-events: auto; }
 .node.locked > .entity-content, .node.locked > .entity-missing { pointer-events: none; filter: saturate(.75) brightness(.8); }
+.note-node { background: #332d20; border-color: #76633d; }
+.note-node .node-header { height: 34px; border-color: rgba(196, 164, 99, .22); background: rgba(121, 91, 40, .18); }
+.note-content, .note-editor { position: absolute; inset: 34px 0 0; width: 100%; height: calc(100% - 34px); margin: 0; padding: 14px; overflow: auto; border: 0; outline: none; background: transparent; color: #eee2c5; font: 13px/1.48 ui-sans-serif, system-ui, sans-serif; white-space: pre-wrap; }
+.note-content { cursor: text; pointer-events: auto; user-select: text; }
+.note-editor { resize: none; pointer-events: auto; box-shadow: inset 0 0 0 1px rgba(240, 202, 128, .35); }
+.node.locked > .note-content { pointer-events: none; color: #948b78; }
 .image-node { border-radius: 5px; background: #24211e; }
 .node-image { display: block; width: 100%; height: 100%; border-radius: inherit; object-fit: fill; pointer-events: auto; cursor: grab; }
 .node-image:active { cursor: grabbing; }

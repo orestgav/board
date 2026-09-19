@@ -3,6 +3,16 @@ const STORE_NAME = "handles";
 const HANDLE_KEY = "campaign";
 
 import { entityRecord, finalizeEntities } from "./entities.js";
+import {
+  appendNoteBlock,
+  newNoteDocument,
+  nextNoteAnchor,
+  noteFileSlug,
+  parseNoteBlocks,
+  removeNoteBlock,
+  splitNoteReference,
+  updateNoteBlock,
+} from "./notes.js";
 
 function emptyLayout() {
   return { formatVersion: 1, children: [] };
@@ -37,6 +47,14 @@ async function fileAt(root, path, create = false) {
 async function readText(root, path) {
   const handle = await fileAt(root, path);
   return (await handle.getFile()).text();
+}
+
+async function readTextIfExists(root, path) {
+  try { return await readText(root, path); }
+  catch (error) {
+    if (error.name === "NotFoundError") return null;
+    throw error;
+  }
 }
 
 async function writeFile(root, path, contents) {
@@ -225,6 +243,71 @@ function createDirectoryStorage() {
         return types.has(meta.type) ? [entityRecord(path, meta, body, config.entities, mediaByName)] : [];
       }));
     },
+    async loadNotes() {
+      if (!root || !config) throw new Error("Спочатку відкрий папку кампанії");
+      let directory;
+      try { directory = await directoryAt(root, pathParts(config.notes.dir)); }
+      catch (error) {
+        if (error.name === "NotFoundError") return [];
+        throw error;
+      }
+      const notes = [];
+      for await (const [name, handle] of directory.entries()) {
+        if (handle.kind !== "file" || !name.toLowerCase().endsWith(".md")) continue;
+        const fileSlug = name.slice(0, -3);
+        notes.push(...parseNoteBlocks(await (await handle.getFile()).text(), fileSlug));
+      }
+      return notes;
+    },
+    async createNote(mapSlug, mapName, text) {
+      const fileSlug = noteFileSlug(mapSlug, config.notes);
+      const path = `${config.notes.dir}/${fileSlug}.md`;
+      const source = await readTextIfExists(root, path) ?? newNoteDocument(config.notes.type, `${mapName} (нотатки дошки)`);
+      const anchor = nextNoteAnchor(source);
+      const next = appendNoteBlock(source, anchor, text);
+      await writeFile(root, path, next);
+      return { reference: `${fileSlug}#${anchor}`, text: text.trim() };
+    },
+    async updateNote(reference, text) {
+      const { fileSlug, anchor } = splitNoteReference(reference);
+      const path = `${config.notes.dir}/${fileSlug}.md`;
+      const source = await readText(root, path);
+      await writeFile(root, path, updateNoteBlock(source, anchor, text));
+      return { reference, text: text.trim() };
+    },
+    async moveNote(reference, mapSlug, mapName) {
+      const from = splitNoteReference(reference);
+      const targetSlug = noteFileSlug(mapSlug, config.notes);
+      if (from.fileSlug === targetSlug) return { reference, text: parseNoteBlocks(await readText(root, `${config.notes.dir}/${from.fileSlug}.md`), from.fileSlug).find((note) => note.reference === reference)?.text ?? "" };
+      const sourcePath = `${config.notes.dir}/${from.fileSlug}.md`;
+      const source = await readText(root, sourcePath);
+      const note = parseNoteBlocks(source, from.fileSlug).find((candidate) => candidate.reference === reference);
+      if (!note) throw new Error(`Не знайдено нотатку ${reference}`);
+      const targetPath = `${config.notes.dir}/${targetSlug}.md`;
+      const target = await readTextIfExists(root, targetPath) ?? newNoteDocument(config.notes.type, `${mapName} (нотатки дошки)`);
+      const anchor = nextNoteAnchor(target);
+      const nextReference = `${targetSlug}#${anchor}`;
+      await writeFile(root, targetPath, appendNoteBlock(target, anchor, note.text));
+      await writeFile(root, sourcePath, removeNoteBlock(source, from.anchor));
+      return { reference: nextReference, text: note.text };
+    },
+    async deleteNote(reference) {
+      const { fileSlug, anchor } = splitNoteReference(reference);
+      const path = `${config.notes.dir}/${fileSlug}.md`;
+      const source = await readText(root, path);
+      const note = parseNoteBlocks(source, fileSlug).find((candidate) => candidate.reference === reference);
+      if (!note) throw new Error(`Не знайдено нотатку ${reference}`);
+      await writeFile(root, path, removeNoteBlock(source, anchor));
+      return { reference, text: note.text };
+    },
+    async restoreNote(reference, text) {
+      const { fileSlug, anchor } = splitNoteReference(reference);
+      const path = `${config.notes.dir}/${fileSlug}.md`;
+      const source = await readText(root, path);
+      if (parseNoteBlocks(source, fileSlug).some((note) => note.reference === reference)) throw new Error(`Нотатка ${reference} вже існує`);
+      await writeFile(root, path, appendNoteBlock(source, anchor, text));
+      return { reference, text: text.trim() };
+    },
     async saveLayout(layout, expectedRevision) {
       let currentSource;
       try { currentSource = await readText(root, config.layout); }
@@ -283,6 +366,27 @@ function createServerStorage() {
       if (!response.ok) throw new Error(result.error || "Не вдалося завантажити картки");
       return result.entities;
     },
+    async loadNotes() {
+      const response = await fetch("/api/notes");
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Не вдалося завантажити нотатки");
+      return result.notes;
+    },
+    async createNote(mapSlug, mapName, text) {
+      return noteRequest("/api/notes", "POST", { mapSlug, mapName, text });
+    },
+    async updateNote(reference, text) {
+      return noteRequest("/api/notes", "PUT", { reference, text });
+    },
+    async moveNote(reference, mapSlug, mapName) {
+      return noteRequest("/api/notes/move", "POST", { reference, mapSlug, mapName });
+    },
+    async deleteNote(reference) {
+      return noteRequest("/api/notes", "DELETE", { reference });
+    },
+    async restoreNote(reference, text) {
+      return noteRequest("/api/notes/restore", "POST", { reference, text });
+    },
     async saveLayout(layout, revision) {
       const response = await fetch("/api/layout", {
         method: "PUT", headers: { "content-type": "application/json", "if-match": revision }, body: JSON.stringify(layout),
@@ -311,6 +415,13 @@ function createServerStorage() {
       return `/api/media?path=${encodeURIComponent(mediaPath)}${thumbnail ? "&thumbnail=1" : ""}`;
     },
   };
+}
+
+async function noteRequest(path, method, body) {
+  const response = await fetch(path, { method, headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.error || "Не вдалося зберегти нотатку");
+  return result;
 }
 
 export async function createStorage() {

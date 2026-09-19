@@ -7,12 +7,14 @@ import {
   deepestNodeAt,
   findEntry,
   findNode,
+  nearestAncestor,
   nearestPointParent,
   reparentNode,
   reorderNode,
 } from "./model.js";
 import { createStorage } from "./storage.js";
 import { matchesEntity } from "./entities.js";
+import { mapSlugFromPath } from "./notes.js";
 
 const MIN_SCALE = 0.08;
 const MAX_SCALE = 4;
@@ -56,6 +58,11 @@ let redoStack = [];
 let pendingDrop = null;
 let entities = [];
 let entitiesBySlug = new Map();
+let notesByRef = new Map();
+let boardConfig = null;
+let editingNoteId = null;
+let historyBusy = false;
+const newNoteIds = new Set();
 let pickerSelection = 0;
 let insertPoint = null;
 const storedView = localStorage.getItem("crown-board.viewport");
@@ -78,6 +85,7 @@ function layoutsEqual(first, second) { return JSON.stringify(first) === JSON.str
 function nodeLabel(node) {
   if (node.type === "image") return node.image.split("/").at(-1);
   if (node.type === "entity") return entitiesBySlug.get(node.entity)?.name ?? `[[${node.entity}]]`;
+  if (node.type === "note") return notesByRef.get(node.note)?.text.split("\n").find((line) => line.trim())?.slice(0, 60) || "Нотатка";
   return node.title || "Без назви";
 }
 
@@ -149,7 +157,51 @@ function renderNode(node) {
   element.style.top = `${node.y}%`;
   element.style.width = `${node.width}px`;
   element.style.height = `${node.height}px`;
-  if (node.type === "entity") {
+  if (node.type === "note") {
+    element.classList.add("note-node");
+    const header = document.createElement("div");
+    header.className = "node-header";
+    header.dataset.id = node.id;
+    header.innerHTML = '<span class="node-glyph">✦</span><span class="node-title">Нотатка</span>';
+    header.addEventListener("pointerdown", onNodePointerDown);
+    element.append(header);
+    const note = notesByRef.get(node.note);
+    if (editingNoteId === node.id) {
+      const editor = document.createElement("textarea");
+      editor.className = "note-editor";
+      editor.value = note?.text ?? "";
+      editor.placeholder = "Текст нотатки…";
+      editor.addEventListener("pointerdown", (event) => event.stopPropagation());
+      editor.addEventListener("keydown", (event) => {
+        if ((event.ctrlKey || event.metaKey) && event.key === "Enter") { event.preventDefault(); editor.blur(); }
+        else if (event.key === "Escape") {
+          event.preventDefault();
+          editor.dataset.cancelled = "true";
+          editingNoteId = null;
+          if (newNoteIds.delete(node.id)) undo();
+          else render();
+        }
+      });
+      editor.addEventListener("blur", () => {
+        if (editor.dataset.cancelled !== "true") finishNoteEdit(node, editor.value);
+      }, { once: true });
+      element.append(editor);
+      requestAnimationFrame(() => { editor.focus(); editor.setSelectionRange(editor.value.length, editor.value.length); });
+    } else {
+      const content = document.createElement("div");
+      content.className = "note-content";
+      content.textContent = note?.text || `Не знайдено ${node.note}`;
+      content.addEventListener("pointerdown", (event) => event.stopPropagation());
+      content.addEventListener("click", () => select(node.id));
+      content.addEventListener("dblclick", (event) => {
+        event.stopPropagation();
+        if (node.locked) return;
+        editingNoteId = node.id;
+        render();
+      });
+      element.append(content);
+    }
+  } else if (node.type === "entity") {
     element.classList.add("entity-node");
     const entity = entitiesBySlug.get(node.entity);
     if (!entity) {
@@ -246,7 +298,7 @@ function renderLayers() {
       row.className = `layer-row${node.id === selectedId ? " selected" : ""}${node.locked ? " locked" : ""}`;
       row.style.setProperty("--depth", depth);
       row.dataset.id = node.id;
-      row.innerHTML = `<span class="layer-glyph">${node.type === "image" ? "▧" : node.type === "entity" ? "◈" : "◇"}</span><span class="layer-title"></span><button class="layer-lock" type="button"></button>`;
+      row.innerHTML = `<span class="layer-glyph">${node.type === "image" ? "▧" : node.type === "entity" ? "◈" : node.type === "note" ? "✦" : "◇"}</span><span class="layer-title"></span><button class="layer-lock" type="button"></button>`;
       row.querySelector(".layer-title").textContent = nodeLabel(node);
       const lock = row.querySelector(".layer-lock");
       lock.textContent = node.locked ? "●" : "○";
@@ -277,47 +329,108 @@ function screenToWorld(clientX, clientY) {
   return { x: (clientX - bounds.left - view.x) / view.scale, y: (clientY - bounds.top - view.y) / view.scale };
 }
 
-function executeCommand(label, mutate) {
+function executeCommand(label, mutate, metadata = {}) {
   const before = cloneLayout(layout);
   const beforeSelection = selectedId;
   if (mutate() === false || layoutsEqual(before, layout)) return false;
-  undoStack.push({ label, before, after: cloneLayout(layout), beforeSelection, afterSelection: selectedId });
+  undoStack.push({ label, before, after: cloneLayout(layout), beforeSelection, afterSelection: selectedId, ...metadata });
   redoStack = [];
   render();
   changed();
   return true;
 }
 
-function commitLiveCommand(label, before, beforeSelection) {
+function commitLiveCommand(label, before, beforeSelection, metadata = {}) {
   if (layoutsEqual(before, layout)) {
     render();
     return false;
   }
-  undoStack.push({ label, before, after: cloneLayout(layout), beforeSelection, afterSelection: selectedId });
+  undoStack.push({ label, before, after: cloneLayout(layout), beforeSelection, afterSelection: selectedId, ...metadata });
   redoStack = [];
   render();
   changed();
   return true;
 }
 
-function undo() {
-  const command = undoStack.pop();
-  if (!command) return;
-  redoStack.push(command);
-  layout = cloneLayout(command.before);
-  selectedId = command.beforeSelection;
-  render();
-  changed();
+async function applyHistory(command, direction) {
+  const target = cloneLayout(direction === "undo" ? command.before : command.after);
+  if (command.noteLifecycle) {
+    const effect = command.noteLifecycle;
+    const shouldExist = effect.kind === "create" ? direction === "redo" : direction === "undo";
+    if (shouldExist) {
+      const restored = await storage.restoreNote(effect.reference, effect.text);
+      notesByRef.set(restored.reference, restored);
+    } else {
+      const deleted = await storage.deleteNote(effect.reference);
+      effect.text = deleted.text;
+      notesByRef.delete(effect.reference);
+    }
+  }
+  if (command.noteMove) {
+    const current = findNode(layout, command.noteMove.nodeId);
+    const destination = direction === "undo" ? command.noteMove.beforeMap : command.noteMove.afterMap;
+    if (!current || !destination) throw new Error("Не вдалося відновити контекст перенесеної нотатки");
+    const previousReference = current.note;
+    const moved = await storage.moveNote(previousReference, destination.slug, destination.name);
+    notesByRef.delete(previousReference);
+    notesByRef.set(moved.reference, moved);
+    const targetNode = findNode(target, command.noteMove.nodeId);
+    if (!targetNode) throw new Error("Не знайдено нотатку в історії команд");
+    targetNode.note = moved.reference;
+    const snapshot = direction === "undo" ? command.before : command.after;
+    findNode(snapshot, command.noteMove.nodeId).note = moved.reference;
+    updateNoteHistoryReference(command.noteMove.nodeId, moved.reference);
+  }
+  layout = target;
+  selectedId = direction === "undo" ? command.beforeSelection : command.afterSelection;
 }
 
-function redo() {
+function updateNoteHistoryReference(nodeId, reference) {
+  for (const command of [...undoStack, ...redoStack]) {
+    if (command.noteLifecycle?.nodeId === nodeId) command.noteLifecycle.reference = reference;
+    const beforeNode = findNode(command.before, nodeId);
+    const afterNode = findNode(command.after, nodeId);
+    if (beforeNode?.type === "note") beforeNode.note = reference;
+    if (afterNode?.type === "note") afterNode.note = reference;
+  }
+}
+
+async function undo() {
+  if (historyBusy) return;
+  const command = undoStack.pop();
+  if (!command) return;
+  historyBusy = true;
+  try {
+    await applyHistory(command, "undo");
+    redoStack.push(command);
+    render();
+    changed();
+  } catch (error) {
+    undoStack.push(command);
+    setStatus("Помилка undo", "error");
+    showToast(error.message);
+  } finally {
+    historyBusy = false;
+  }
+}
+
+async function redo() {
+  if (historyBusy) return;
   const command = redoStack.pop();
   if (!command) return;
-  undoStack.push(command);
-  layout = cloneLayout(command.after);
-  selectedId = command.afterSelection;
-  render();
-  changed();
+  historyBusy = true;
+  try {
+    await applyHistory(command, "redo");
+    undoStack.push(command);
+    render();
+    changed();
+  } catch (error) {
+    redoStack.push(command);
+    setStatus("Помилка redo", "error");
+    showToast(error.message);
+  } finally {
+    historyBusy = false;
+  }
 }
 
 function addFrame() {
@@ -343,6 +456,66 @@ function countNodes() {
   const visit = (children) => children.forEach((node) => { count += 1; visit(node.children); });
   visit(layout.children);
   return count;
+}
+
+function isMapNode(node) {
+  return node?.type === "image" && node.image.startsWith(`${boardConfig?.media?.dir}/maps/`);
+}
+
+function mapContext(tree, startId) {
+  const map = nearestAncestor(tree, startId, isMapNode);
+  if (!map) return null;
+  const fileName = map.image.split("/").at(-1);
+  return { node: map, slug: mapSlugFromPath(map.image), name: fileName.replace(/\.[^.]+$/, "") };
+}
+
+function noteMapContext(tree, noteId) {
+  const entry = findEntry(tree, noteId);
+  return mapContext(tree, entry?.parent?.id ?? null);
+}
+
+async function createNoteAt(point) {
+  const parent = deepestNodeAt(layout, point, { includeLocked: true });
+  const map = mapContext(layout, parent?.id ?? null);
+  if (!map) return showToast("Нотатку можна створити лише всередині карти");
+  setStatus("Створення нотатки…", "dirty");
+  try {
+    const note = await storage.createNote(map.slug, map.name, "");
+    notesByRef.set(note.reference, note);
+    const rect = parent ? absoluteRect(layout, parent.id) : { x: 0, y: 0, width: WORLD_SIZE, height: WORLD_SIZE };
+    const id = crypto.randomUUID();
+    executeCommand("Створити нотатку", () => {
+      const node = {
+        id, type: "note", note: note.reference,
+        x: clamp((point.x - rect.x) / rect.width * 100, 0, 100),
+        y: clamp((point.y - rect.y) / rect.height * 100, 0, 100),
+        width: 320, height: 190, locked: false, children: [],
+      };
+      (parent ? parent.children : layout.children).push(node);
+      selectedId = id;
+      editingNoteId = id;
+      newNoteIds.add(id);
+    }, { noteLifecycle: { kind: "create", nodeId: id, reference: note.reference, text: note.text } });
+  } catch (error) {
+    setStatus("Помилка створення нотатки", "error");
+    showToast(error.message);
+  }
+}
+
+async function finishNoteEdit(node, text) {
+  editingNoteId = null;
+  setStatus("Збереження нотатки…", "dirty");
+  try {
+    const note = await storage.updateNote(node.note, text);
+    notesByRef.set(note.reference, note);
+    newNoteIds.delete(node.id);
+    render();
+    setStatus("Збережено");
+  } catch (error) {
+    render();
+    setStatus("Помилка збереження нотатки", "error");
+    showToast(error.message);
+  }
 }
 
 function defaultInsertPoint() {
@@ -527,23 +700,56 @@ function onPointerMove(event) {
   updateNodeGeometry(interaction.node);
 }
 
-function endInteraction(event) {
+async function endInteraction(event) {
   if (!interaction || event.pointerId !== interaction.pointerId) return;
-  if (interaction.type === "move") {
-    const rect = absoluteRect(layout, interaction.node.id);
-    const point = { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
-    const parent = deepestContainerAt(layout, point, interaction.node.id);
-    const reparented = reparentNode(layout, interaction.node.id, parent?.id ?? null);
-    if (!reparented) {
-      interaction.node.x = clamp(interaction.node.x, 0, 100);
-      interaction.node.y = clamp(interaction.node.y, 0, 100);
-    }
-    commitLiveCommand("Перемістити вузол", interaction.before, interaction.beforeSelection);
-  } else if (interaction.type === "resize") {
-    commitLiveCommand("Змінити розмір", interaction.before, interaction.beforeSelection);
-  }
+  const finished = interaction;
   interaction = null;
   viewport.classList.remove("panning");
+  if (finished.type === "move") {
+    const rect = absoluteRect(layout, finished.node.id);
+    const point = { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+    const parent = deepestContainerAt(layout, point, finished.node.id);
+    const reparented = reparentNode(layout, finished.node.id, parent?.id ?? null);
+    if (!reparented) {
+      finished.node.x = clamp(finished.node.x, 0, 100);
+      finished.node.y = clamp(finished.node.y, 0, 100);
+    }
+    let noteMove = null;
+    if (finished.node.type === "note") {
+      const oldMap = noteMapContext(finished.before, finished.node.id);
+      const newMap = noteMapContext(layout, finished.node.id);
+      if (!newMap) {
+        layout = finished.before;
+        selectedId = finished.beforeSelection;
+        render();
+        return showToast("Нотатка має залишатися всередині карти");
+      }
+      if (oldMap?.slug !== newMap.slug) {
+        setStatus("Перенесення нотатки…", "dirty");
+        try {
+          const previousReference = finished.node.note;
+          const moved = await storage.moveNote(previousReference, newMap.slug, newMap.name);
+          notesByRef.delete(previousReference);
+          notesByRef.set(moved.reference, moved);
+          finished.node.note = moved.reference;
+          noteMove = {
+            nodeId: finished.node.id,
+            beforeMap: { slug: oldMap.slug, name: oldMap.name },
+            afterMap: { slug: newMap.slug, name: newMap.name },
+          };
+        } catch (error) {
+          layout = finished.before;
+          selectedId = finished.beforeSelection;
+          render();
+          setStatus("Помилка перенесення нотатки", "error");
+          return showToast(error.message);
+        }
+      }
+    }
+    commitLiveCommand("Перемістити вузол", finished.before, finished.beforeSelection, noteMove ? { noteMove } : {});
+  } else if (finished.type === "resize") {
+    commitLiveCommand("Змінити розмір", finished.before, finished.beforeSelection);
+  }
 }
 
 function toggleLock() {
@@ -569,13 +775,32 @@ function nudgeSelected(dx, dy) {
   });
 }
 
-function deleteSelected() {
+async function deleteSelected() {
   const entry = findEntry(layout, selectedId);
   if (!entry || entry.node.locked) return;
-  executeCommand("Видалити вузол", () => {
-    entry.children.splice(entry.index, 1);
-    selectedId = null;
-  });
+  if (entry.node.type !== "note") {
+    executeCommand("Видалити вузол", () => {
+      entry.children.splice(entry.index, 1);
+      selectedId = null;
+    });
+    return;
+  }
+  setStatus("Видалення нотатки…", "dirty");
+  try {
+    const note = await storage.deleteNote(entry.node.note);
+    notesByRef.delete(entry.node.note);
+    const nodeId = entry.node.id;
+    executeCommand("Видалити нотатку", () => {
+      const current = findEntry(layout, nodeId);
+      if (!current) return false;
+      current.children.splice(current.index, 1);
+      selectedId = null;
+    }, { noteLifecycle: { kind: "delete", nodeId, reference: note.reference, text: note.text } });
+    newNoteIds.delete(nodeId);
+  } catch (error) {
+    setStatus("Помилка видалення нотатки", "error");
+    showToast(error.message);
+  }
 }
 
 function canvasBlob(bitmap, quality, maxDimension = null) {
@@ -735,6 +960,16 @@ viewport.addEventListener("pointerdown", (event) => {
 viewport.addEventListener("pointermove", onPointerMove);
 viewport.addEventListener("pointerup", endInteraction);
 viewport.addEventListener("pointercancel", endInteraction);
+viewport.addEventListener("dblclick", (event) => {
+  if (event.button !== 0 || !layout) return;
+  const element = event.target instanceof Element ? event.target.closest(".node") : null;
+  if (element) {
+    const node = findNode(layout, element.dataset.id);
+    if (!isMapNode(node)) return;
+  }
+  event.preventDefault();
+  createNoteAt(screenToWorld(event.clientX, event.clientY));
+});
 viewport.addEventListener("wheel", (event) => {
   event.preventDefault();
   const delta = event.deltaY || event.deltaX;
@@ -827,9 +1062,12 @@ entitySearch.addEventListener("keydown", (event) => {
 
 async function loadBoard() {
   const state = await storage.loadBoard();
+  boardConfig = state.config;
   setStatus("Індексація карток…", "dirty");
-  entities = await storage.loadEntities();
+  const [loadedEntities, loadedNotes] = await Promise.all([storage.loadEntities(), storage.loadNotes()]);
+  entities = loadedEntities;
   entitiesBySlug = new Map(entities.map((entity) => [entity.slug, entity]));
+  notesByRef = new Map(loadedNotes.map((note) => [note.reference, note]));
   layout = state.layout;
   revision = state.revision;
   selectedId = null;

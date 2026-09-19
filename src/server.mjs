@@ -5,6 +5,16 @@ import { createServer } from "node:http";
 import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { entityRecord, finalizeEntities } from "../public/entities.js";
+import {
+  appendNoteBlock,
+  newNoteDocument,
+  nextNoteAnchor,
+  noteFileSlug,
+  parseNoteBlocks,
+  removeNoteBlock,
+  splitNoteReference,
+  updateNoteBlock,
+} from "../public/notes.js";
 
 export const LAYOUT_VERSION = 1;
 const STATIC_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../public");
@@ -56,7 +66,7 @@ export function validateLayout(layout) {
     if (typeof node.id !== "string" || !node.id) throw new Error("Кожен вузол мусить мати id");
     if (ids.has(node.id)) throw new Error(`Повторний id вузла: ${node.id}`);
     ids.add(node.id);
-    if (!["frame", "image", "entity"].includes(node.type)) throw new Error(`Непідтримуваний тип вузла: ${node.type}`);
+    if (!["frame", "image", "entity", "note"].includes(node.type)) throw new Error(`Непідтримуваний тип вузла: ${node.type}`);
     for (const field of ["x", "y", "width", "height"]) {
       if (!Number.isFinite(node[field])) throw new Error(`${node.id}.${field} має бути числом`);
     }
@@ -74,6 +84,7 @@ export function validateLayout(layout) {
     if (node.type === "entity" && (typeof node.entity !== "string" || !node.entity)) {
       throw new Error(`${node.id}.entity має бути непорожнім slug`);
     }
+    if (node.type === "note") splitNoteReference(node.note);
     if (!Array.isArray(node.children)) throw new Error(`${node.id}.children має бути масивом`);
     node.children.forEach(visit);
   };
@@ -194,6 +205,103 @@ async function readEntities(campaignRoot, config) {
   return finalizeEntities(entities);
 }
 
+function validMapSlug(value) {
+  if (typeof value !== "string" || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value)) throw new Error("Некоректний slug карти");
+  return value;
+}
+
+function safeMapName(value, fallback) {
+  return typeof value === "string" && value.trim() ? value.replace(/[\r\n]+/g, " ").trim() : fallback;
+}
+
+async function optionalText(path) {
+  try { return await readFile(path, "utf8"); }
+  catch (error) {
+    if (error.code === "ENOENT") return null;
+    throw error;
+  }
+}
+
+function notePath(campaignRoot, config, fileSlug) {
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(fileSlug)) throw new Error("Некоректний slug файлу нотаток");
+  return join(safePath(campaignRoot, config.notes.dir), `${fileSlug}.md`);
+}
+
+async function readNotes(campaignRoot, config) {
+  const directory = safePath(campaignRoot, config.notes.dir);
+  let entries;
+  try { entries = await readdir(directory, { withFileTypes: true }); }
+  catch (error) {
+    if (error.code === "ENOENT") return [];
+    throw error;
+  }
+  const notes = [];
+  for (const entry of entries) {
+    if (!entry.isFile() || !entry.name.toLowerCase().endsWith(".md")) continue;
+    const fileSlug = entry.name.slice(0, -3);
+    notes.push(...parseNoteBlocks(await readFile(join(directory, entry.name), "utf8"), fileSlug));
+  }
+  return notes;
+}
+
+async function createNote(campaignRoot, config, mapSlug, mapName, text) {
+  const slug = validMapSlug(mapSlug);
+  if (typeof text !== "string") throw new Error("Текст нотатки має бути рядком");
+  const fileSlug = noteFileSlug(slug, config.notes);
+  const path = notePath(campaignRoot, config, fileSlug);
+  const source = await optionalText(path) ?? newNoteDocument(config.notes.type, `${safeMapName(mapName, slug)} (нотатки дошки)`);
+  const anchor = nextNoteAnchor(source);
+  await atomicWrite(path, appendNoteBlock(source, anchor, text));
+  return { reference: `${fileSlug}#${anchor}`, text: text.trim() };
+}
+
+async function updateNote(campaignRoot, config, reference, text) {
+  if (typeof text !== "string") throw new Error("Текст нотатки має бути рядком");
+  const { fileSlug, anchor } = splitNoteReference(reference);
+  const path = notePath(campaignRoot, config, fileSlug);
+  const source = await readFile(path, "utf8");
+  await atomicWrite(path, updateNoteBlock(source, anchor, text));
+  return { reference, text: text.trim() };
+}
+
+async function moveNote(campaignRoot, config, reference, mapSlug, mapName) {
+  const from = splitNoteReference(reference);
+  const slug = validMapSlug(mapSlug);
+  const targetSlug = noteFileSlug(slug, config.notes);
+  const sourcePath = notePath(campaignRoot, config, from.fileSlug);
+  const source = await readFile(sourcePath, "utf8");
+  const note = parseNoteBlocks(source, from.fileSlug).find((candidate) => candidate.reference === reference);
+  if (!note) throw new Error(`Не знайдено нотатку ${reference}`);
+  if (from.fileSlug === targetSlug) return { reference, text: note.text };
+  const targetPath = notePath(campaignRoot, config, targetSlug);
+  const target = await optionalText(targetPath) ?? newNoteDocument(config.notes.type, `${safeMapName(mapName, slug)} (нотатки дошки)`);
+  const anchor = nextNoteAnchor(target);
+  const nextReference = `${targetSlug}#${anchor}`;
+  await atomicWrite(targetPath, appendNoteBlock(target, anchor, note.text));
+  await atomicWrite(sourcePath, removeNoteBlock(source, from.anchor));
+  return { reference: nextReference, text: note.text };
+}
+
+async function deleteNote(campaignRoot, config, reference) {
+  const { fileSlug, anchor } = splitNoteReference(reference);
+  const path = notePath(campaignRoot, config, fileSlug);
+  const source = await readFile(path, "utf8");
+  const note = parseNoteBlocks(source, fileSlug).find((candidate) => candidate.reference === reference);
+  if (!note) throw new Error(`Не знайдено нотатку ${reference}`);
+  await atomicWrite(path, removeNoteBlock(source, anchor));
+  return { reference, text: note.text };
+}
+
+async function restoreNote(campaignRoot, config, reference, text) {
+  if (typeof text !== "string") throw new Error("Текст нотатки має бути рядком");
+  const { fileSlug, anchor } = splitNoteReference(reference);
+  const path = notePath(campaignRoot, config, fileSlug);
+  const source = await readFile(path, "utf8");
+  if (parseNoteBlocks(source, fileSlug).some((note) => note.reference === reference)) throw new Error(`Нотатка ${reference} вже існує`);
+  await atomicWrite(path, appendNoteBlock(source, anchor, text));
+  return { reference, text: text.trim() };
+}
+
 function safeMediaName(originalName) {
   const rawStem = basename(originalName || "image", extname(originalName || ""));
   const stem = rawStem.normalize("NFC").replace(/[<>:"/\\|?*\u0000-\u001f]/g, "-").replace(/[. ]+$/g, "").trim() || "image";
@@ -280,6 +388,39 @@ export async function startServer({ base, host = "127.0.0.1", port = 4173 }) {
       }
       if (url.pathname === "/api/entities" && request.method === "GET") {
         return json(response, 200, { entities: await readEntities(campaignRoot, config) });
+      }
+      if (url.pathname === "/api/notes" && request.method === "GET") {
+        return json(response, 200, { notes: await readNotes(campaignRoot, config) });
+      }
+      if (url.pathname === "/api/notes" && request.method === "POST") {
+        let body;
+        try { body = JSON.parse(await readBody(request)); }
+        catch { return errorResponse(response, 400, "Некоректний JSON"); }
+        return json(response, 201, await enqueueMutation(() => createNote(campaignRoot, config, body.mapSlug, body.mapName, body.text)));
+      }
+      if (url.pathname === "/api/notes" && request.method === "PUT") {
+        let body;
+        try { body = JSON.parse(await readBody(request)); }
+        catch { return errorResponse(response, 400, "Некоректний JSON"); }
+        return json(response, 200, await enqueueMutation(() => updateNote(campaignRoot, config, body.reference, body.text)));
+      }
+      if (url.pathname === "/api/notes" && request.method === "DELETE") {
+        let body;
+        try { body = JSON.parse(await readBody(request)); }
+        catch { return errorResponse(response, 400, "Некоректний JSON"); }
+        return json(response, 200, await enqueueMutation(() => deleteNote(campaignRoot, config, body.reference)));
+      }
+      if (url.pathname === "/api/notes/move" && request.method === "POST") {
+        let body;
+        try { body = JSON.parse(await readBody(request)); }
+        catch { return errorResponse(response, 400, "Некоректний JSON"); }
+        return json(response, 200, await enqueueMutation(() => moveNote(campaignRoot, config, body.reference, body.mapSlug, body.mapName)));
+      }
+      if (url.pathname === "/api/notes/restore" && request.method === "POST") {
+        let body;
+        try { body = JSON.parse(await readBody(request)); }
+        catch { return errorResponse(response, 400, "Некоректний JSON"); }
+        return json(response, 200, await enqueueMutation(() => restoreNote(campaignRoot, config, body.reference, body.text)));
       }
       if (url.pathname === "/api/layout" && request.method === "PUT") {
         const expected = request.headers["if-match"];

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { absoluteRect, deepestContainerAt, findEntry, reparentNode, reorderNode } from "../public/model.js";
+import { absoluteRect, deepestContainerAt, findEntry, nearestAncestor, reparentNode, reorderNode } from "../public/model.js";
 
 const frame = (id, x, y, width = 400, height = 300, children = []) => ({ id, type: "frame", title: id, x, y, width, height, locked: false, children });
 
@@ -46,4 +46,10 @@ test("z-order operations only reorder siblings", () => {
   const layout = { formatVersion: 1, children: [frame("a", 1, 1), frame("b", 2, 2), frame("c", 3, 3)] };
   assert.equal(reorderNode(layout, "a", "front"), true);
   assert.deepEqual(layout.children.map(({ id }) => id), ["b", "c", "a"]);
+});
+
+test("nearest ancestor walks from the immediate node toward the root", () => {
+  const map = { id: "map", type: "image", image: "_media/maps/world.webp", x: 1, y: 1, width: 800, height: 600, children: [frame("scene", 10, 10, 300, 200, [frame("note", 10, 10)])] };
+  const layout = { formatVersion: 1, children: [map] };
+  assert.equal(nearestAncestor(layout, "note", (node) => node.type === "image").id, "map");
 });

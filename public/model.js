@@ -127,3 +127,17 @@ export function nearestPointParent(layout, point) {
   const rect = parent ? absoluteRect(layout, parent.id) : { x: 0, y: 0, width: WORLD_SIZE, height: WORLD_SIZE };
   return { parent, rect };
 }
+
+export function lineage(layout, id) {
+  const result = [];
+  let entry = id ? findEntry(layout, id) : null;
+  while (entry) {
+    result.push(entry.node);
+    entry = entry.parent ? findEntry(layout, entry.parent.id) : null;
+  }
+  return result;
+}
+
+export function nearestAncestor(layout, id, predicate) {
+  return lineage(layout, id).find(predicate) ?? null;
+}
