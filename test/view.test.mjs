@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { nodeVisualScale, zoomedViewAt } from "../public/view.js";
+import { minimumScaleForNodes, nodeVisualScale, zoomedViewAt } from "../public/view.js";
 
-test("zoom has no product-level minimum or maximum", () => {
+test("zoom math accepts arbitrary finite scales", () => {
   assert.equal(zoomedViewAt({ x: 0, y: 0, scale: 1 }, 0, 0, 10).scale, 10);
   assert.equal(zoomedViewAt({ x: 0, y: 0, scale: 1 }, 0, 0, 0.001).scale, 0.001);
 });
@@ -26,4 +26,13 @@ test("node visuals scale with the limiting node dimension", () => {
   assert.equal(nodeVisualScale({ type: "entity", width: 320, height: 190 }), 1);
   assert.equal(nodeVisualScale({ type: "entity", width: 32, height: 19 }), 0.1);
   assert.equal(nodeVisualScale({ type: "entity", width: 640, height: 190 }), 1);
+});
+
+test("minimum board scale keeps the largest node visible", () => {
+  const rects = [
+    { width: 320, height: 190 },
+    { width: 2000, height: 1200 },
+  ];
+  assert.equal(minimumScaleForNodes(rects, 32), 0.016);
+  assert.equal(minimumScaleForNodes([], 32), 0);
 });

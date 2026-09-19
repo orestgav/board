@@ -15,9 +15,10 @@ import {
 import { createStorage } from "./storage.js";
 import { matchesEntity } from "./entities.js";
 import { mapSlugFromPath } from "./notes.js";
-import { nodeVisualScale, zoomedViewAt } from "./view.js";
+import { minimumScaleForNodes, nodeVisualScale, zoomedViewAt } from "./view.js";
 
 const MIN_NODE_SIZE = Number.EPSILON;
+const MIN_LARGEST_NODE_PIXELS = 32;
 const SAVE_DELAY = 450;
 
 const viewport = document.querySelector("#viewport");
@@ -121,7 +122,19 @@ function updateImageSources() {
   });
 }
 
+function minimumBoardScale() {
+  return layout ? minimumScaleForNodes(allAbsoluteRects(layout), MIN_LARGEST_NODE_PIXELS) : 0;
+}
+
+function constrainViewScale(localX = viewport.clientWidth / 2, localY = viewport.clientHeight / 2) {
+  const minimumScale = minimumBoardScale();
+  if (view.scale >= minimumScale) return false;
+  view = zoomedViewAt(view, localX, localY, minimumScale / view.scale);
+  return true;
+}
+
 function applyView() {
+  constrainViewScale();
   scene.style.transform = `translate(${view.x}px, ${view.y}px) scale(${view.scale})`;
   scene.style.setProperty("--resize-handle-size", `${13 / view.scale}px`);
   scene.style.setProperty("--resize-handle-offset", `${-6.5 / view.scale}px`);
@@ -143,6 +156,7 @@ function render() {
   emptyState.hidden = layout.children.length !== 0;
   undoButton.disabled = undoStack.length === 0;
   redoButton.disabled = redoStack.length === 0;
+  if (constrainViewScale()) applyView();
 }
 
 function updateNodeGeometry(node) {
@@ -885,7 +899,9 @@ function zoomAt(clientX, clientY, factor) {
   const bounds = viewport.getBoundingClientRect();
   const localX = clientX - bounds.left;
   const localY = clientY - bounds.top;
-  const nextView = zoomedViewAt(view, localX, localY, factor);
+  const requestedScale = view.scale * factor;
+  const nextScale = Math.max(requestedScale, minimumBoardScale());
+  const nextView = zoomedViewAt(view, localX, localY, nextScale / view.scale);
   if (!nextView) return;
   view = nextView;
   applyView();
@@ -905,7 +921,10 @@ function fitAll() {
   const maxY = Math.max(...boxes.map((box) => box.y + box.height));
   const availableWidth = Math.max(1, viewport.clientWidth - margin * 2);
   const availableHeight = Math.max(1, viewport.clientHeight - margin * 2);
-  view.scale = Math.min(availableWidth / Math.max(1, maxX - minX), availableHeight / Math.max(1, maxY - minY));
+  view.scale = Math.max(
+    Math.min(availableWidth / Math.max(1, maxX - minX), availableHeight / Math.max(1, maxY - minY)),
+    minimumBoardScale(),
+  );
   view.x = (viewport.clientWidth - (maxX - minX) * view.scale) / 2 - minX * view.scale;
   view.y = (viewport.clientHeight - (maxY - minY) * view.scale) / 2 - minY * view.scale;
   applyView();

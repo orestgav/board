@@ -16,3 +16,8 @@ export function nodeVisualScale(node) {
       : [320, 190];
   return Math.min(node.width / baseWidth, node.height / baseHeight);
 }
+
+export function minimumScaleForNodes(rects, minimumVisiblePixels) {
+  const largestDimension = rects.reduce((largest, rect) => Math.max(largest, rect.width, rect.height), 0);
+  return largestDimension > 0 ? minimumVisiblePixels / largestDimension : 0;
+}
