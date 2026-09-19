@@ -40,6 +40,7 @@
         </div>
         <div class="canvas-actions" role="toolbar" aria-label="Додати на полотно">
           <button id="add-frame" type="button" title="Створити рамку (F)"><span>＋</span>Рамка</button>
+          <button id="add-location" type="button" title="Додати локацію з репозиторію"><span>⬡</span>Локація</button>
           <button id="add-entity" type="button" title="Додати картку з репозиторію (Ctrl+K)"><span>◇</span>Картка</button>
           <button id="add-note" type="button" title="Створити нотатку в центрі карти"><span>✦</span>Нотатка</button>
         </div>
@@ -62,7 +63,7 @@
     <dialog id="entity-picker" class="entity-picker">
       <form method="dialog" class="entity-picker-panel">
         <div class="entity-picker-heading">
-          <strong>Картка з репозиторію</strong>
+          <strong id="entity-picker-title">Картка з репозиторію</strong>
           <button value="cancel" aria-label="Закрити">×</button>
         </div>
         <input id="entity-search" type="search" autocomplete="off" placeholder="Назва, slug або тип…" />

@@ -137,3 +137,22 @@ export function lineage(layout, id) {
 export function nearestAncestor(layout, id, predicate) {
   return lineage(layout, id).find(predicate) ?? null;
 }
+
+// Сітка дочірніх карток усередині контейнера: спершу ширина за кількістю
+// колонок, далі висота із запасом на шапку. Шапка вужчає разом із висотою,
+// тому перший прохід бере найбільшу можливу (height = Infinity) — так вміст
+// гарантовано влазить.
+export function containerGrid(count, { cell, gap, padding, minimum, header }) {
+  const columns = Math.max(1, Math.ceil(Math.sqrt(count)));
+  const rows = Math.max(1, Math.ceil(count / columns));
+  const contentWidth = count ? columns * cell.width + (columns - 1) * gap : 0;
+  const contentHeight = count ? rows * cell.height + (rows - 1) * gap : 0;
+  const width = Math.max(minimum.width, contentWidth + padding * 2);
+  const height = Math.max(minimum.height, header(width, Infinity) + contentHeight + padding * 2);
+  const top = header(width, height) + padding;
+  const cells = Array.from({ length: count }, (_, index) => ({
+    x: padding + (index % columns) * (cell.width + gap),
+    y: top + Math.floor(index / columns) * (cell.height + gap),
+  }));
+  return { width, height, cells };
+}

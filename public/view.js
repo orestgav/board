@@ -29,11 +29,19 @@ export function rebasedView(view, viewportWidth, viewportHeight) {
   };
 }
 
-export function nodeVisualScale(node) {
-  const [baseWidth, baseHeight] = node.type === "frame" ? [360, 230]
-    : node.type === "image" ? [480, 320]
+export const FRAME_HEADER_UNITS = 38;
+
+// Вузол-локація малюється рамкою, тому масштаб береться за її варіантом,
+// а не за типом вузла в розкладці.
+export function nodeVisualScale(node, variant = node.type) {
+  const [baseWidth, baseHeight] = variant === "frame" ? [360, 230]
+    : variant === "image" ? [480, 320]
       : [320, 190];
   return Math.min(node.width / baseWidth, node.height / baseHeight);
+}
+
+export function frameHeaderHeight(width, height) {
+  return FRAME_HEADER_UNITS * nodeVisualScale({ width, height }, "frame");
 }
 
 export function minimumScaleForNodes(rects, minimumVisiblePixels) {

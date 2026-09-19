@@ -3,6 +3,7 @@ import {
   absoluteRect,
   allAbsoluteRects,
   cloneLayout,
+  containerGrid,
   deepestContainerAt,
   deepestNodeAt,
   findEntry,
@@ -13,14 +14,31 @@ import {
   reorderNode,
 } from "./model.js";
 import { createStorage } from "./storage.js";
-import { matchesEntity } from "./entities.js";
+import { linkedEntities, matchesEntity } from "./entities.js";
 import { mapSlugFromPath } from "./notes.js";
-import { centeredViewOnRect, maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, rebasedView, zoomedViewAt } from "./view.js";
+import { centeredViewOnRect, frameHeaderHeight, maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, rebasedView, zoomedViewAt } from "./view.js";
 
 const MIN_NODE_SIZE = Number.EPSILON;
 const MIN_LARGEST_NODE_PIXELS = 32;
 const MAX_ZOOM_VIEWPORT_PADDING = 32;
 const SAVE_DELAY = 450;
+const ENTITY_CARD = { width: 320, height: 190 };
+const FRAME_SIZE = { width: 360, height: 230 };
+const CONTAINER_GAP = 24;
+const CONTAINER_PADDING = 28;
+
+// Типи карток із власним виглядом і власною кнопкою на полотні. Решта типів
+// поки малюється спільною карткою й додається кнопкою «Картка».
+const ENTITY_KINDS = {
+  location: {
+    glyph: "⬡",
+    variant: "frame",
+    members: "npc",
+    command: "Додати локацію",
+    pickerTitle: "Локація з репозиторію",
+    searchPlaceholder: "Назва або slug локації…",
+  },
+};
 
 const viewport = document.querySelector("#viewport");
 const scene = document.querySelector("#scene");
@@ -43,9 +61,11 @@ const connectionHint = document.querySelector("#connection-hint");
 const openCampaignButton = document.querySelector("#open-campaign");
 const changeCampaignButton = document.querySelector("#change-campaign");
 const addEntityButton = document.querySelector("#add-entity");
+const addLocationButton = document.querySelector("#add-location");
 const entityPicker = document.querySelector("#entity-picker");
 const entitySearch = document.querySelector("#entity-search");
 const entityResults = document.querySelector("#entity-results");
+const pickerTitle = document.querySelector("#entity-picker-title");
 const entityDetails = document.querySelector("#entity-details");
 const entityDetailsContent = document.querySelector("#entity-details-content");
 
@@ -70,6 +90,7 @@ let historyBusy = false;
 const newNoteIds = new Set();
 let pendingNoteInput = null;
 let pickerSelection = 0;
+let pickerType = null;
 let insertPoint = null;
 let renderOrigin = { x: 0, y: 0 };
 let layersOpen = localStorage.getItem("crown-board.layers-open") === "true";
@@ -109,6 +130,18 @@ function nodeLabel(node) {
   if (node.type === "entity") return entitiesBySlug.get(node.entity)?.name ?? `[[${node.entity}]]`;
   if (node.type === "note") return notesByRef.get(node.note)?.text.split("\n").find((line) => line.trim())?.slice(0, 60) || "Нотатка";
   return node.title || "Без назви";
+}
+
+function nodeEntity(node) {
+  return node.type === "entity" ? entitiesBySlug.get(node.entity) ?? null : null;
+}
+
+function entityKind(entity) {
+  return ENTITY_KINDS[entity?.type] ?? null;
+}
+
+function nodeVariant(node) {
+  return entityKind(nodeEntity(node))?.variant ?? node.type;
 }
 
 function plainSummary(source) {
@@ -193,7 +226,7 @@ function updateNodeGeometry(node) {
   updateNodePosition(element, node);
   element.style.width = `${node.width}px`;
   element.style.height = `${node.height}px`;
-  element.style.fontSize = `${nodeVisualScale(node)}px`;
+  element.style.fontSize = `${nodeVisualScale(node, nodeVariant(node))}px`;
 }
 
 function updateNodePosition(element, node) {
@@ -221,7 +254,7 @@ function renderNode(node, isRoot = false) {
   updateNodePosition(element, node);
   element.style.width = `${node.width}px`;
   element.style.height = `${node.height}px`;
-  element.style.fontSize = `${nodeVisualScale(node)}px`;
+  element.style.fontSize = `${nodeVisualScale(node, nodeVariant(node))}px`;
   if (node.type === "note") {
     element.classList.add("note-node");
     element.classList.toggle("editing", editingNoteId === node.id);
@@ -285,15 +318,21 @@ function renderNode(node, isRoot = false) {
       element.append(content);
     }
   } else if (node.type === "entity") {
-    element.classList.add("entity-node");
-    const entity = entitiesBySlug.get(node.entity);
+    const entity = nodeEntity(node);
+    const kind = entityKind(entity);
     if (!entity) {
+      element.classList.add("entity-node");
       const missing = document.createElement("div");
       missing.className = "entity-missing";
       missing.textContent = `Не знайдено картку [[${node.entity}]]`;
       missing.addEventListener("click", () => select(node.id));
       element.append(missing);
+    } else if (kind?.variant === "frame") {
+      // Локація — контейнер: лише шапка з назвою, без портрета й «На дошці».
+      element.classList.add("location-node");
+      element.append(frameHeader(node, kind.glyph));
     } else {
+      element.classList.add("entity-node");
       element.classList.toggle("entity-far", node.width * view.scale < 180);
       const header = document.createElement("div");
       header.className = "node-header";
@@ -336,13 +375,7 @@ function renderNode(node, isRoot = false) {
     image.addEventListener("pointerdown", onNodePointerDown);
     element.append(image);
   } else {
-    const header = document.createElement("div");
-    header.className = "node-header";
-    header.dataset.id = node.id;
-    header.innerHTML = `<span class="node-glyph">◇</span><span class="node-title"></span>${node.locked ? '<span class="node-lock-indicator">●</span>' : ""}`;
-    header.querySelector(".node-title").textContent = nodeLabel(node);
-    header.addEventListener("pointerdown", onNodePointerDown);
-    element.append(header);
+    element.append(frameHeader(node, "◇"));
 
     const body = document.createElement("div");
     body.className = "node-body";
@@ -364,6 +397,22 @@ function renderNode(node, isRoot = false) {
   return element;
 }
 
+function frameHeader(node, glyph) {
+  const header = document.createElement("div");
+  header.className = "node-header";
+  header.dataset.id = node.id;
+  header.innerHTML = `<span class="node-glyph">${glyph}</span><span class="node-title"></span>${node.locked ? '<span class="node-lock-indicator">●</span>' : ""}`;
+  header.querySelector(".node-title").textContent = nodeLabel(node);
+  header.addEventListener("pointerdown", onNodePointerDown);
+  return header;
+}
+
+function layerGlyph(node) {
+  const kind = entityKind(nodeEntity(node));
+  if (kind) return kind.glyph;
+  return node.type === "image" ? "▧" : node.type === "entity" ? "◈" : node.type === "note" ? "✦" : "◇";
+}
+
 function renderLayers() {
   if (!layout.children.length) {
     layerTree.innerHTML = '<div class="layer-empty">Вузли з’являться тут після створення першої рамки.</div>';
@@ -377,7 +426,7 @@ function renderLayers() {
       row.className = `layer-row${node.id === selectedId ? " selected" : ""}${node.locked ? " locked" : ""}`;
       row.style.setProperty("--depth", depth);
       row.dataset.id = node.id;
-      row.innerHTML = `<span class="layer-glyph">${node.type === "image" ? "▧" : node.type === "entity" ? "◈" : node.type === "note" ? "✦" : "◇"}</span><span class="layer-title"></span><button class="layer-lock" type="button"></button>`;
+      row.innerHTML = `<span class="layer-glyph">${layerGlyph(node)}</span><span class="layer-title"></span><button class="layer-lock" type="button"></button>`;
       row.querySelector(".layer-title").textContent = nodeLabel(node);
       const lock = row.querySelector(".layer-lock");
       lock.textContent = node.locked ? "●" : "○";
@@ -623,10 +672,13 @@ function defaultInsertPoint() {
   return screenToWorld(bounds.left + bounds.width / 2, bounds.top + bounds.height / 2);
 }
 
-function openEntityPicker() {
+function openEntityPicker(type = null) {
   if (!layout) return;
   insertPoint ??= defaultInsertPoint();
+  pickerType = type;
   pickerSelection = 0;
+  pickerTitle.textContent = ENTITY_KINDS[type]?.pickerTitle ?? "Картка з репозиторію";
+  entitySearch.placeholder = ENTITY_KINDS[type]?.searchPlaceholder ?? "Назва, slug або тип…";
   entitySearch.value = "";
   renderEntityResults();
   entityPicker.showModal();
@@ -634,7 +686,9 @@ function openEntityPicker() {
 }
 
 function filteredEntities() {
-  return entities.filter((entity) => matchesEntity(entity, entitySearch.value)).slice(0, 100);
+  return entities
+    .filter((entity) => (!pickerType || entity.type === pickerType) && matchesEntity(entity, entitySearch.value))
+    .slice(0, 100);
 }
 
 function renderEntityResults() {
@@ -680,16 +734,38 @@ function renderEntityResults() {
   entityResults.querySelector(".active")?.scrollIntoView({ block: "nearest" });
 }
 
+function entityNode(entity, left, top, rect, size = ENTITY_CARD) {
+  return {
+    id: crypto.randomUUID(), type: "entity", entity: entity.slug,
+    x: (left - rect.x) / rect.width * 100,
+    y: (top - rect.y) / rect.height * 100,
+    width: size.width, height: size.height, locked: false, children: [],
+  };
+}
+
+// Локація лягає на полотно вже з картками, що вказали її у своєму полі
+// location: вони розкладаються сіткою під шапкою контейнера.
+function containerNode(entity, kind, point, rect) {
+  const members = linkedEntities(entities, entity.slug, kind.members);
+  const grid = containerGrid(members.length, {
+    cell: ENTITY_CARD,
+    gap: CONTAINER_GAP,
+    padding: CONTAINER_PADDING,
+    minimum: FRAME_SIZE,
+    header: frameHeaderHeight,
+  });
+  const node = entityNode(entity, point.x - grid.width / 2, point.y - grid.height / 2, rect, grid);
+  const inside = { x: 0, y: 0, width: grid.width, height: grid.height };
+  node.children = members.map((member, index) => entityNode(member, grid.cells[index].x, grid.cells[index].y, inside));
+  return node;
+}
+
 function addEntity(entity) {
   const point = insertPoint ?? defaultInsertPoint();
   const { parent, rect } = nearestPointParent(layout, point);
-  executeCommand("Додати картку", () => {
-    const node = {
-      id: crypto.randomUUID(), type: "entity", entity: entity.slug,
-      x: (point.x - rect.x) / rect.width * 100,
-      y: (point.y - rect.y) / rect.height * 100,
-      width: 320, height: 190, locked: false, children: [],
-    };
+  const kind = entityKind(entity);
+  const node = kind?.members ? containerNode(entity, kind, point, rect) : entityNode(entity, point.x, point.y, rect);
+  executeCommand(kind?.command ?? "Додати картку", () => {
     (parent ? parent.children : layout.children).push(node);
     selectedId = node.id;
   });
@@ -1147,6 +1223,10 @@ document.querySelector("#fit-all").addEventListener("click", fitAll);
 addEntityButton.addEventListener("click", () => {
   insertPoint = defaultInsertPoint();
   openEntityPicker();
+});
+addLocationButton.addEventListener("click", () => {
+  insertPoint = defaultInsertPoint();
+  openEntityPicker("location");
 });
 toggleLayersButton.addEventListener("click", () => setLayersOpen(!layersOpen));
 for (const overlay of [canvasActions, ...document.querySelectorAll(".hud")]) {

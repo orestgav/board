@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { centeredViewOnRect, maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, rebasedView, zoomedViewAt } from "../public/view.js";
+import { centeredViewOnRect, frameHeaderHeight, maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, rebasedView, zoomedViewAt } from "../public/view.js";
 
 test("zoom math accepts arbitrary finite scales", () => {
   assert.equal(zoomedViewAt({ x: 0, y: 0, scale: 1 }, 0, 0, 10).scale, 10);
@@ -59,4 +59,11 @@ test("maximum board scale fits the smallest node in the viewport", () => {
   ];
   assert.equal(maximumScaleForNodes(rects, 1000, 800, 50), 9);
   assert.equal(maximumScaleForNodes([], 1000, 800, 50), Infinity);
+});
+
+test("a card drawn as a frame scales by the frame base size", () => {
+  const node = { type: "entity", width: 720, height: 460 };
+  assert.equal(nodeVisualScale(node), Math.min(720 / 320, 460 / 190));
+  assert.equal(nodeVisualScale(node, "frame"), 2);
+  assert.equal(frameHeaderHeight(720, 460), 76);
 });

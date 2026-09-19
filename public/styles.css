@@ -82,6 +82,8 @@ button { font: inherit; color: inherit; }
 .entity-node.entity-far .entity-portrait { border: 0; opacity: .78; }
 .entity-missing { padding: 1.333333em; color: #e08b7d; font-size: 12em; pointer-events: auto; }
 .node.locked > .entity-content, .node.locked > .entity-missing { pointer-events: none; }
+.location-node { border-color: #7c6a4d; background: rgba(33, 30, 25, .72); }
+.location-node > .node-header { background: rgba(78, 62, 39, .28); }
 .note-node { border-color: #c9ad61; background: #f2e5ae; box-shadow: 0 12em 28em rgba(0,0,0,.24), inset 0 0 28em rgba(153, 112, 31, .08); }
 .note-node.editing { border-color: #f3b83f; box-shadow: 0 0 0 3em rgba(243,184,63,.42), 0 12em 28em rgba(0,0,0,.28); }
 .note-drag-handle { position: absolute; z-index: 2; top: 8em; right: 8em; width: 20em; height: 20em; border: 1em solid rgba(91, 69, 25, .38); border-radius: 4em; background: #d2ad52 radial-gradient(circle, rgba(69, 50, 14, .62) 1.2em, transparent 1.4em) 50% 50% / 6em 6em; box-shadow: 0 2em 5em rgba(77, 55, 16, .24); cursor: grab; pointer-events: auto; }

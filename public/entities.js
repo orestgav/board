@@ -16,6 +16,19 @@ export function extractSection(body, heading) {
   return lines.slice(start + 1, end).join("\n").trim();
 }
 
+const WIKILINK = /\[\[([^\]|#]+)(?:[|#][^\]]*)?\]\]/g;
+
+// Поле `location` буває як чистим посиланням (`[[arven]]`), так і фразою
+// («тракт [[lauris]] — [[arven]]»), тому беремо всі посилання рядка.
+export function locationLinks(value) {
+  if (typeof value !== "string") return [];
+  return [...value.matchAll(WIKILINK)].map((match) => match[1].trim()).filter(Boolean);
+}
+
+export function linkedEntities(entities, slug, type) {
+  return entities.filter((entity) => entity.type === type && entity.locations.includes(slug));
+}
+
 export function entityRecord(path, meta, body, config, mediaByName = new Map()) {
   const slug = path.split("/").at(-1).replace(/\.md$/i, "");
   const portraitName = meta[config.portraitField];
@@ -25,6 +38,7 @@ export function entityRecord(path, meta, body, config, mediaByName = new Map()) 
     type: meta.type,
     name: meta.name || slug,
     portrait: portraitName ? (mediaByName.get(portraitName.toLocaleLowerCase("uk")) ?? null) : null,
+    locations: locationLinks(meta.location),
     summary: extractSection(body, config.summarySection),
     body: body.trim(),
   };
