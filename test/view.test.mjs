@@ -49,14 +49,14 @@ test("maximum board scale fits the smallest node in the viewport", () => {
 test("oversized nodes render below browser CSS limits without changing logical geometry", () => {
   const node = { type: "image", width: 22_000_000, height: 11_000_000 };
   const geometry = renderedNodeGeometry(node);
-  assert.equal(geometry.width, 4096);
-  assert.equal(geometry.height, 2048);
+  assert.equal(geometry.localScale, 22);
+  assert.equal(geometry.width, 1_000_000);
+  assert.equal(geometry.height, 500_000);
   assert.equal(geometry.width * geometry.renderScale, node.width);
   assert.equal(geometry.height * geometry.renderScale, node.height);
 
   const child = renderedNodeGeometry({ type: "note", width: 2200, height: 1100 }, geometry.renderScale);
-  assert.equal(child.renderScale, 1);
-  assert.equal(child.localScale * geometry.renderScale, child.renderScale);
+  assert.equal(child.localScale, 1);
   assert.equal(child.width * child.renderScale, 2200);
   assert.equal(child.height * child.renderScale, 1100);
 });
