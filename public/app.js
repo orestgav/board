@@ -15,10 +15,11 @@ import {
 import { createStorage } from "./storage.js";
 import { matchesEntity } from "./entities.js";
 import { mapSlugFromPath } from "./notes.js";
-import { minimumScaleForNodes, nodeVisualScale, zoomedViewAt } from "./view.js";
+import { maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, zoomedViewAt } from "./view.js";
 
 const MIN_NODE_SIZE = Number.EPSILON;
 const MIN_LARGEST_NODE_PIXELS = 32;
+const MAX_ZOOM_VIEWPORT_PADDING = 32;
 const SAVE_DELAY = 450;
 
 const viewport = document.querySelector("#viewport");
@@ -122,14 +123,19 @@ function updateImageSources() {
   });
 }
 
-function minimumBoardScale() {
-  return layout ? minimumScaleForNodes(allAbsoluteRects(layout), MIN_LARGEST_NODE_PIXELS) : 0;
+function boardScaleLimits() {
+  if (!layout) return { minimum: 0, maximum: Infinity };
+  const rects = allAbsoluteRects(layout);
+  const minimum = minimumScaleForNodes(rects, MIN_LARGEST_NODE_PIXELS);
+  const maximum = maximumScaleForNodes(rects, viewport.clientWidth, viewport.clientHeight, MAX_ZOOM_VIEWPORT_PADDING);
+  return { minimum, maximum: Math.max(minimum, maximum) };
 }
 
 function constrainViewScale(localX = viewport.clientWidth / 2, localY = viewport.clientHeight / 2) {
-  const minimumScale = minimumBoardScale();
-  if (view.scale >= minimumScale) return false;
-  view = zoomedViewAt(view, localX, localY, minimumScale / view.scale);
+  const limits = boardScaleLimits();
+  const constrainedScale = clamp(view.scale, limits.minimum, limits.maximum);
+  if (view.scale === constrainedScale) return false;
+  view = zoomedViewAt(view, localX, localY, constrainedScale / view.scale);
   return true;
 }
 
@@ -900,7 +906,8 @@ function zoomAt(clientX, clientY, factor) {
   const localX = clientX - bounds.left;
   const localY = clientY - bounds.top;
   const requestedScale = view.scale * factor;
-  const nextScale = Math.max(requestedScale, minimumBoardScale());
+  const limits = boardScaleLimits();
+  const nextScale = clamp(requestedScale, limits.minimum, limits.maximum);
   const nextView = zoomedViewAt(view, localX, localY, nextScale / view.scale);
   if (!nextView) return;
   view = nextView;
@@ -921,9 +928,11 @@ function fitAll() {
   const maxY = Math.max(...boxes.map((box) => box.y + box.height));
   const availableWidth = Math.max(1, viewport.clientWidth - margin * 2);
   const availableHeight = Math.max(1, viewport.clientHeight - margin * 2);
-  view.scale = Math.max(
+  const limits = boardScaleLimits();
+  view.scale = clamp(
     Math.min(availableWidth / Math.max(1, maxX - minX), availableHeight / Math.max(1, maxY - minY)),
-    minimumBoardScale(),
+    limits.minimum,
+    limits.maximum,
   );
   view.x = (viewport.clientWidth - (maxX - minX) * view.scale) / 2 - minX * view.scale;
   view.y = (viewport.clientHeight - (maxY - minY) * view.scale) / 2 - minY * view.scale;
@@ -1044,6 +1053,7 @@ window.addEventListener("keydown", (event) => {
 });
 window.addEventListener("keyup", (event) => { if (event.code === "Space") spacePressed = false; });
 window.addEventListener("blur", () => { spacePressed = false; });
+window.addEventListener("resize", applyView);
 
 document.querySelector("#add-frame").addEventListener("click", addFrame);
 document.querySelector("#empty-add").addEventListener("click", addFrame);

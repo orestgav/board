@@ -21,3 +21,13 @@ export function minimumScaleForNodes(rects, minimumVisiblePixels) {
   const largestDimension = rects.reduce((largest, rect) => Math.max(largest, rect.width, rect.height), 0);
   return largestDimension > 0 ? minimumVisiblePixels / largestDimension : 0;
 }
+
+export function maximumScaleForNodes(rects, viewportWidth, viewportHeight, padding) {
+  if (!rects.length) return Infinity;
+  const availableWidth = Math.max(1, viewportWidth - padding * 2);
+  const availableHeight = Math.max(1, viewportHeight - padding * 2);
+  return rects.reduce((maximum, rect) => Math.max(
+    maximum,
+    Math.min(availableWidth / rect.width, availableHeight / rect.height),
+  ), 0);
+}

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { minimumScaleForNodes, nodeVisualScale, zoomedViewAt } from "../public/view.js";
+import { maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, zoomedViewAt } from "../public/view.js";
 
 test("zoom math accepts arbitrary finite scales", () => {
   assert.equal(zoomedViewAt({ x: 0, y: 0, scale: 1 }, 0, 0, 10).scale, 10);
@@ -35,4 +35,13 @@ test("minimum board scale keeps the largest node visible", () => {
   ];
   assert.equal(minimumScaleForNodes(rects, 32), 0.016);
   assert.equal(minimumScaleForNodes([], 32), 0);
+});
+
+test("maximum board scale fits the smallest node in the viewport", () => {
+  const rects = [
+    { width: 800, height: 600 },
+    { width: 100, height: 50 },
+  ];
+  assert.equal(maximumScaleForNodes(rects, 1000, 800, 50), 9);
+  assert.equal(maximumScaleForNodes([], 1000, 800, 50), Infinity);
 });
