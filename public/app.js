@@ -15,7 +15,7 @@ import {
 import { createStorage } from "./storage.js";
 import { matchesEntity } from "./entities.js";
 import { mapSlugFromPath } from "./notes.js";
-import { maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, zoomedViewAt } from "./view.js";
+import { maximumScaleForNodes, minimumScaleForNodes, renderedNodeGeometry, zoomedViewAt } from "./view.js";
 
 const MIN_NODE_SIZE = Number.EPSILON;
 const MIN_LARGEST_NODE_PIXELS = 32;
@@ -142,10 +142,7 @@ function constrainViewScale(localX = viewport.clientWidth / 2, localY = viewport
 function applyView() {
   constrainViewScale();
   scene.style.transform = `translate(${view.x}px, ${view.y}px) scale(${view.scale})`;
-  scene.style.setProperty("--resize-handle-size", `${13 / view.scale}px`);
-  scene.style.setProperty("--resize-handle-offset", `${-6.5 / view.scale}px`);
-  scene.style.setProperty("--resize-handle-border", `${2 / view.scale}px`);
-  scene.style.setProperty("--resize-handle-radius", `${3 / view.scale}px`);
+  document.querySelectorAll(".node").forEach(updateHandleScale);
   grid.style.backgroundSize = `${24 * view.scale}px ${24 * view.scale}px`;
   grid.style.backgroundPosition = `${view.x}px ${view.y}px`;
   persistView();
@@ -168,22 +165,45 @@ function render() {
 function updateNodeGeometry(node) {
   const element = [...scene.querySelectorAll(".node")].find((candidate) => candidate.dataset.id === node.id);
   if (!element) return;
-  element.style.left = `${node.x}%`;
-  element.style.top = `${node.y}%`;
-  element.style.width = `${node.width}px`;
-  element.style.height = `${node.height}px`;
-  element.style.fontSize = `${nodeVisualScale(node)}px`;
+  const parentElement = element.parentElement?.closest(".node");
+  updateRenderedNodeTree(element, node, Number(parentElement?.dataset.renderScale ?? 1));
 }
 
-function renderNode(node) {
+function updateHandleScale(element) {
+  const renderScale = Number(element.dataset.renderScale ?? 1);
+  const screenScale = view.scale * renderScale;
+  element.style.setProperty("--resize-handle-size", `${13 / screenScale}px`);
+  element.style.setProperty("--resize-handle-offset", `${-6.5 / screenScale}px`);
+  element.style.setProperty("--resize-handle-border", `${2 / screenScale}px`);
+  element.style.setProperty("--resize-handle-radius", `${3 / screenScale}px`);
+}
+
+function applyNodeGeometry(element, node, parentRenderScale) {
+  const geometry = renderedNodeGeometry(node, parentRenderScale);
+  element.style.left = `${node.x}%`;
+  element.style.top = `${node.y}%`;
+  element.style.width = `${geometry.width}px`;
+  element.style.height = `${geometry.height}px`;
+  element.style.fontSize = `${geometry.fontSize}px`;
+  element.style.transform = geometry.localScale === 1 ? "" : `scale(${geometry.localScale})`;
+  element.dataset.renderScale = geometry.renderScale;
+  updateHandleScale(element);
+  return geometry.renderScale;
+}
+
+function updateRenderedNodeTree(element, node, parentRenderScale) {
+  const renderScale = applyNodeGeometry(element, node, parentRenderScale);
+  node.children.forEach((child) => {
+    const childElement = [...element.children].find((candidate) => candidate.classList.contains("node") && candidate.dataset.id === child.id);
+    if (childElement) updateRenderedNodeTree(childElement, child, renderScale);
+  });
+}
+
+function renderNode(node, parentRenderScale = 1) {
   const element = document.createElement("article");
   element.className = `node${node.id === selectedId ? " selected" : ""}${node.locked ? " locked" : ""}`;
   element.dataset.id = node.id;
-  element.style.left = `${node.x}%`;
-  element.style.top = `${node.y}%`;
-  element.style.width = `${node.width}px`;
-  element.style.height = `${node.height}px`;
-  element.style.fontSize = `${nodeVisualScale(node)}px`;
+  const renderScale = applyNodeGeometry(element, node, parentRenderScale);
   if (node.type === "note") {
     element.classList.add("note-node");
     const header = document.createElement("div");
@@ -297,7 +317,7 @@ function renderNode(node) {
     body.textContent = node.children.length ? "" : "Рамка для вмісту";
     element.append(body);
   }
-  element.append(...node.children.map((child) => renderNode(child)));
+  element.append(...node.children.map((child) => renderNode(child, renderScale)));
 
   if (node.id === selectedId && !node.locked) {
     for (const corner of ["nw", "ne", "sw", "se"]) {
