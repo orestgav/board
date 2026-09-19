@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { centeredViewOnRect, maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, zoomedViewAt } from "../public/view.js";
+import { centeredViewOnRect, maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, rebasedView, zoomedViewAt } from "../public/view.js";
 
 test("zoom math accepts arbitrary finite scales", () => {
   assert.equal(zoomedViewAt({ x: 0, y: 0, scale: 1 }, 0, 0, 10).scale, 10);
@@ -20,6 +20,15 @@ test("centering a node preserves scale and places its center in the viewport cen
   const rect = { x: -200, y: 300, width: 400, height: 200 };
   const centered = centeredViewOnRect({ x: 10, y: 20, scale: 2 }, rect, 1000, 800);
   assert.deepEqual(centered, { x: 500, y: -400, scale: 2 });
+});
+
+test("rebasing keeps huge camera translations out of the DOM transform", () => {
+  const view = { x: -500_000_000, y: 250_000_000, scale: 40 };
+  const rebased = rebasedView(view, 1200, 800);
+  const worldPoint = { x: 12_500_020, y: -6_249_990 };
+  assert.equal((worldPoint.x - rebased.originX) * view.scale + rebased.translateX, worldPoint.x * view.scale + view.x);
+  assert.equal((worldPoint.y - rebased.originY) * view.scale + rebased.translateY, worldPoint.y * view.scale + view.y);
+  assert.deepEqual({ x: rebased.translateX, y: rebased.translateY }, { x: 600, y: 400 });
 });
 
 test("zoom rejects only non-positive or non-finite results", () => {

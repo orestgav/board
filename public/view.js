@@ -18,6 +18,17 @@ export function centeredViewOnRect(view, rect, viewportWidth, viewportHeight) {
   };
 }
 
+export function rebasedView(view, viewportWidth, viewportHeight) {
+  const translateX = viewportWidth / 2;
+  const translateY = viewportHeight / 2;
+  return {
+    originX: (translateX - view.x) / view.scale,
+    originY: (translateY - view.y) / view.scale,
+    translateX,
+    translateY,
+  };
+}
+
 export function nodeVisualScale(node) {
   const [baseWidth, baseHeight] = node.type === "frame" ? [360, 230]
     : node.type === "image" ? [480, 320]

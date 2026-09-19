@@ -15,7 +15,7 @@ import {
 import { createStorage } from "./storage.js";
 import { matchesEntity } from "./entities.js";
 import { mapSlugFromPath } from "./notes.js";
-import { centeredViewOnRect, maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, zoomedViewAt } from "./view.js";
+import { centeredViewOnRect, maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, rebasedView, zoomedViewAt } from "./view.js";
 
 const MIN_NODE_SIZE = Number.EPSILON;
 const MIN_LARGEST_NODE_PIXELS = 32;
@@ -67,6 +67,7 @@ let historyBusy = false;
 const newNoteIds = new Set();
 let pickerSelection = 0;
 let insertPoint = null;
+let renderOrigin = { x: 0, y: 0 };
 const storedView = localStorage.getItem("crown-board.viewport");
 let view = loadView();
 
@@ -141,13 +142,17 @@ function constrainViewScale(localX = viewport.clientWidth / 2, localY = viewport
 
 function applyView() {
   constrainViewScale();
-  scene.style.transform = `translate(${view.x}px, ${view.y}px) scale(${view.scale})`;
+  const rebased = rebasedView(view, viewport.clientWidth, viewport.clientHeight);
+  renderOrigin = { x: rebased.originX, y: rebased.originY };
+  scene.style.transform = `translate(${rebased.translateX}px, ${rebased.translateY}px) scale(${view.scale})`;
+  updateRootRenderPositions();
   scene.style.setProperty("--resize-handle-size", `${13 / view.scale}px`);
   scene.style.setProperty("--resize-handle-offset", `${-6.5 / view.scale}px`);
   scene.style.setProperty("--resize-handle-border", `${2 / view.scale}px`);
   scene.style.setProperty("--resize-handle-radius", `${3 / view.scale}px`);
-  grid.style.backgroundSize = `${24 * view.scale}px ${24 * view.scale}px`;
-  grid.style.backgroundPosition = `${view.x}px ${view.y}px`;
+  const gridSize = 24 * view.scale;
+  grid.style.backgroundSize = `${gridSize}px ${gridSize}px`;
+  grid.style.backgroundPosition = `${view.x % gridSize}px ${view.y % gridSize}px`;
   persistView();
   updateImageSources();
   document.querySelectorAll(".entity-node").forEach((element) => {
@@ -157,7 +162,7 @@ function applyView() {
 }
 
 function render() {
-  scene.replaceChildren(...layout.children.map((node) => renderNode(node)));
+  scene.replaceChildren(...layout.children.map((node) => renderNode(node, true)));
   renderLayers();
   emptyState.hidden = layout.children.length !== 0;
   undoButton.disabled = undoStack.length === 0;
@@ -168,19 +173,35 @@ function render() {
 function updateNodeGeometry(node) {
   const element = [...scene.querySelectorAll(".node")].find((candidate) => candidate.dataset.id === node.id);
   if (!element) return;
-  element.style.left = `${node.x}%`;
-  element.style.top = `${node.y}%`;
+  updateNodePosition(element, node);
   element.style.width = `${node.width}px`;
   element.style.height = `${node.height}px`;
   element.style.fontSize = `${nodeVisualScale(node)}px`;
 }
 
-function renderNode(node) {
+function updateNodePosition(element, node) {
+  if (element.dataset.root === "true") {
+    element.style.left = `${node.x * WORLD_SIZE / 100 - renderOrigin.x}px`;
+    element.style.top = `${node.y * WORLD_SIZE / 100 - renderOrigin.y}px`;
+  } else {
+    element.style.left = `${node.x}%`;
+    element.style.top = `${node.y}%`;
+  }
+}
+
+function updateRootRenderPositions() {
+  layout?.children.forEach((node) => {
+    const element = [...scene.children].find((candidate) => candidate.dataset.id === node.id);
+    if (element) updateNodePosition(element, node);
+  });
+}
+
+function renderNode(node, isRoot = false) {
   const element = document.createElement("article");
   element.className = `node${node.id === selectedId ? " selected" : ""}${node.locked ? " locked" : ""}`;
   element.dataset.id = node.id;
-  element.style.left = `${node.x}%`;
-  element.style.top = `${node.y}%`;
+  element.dataset.root = isRoot;
+  updateNodePosition(element, node);
   element.style.width = `${node.width}px`;
   element.style.height = `${node.height}px`;
   element.style.fontSize = `${nodeVisualScale(node)}px`;
