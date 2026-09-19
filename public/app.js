@@ -15,7 +15,7 @@ import {
 import { createStorage } from "./storage.js";
 import { matchesEntity } from "./entities.js";
 import { mapSlugFromPath } from "./notes.js";
-import { maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, zoomedViewAt } from "./view.js";
+import { centeredViewOnRect, maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, zoomedViewAt } from "./view.js";
 
 const MIN_NODE_SIZE = Number.EPSILON;
 const MIN_LARGEST_NODE_PIXELS = 32;
@@ -336,6 +336,9 @@ function renderLayers() {
         toggleLock();
       });
       row.addEventListener("click", () => select(node.id));
+      row.addEventListener("dblclick", (event) => {
+        if (!event.target.closest("button")) centerNode(node.id);
+      });
       fragment.append(row);
       appendRows(node.children, depth + 1);
     });
@@ -343,6 +346,15 @@ function renderLayers() {
   appendRows(layout.children);
   layerTree.replaceChildren(fragment);
   layerActions.hidden = !selectedId;
+}
+
+function centerNode(id) {
+  const rect = absoluteRect(layout, id);
+  if (!rect) return;
+  selectedId = id;
+  view = centeredViewOnRect(view, rect, viewport.clientWidth, viewport.clientHeight);
+  render();
+  applyView();
 }
 
 function select(id) {

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, zoomedViewAt } from "../public/view.js";
+import { centeredViewOnRect, maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, zoomedViewAt } from "../public/view.js";
 
 test("zoom math accepts arbitrary finite scales", () => {
   assert.equal(zoomedViewAt({ x: 0, y: 0, scale: 1 }, 0, 0, 10).scale, 10);
@@ -14,6 +14,12 @@ test("zoom keeps the world point beneath the cursor fixed", () => {
   const zoomed = zoomedViewAt(view, cursor.x, cursor.y, 25);
   const after = { x: (cursor.x - zoomed.x) / zoomed.scale, y: (cursor.y - zoomed.y) / zoomed.scale };
   assert.deepEqual(after, before);
+});
+
+test("centering a node preserves scale and places its center in the viewport center", () => {
+  const rect = { x: -200, y: 300, width: 400, height: 200 };
+  const centered = centeredViewOnRect({ x: 10, y: 20, scale: 2 }, rect, 1000, 800);
+  assert.deepEqual(centered, { x: 500, y: -400, scale: 2 });
 });
 
 test("zoom rejects only non-positive or non-finite results", () => {
