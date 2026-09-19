@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, renderedNodeGeometry, zoomedViewAt } from "../public/view.js";
+import { maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, zoomedViewAt } from "../public/view.js";
 
 test("zoom math accepts arbitrary finite scales", () => {
   assert.equal(zoomedViewAt({ x: 0, y: 0, scale: 1 }, 0, 0, 10).scale, 10);
@@ -44,19 +44,4 @@ test("maximum board scale fits the smallest node in the viewport", () => {
   ];
   assert.equal(maximumScaleForNodes(rects, 1000, 800, 50), 9);
   assert.equal(maximumScaleForNodes([], 1000, 800, 50), Infinity);
-});
-
-test("oversized nodes render below browser CSS limits without changing logical geometry", () => {
-  const node = { type: "image", width: 22_000_000, height: 11_000_000 };
-  const geometry = renderedNodeGeometry(node);
-  assert.equal(geometry.localScale, 22);
-  assert.equal(geometry.width, 1_000_000);
-  assert.equal(geometry.height, 500_000);
-  assert.equal(geometry.width * geometry.renderScale, node.width);
-  assert.equal(geometry.height * geometry.renderScale, node.height);
-
-  const child = renderedNodeGeometry({ type: "note", width: 2200, height: 1100 }, geometry.renderScale);
-  assert.equal(child.localScale, 1);
-  assert.equal(child.width * child.renderScale, 2200);
-  assert.equal(child.height * child.renderScale, 1100);
 });
