@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: crown-board
+    runtime: docker
+    autoDeploy: true
+    healthCheckPath: /api/health
+    disk:
+      name: crown-board-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: BOARD_REPOSITORY
+        value: orestgav/crown
+      - key: BOARD_BRANCH
+        value: main
+      - key: BOARD_AUTH_USER
+        value: dm
+      - key: BOARD_AUTH_PASSWORD
+        generateValue: true
+      - key: GITHUB_TOKEN
+        sync: false

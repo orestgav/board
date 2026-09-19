@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Crown Board</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand" aria-label="Crown Board">
+        <span class="brand-mark">C</span>
+        <div><strong>Crown Board</strong><small id="campaign-name">Завантаження…</small></div>
+      </div>
+      <div class="toolbar" role="toolbar" aria-label="Інструменти канви">
+        <button id="add-frame" title="Створити рамку (F)">＋ Рамка</button>
+        <span class="divider"></span>
+        <button id="undo" class="icon" title="Скасувати (Ctrl+Z)" disabled>↶</button>
+        <button id="redo" class="icon" title="Повторити (Ctrl+Shift+Z)" disabled>↷</button>
+        <span class="divider"></span>
+        <button id="zoom-out" class="icon" title="Віддалити">−</button>
+        <button id="zoom-value" class="zoom-value" title="Скинути зум">100%</button>
+        <button id="zoom-in" class="icon" title="Наблизити">＋</button>
+        <button id="fit-all" title="Вписати все">Вписати</button>
+      </div>
+      <div id="save-status" class="save-status" role="status">Завантаження…</div>
+    </header>
+    <main class="workspace">
+      <aside class="layers" aria-label="Шари">
+        <div class="layers-heading">
+          <strong>Шари</strong>
+          <span>знизу → вгору</span>
+        </div>
+        <div id="layer-tree" class="layer-tree"></div>
+        <div id="layer-actions" class="layer-actions" hidden>
+          <button data-layer-action="back" title="У самий низ">⇤</button>
+          <button data-layer-action="backward" title="На крок униз">←</button>
+          <button data-layer-action="forward" title="На крок угору">→</button>
+          <button data-layer-action="front" title="У самий верх">⇥</button>
+        </div>
+      </aside>
+      <section id="viewport" class="viewport" tabindex="0" aria-label="Полотно">
+        <div id="grid" class="grid"></div>
+        <div id="scene" class="scene"></div>
+        <div id="empty-state" class="empty-state" hidden>
+          <span class="empty-icon">◇</span>
+          <h1>Порожнє полотно</h1>
+          <p>Створи першу рамку — далі її можна вкладати, рухати й змінювати розмір.</p>
+          <button id="empty-add">Створити рамку</button>
+        </div>
+        <div class="hint">Колесо — зум · Space + drag / середня кнопка — пан</div>
+        <div id="drop-overlay" class="drop-overlay" hidden>Відпусти, щоб додати зображення</div>
+      </section>
+    </main>
+    <div id="drop-choice" class="drop-choice" hidden>
+      <strong id="drop-choice-title">Що це за зображення?</strong>
+      <span>Один вибір застосовується до всього дропу.</span>
+      <div>
+        <button data-media-kind="map">Карта <small>q90 · maps/</small></button>
+        <button data-media-kind="illustration">Ілюстрація <small>q82 · locations/</small></button>
+        <button data-media-kind="cancel" class="quiet">Скасувати</button>
+      </div>
+    </div>
+    <div id="toast" class="toast" role="alert" hidden></div>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
