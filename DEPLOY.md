@@ -19,7 +19,7 @@ Git залишається звичайним локальним workflow: зм�
 
 Workflow `.github/workflows/pages.yml` публікує теку `public/` після кожного push у `main`.
 
-Для першого запуску в налаштуваннях репозиторію `orestgav/board` відкрити **Settings → Pages** і вибрати **Source: GitHub Actions**. Після успішного workflow сайт буде доступний за адресою:
+Workflow сам намагається ввімкнути Pages із джерелом **GitHub Actions**. Якщо політика акаунта це забороняє, у налаштуваннях репозиторію `orestgav/board` треба один раз відкрити **Settings → Pages** і вибрати **Source: GitHub Actions**. Після успішного workflow сайт буде доступний за адресою:
 
 `https://orestgav.github.io/board/`
 
