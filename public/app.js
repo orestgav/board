@@ -17,6 +17,7 @@ import { createStorage } from "./storage.js";
 import { matchesEntity } from "./entities.js";
 import { iconElement } from "./icons.js";
 import { renderMarkdown } from "./markdown.js";
+import { maxHitPoints, statblockMarkup } from "./statblock.js";
 import { mapSlugFromPath } from "./notes.js";
 import { centeredViewOnRect, frameHeaderHeight, maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, rebasedView, zoomedViewAt } from "./view.js";
 
@@ -24,8 +25,10 @@ const MIN_NODE_SIZE = Number.EPSILON;
 const MIN_LARGEST_NODE_PIXELS = 32;
 const MAX_ZOOM_VIEWPORT_PADDING = 32;
 const SAVE_DELAY = 450;
+const HP_COMMIT_DELAY = 500;
 const ENTITY_CARD = { width: 320, height: 190 };
 const NPC_CARD = { width: 400, height: 210 };
+const STATBLOCK_CARD = { width: 440, height: 640 };
 const FRAME_SIZE = { width: 360, height: 230 };
 const CONTAINER_GAP = 24;
 const CONTAINER_PADDING = 28;
@@ -48,6 +51,14 @@ const ENTITY_KINDS = {
     command: "Додати NPC",
     pickerTitle: "NPC з репозиторію",
     searchPlaceholder: "Назва або slug NPC…",
+  },
+  creature: {
+    icon: "skull",
+    variant: "statblock",
+    size: STATBLOCK_CARD,
+    command: "Додати статблок",
+    pickerTitle: "Статблок із бестіарію",
+    searchPlaceholder: "Назва або slug істоти…",
   },
 };
 
@@ -74,6 +85,7 @@ const changeCampaignButton = document.querySelector("#change-campaign");
 const addEntityButton = document.querySelector("#add-entity");
 const addLocationButton = document.querySelector("#add-location");
 const addNpcButton = document.querySelector("#add-npc");
+const addStatblockButton = document.querySelector("#add-statblock");
 const entityPicker = document.querySelector("#entity-picker");
 const entitySearch = document.querySelector("#entity-search");
 const entityResults = document.querySelector("#entity-results");
@@ -98,6 +110,11 @@ let entitiesBySlug = new Map();
 let notesByRef = new Map();
 let boardConfig = null;
 let editingNoteId = null;
+// Перемальовка вузла не має губити те, що ДМ уже набрав або догортав на
+// статблоці: розкладці ці дрібниці не належать, тож тримаємо їх тут.
+const hpAmountByNode = new Map();
+const statblockScrollByNode = new Map();
+let hitPointEdit = null;
 let historyBusy = false;
 const newNoteIds = new Set();
 let pendingNoteInput = null;
@@ -343,6 +360,22 @@ function renderNode(node, isRoot = false) {
       missing.textContent = `Не знайдено картку [[${node.entity}]]`;
       missing.addEventListener("click", () => select(node.id));
       element.append(missing);
+    } else if (kind?.variant === "statblock") {
+      // Статблок: шапка, лічильник HP і «паперова» частина бестіарію під ними.
+      element.classList.add("statblock-node");
+      element.append(nodeHeader(node, { icon: kind.icon, entity }));
+      const maximum = maxHitPoints(entity.meta);
+      if (maximum) element.append(hitPointTracker(node, entity, maximum));
+      const body = document.createElement("div");
+      body.className = `statblock-body${maximum ? "" : " no-hp"}`;
+      body.innerHTML = statblockMarkup(entity);
+      body.addEventListener("pointerdown", (event) => event.stopPropagation());
+      body.addEventListener("click", (event) => { event.stopPropagation(); select(node.id); });
+      body.addEventListener("wheel", onStatblockWheel);
+      body.addEventListener("scroll", () => statblockScrollByNode.set(node.id, body.scrollTop));
+      const scrolled = statblockScrollByNode.get(node.id) ?? 0;
+      if (scrolled) requestAnimationFrame(() => { body.scrollTop = scrolled; });
+      element.append(body);
     } else if (kind?.variant === "frame") {
       // Локація — контейнер: лише шапка з назвою, без портрета й секції картки.
       element.classList.add("location-node");
@@ -436,6 +469,134 @@ function detailsButton(node, entity) {
     showEntityDetails(entity);
   });
   return button;
+}
+
+// Поточні HP живуть у розкладці (у кожної копії істоти свої), а не в картці
+// бестіарію: на полотні може стояти три однакові стражники з різним здоров'ям.
+function currentHitPoints(node, maximum) {
+  return Number.isFinite(node.hp) ? clamp(node.hp, 0, maximum) : maximum;
+}
+
+function hpAmount(nodeId) {
+  const value = hpAmountByNode.get(nodeId);
+  return Number.isFinite(value) ? value : 1;
+}
+
+// Колесо міняє HP без окремої команди на кожен клац: історія отримує один
+// запис, коли ДМ зупинився — так само, як під час перетягування вузла.
+function beginHitPointEdit(node) {
+  if (hitPointEdit && hitPointEdit.nodeId !== node.id) commitHitPoints();
+  hitPointEdit ??= { nodeId: node.id, before: cloneLayout(layout), beforeSelection: selectedId, timer: null };
+  clearTimeout(hitPointEdit.timer);
+  hitPointEdit.timer = setTimeout(commitHitPoints, HP_COMMIT_DELAY);
+}
+
+function commitHitPoints() {
+  if (!hitPointEdit) return;
+  const { before, beforeSelection, timer } = hitPointEdit;
+  clearTimeout(timer);
+  hitPointEdit = null;
+  commitLiveCommand("Змінити HP", before, beforeSelection);
+}
+
+function hitPointTracker(node, entity, maximum) {
+  const tracker = document.createElement("div");
+  tracker.className = "statblock-hp";
+  tracker.addEventListener("pointerdown", (event) => event.stopPropagation());
+
+  const current = document.createElement("input");
+  current.className = "hp-current";
+  current.type = "text";
+  current.inputMode = "numeric";
+  current.autocomplete = "off";
+  current.value = String(currentHitPoints(node, maximum));
+  current.title = "Поточні HP: впиши число або крути колесом";
+  current.setAttribute("aria-label", `Поточні HP: ${entity.name}`);
+  current.addEventListener("wheel", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!event.deltaY || node.locked) return;
+    const step = (event.shiftKey ? 10 : 1) * (event.deltaY < 0 ? 1 : -1);
+    node.hp = clamp(currentHitPoints(node, maximum) + step, 0, maximum);
+    current.value = String(node.hp);
+    tracker.classList.toggle("down", node.hp === 0);
+    beginHitPointEdit(node);
+  }, { passive: false });
+  current.addEventListener("keydown", (event) => { if (event.key === "Enter") current.blur(); });
+  current.addEventListener("change", () => {
+    commitHitPoints();
+    const typed = /^\d+$/.test(current.value.trim()) ? Number(current.value.trim()) : NaN;
+    if (!Number.isFinite(typed)) {
+      current.value = String(currentHitPoints(node, maximum));
+      return;
+    }
+    executeCommand("Змінити HP", () => { node.hp = clamp(typed, 0, maximum); });
+  });
+  current.addEventListener("blur", commitHitPoints);
+
+  const total = document.createElement("span");
+  total.className = "hp-max";
+  total.textContent = `/ ${maximum}`;
+
+  const amount = document.createElement("input");
+  amount.className = "hp-amount";
+  amount.type = "text";
+  amount.inputMode = "numeric";
+  amount.autocomplete = "off";
+  amount.value = String(hpAmount(node.id));
+  amount.title = "Скільки HP додати або зняти: впиши число або крути колесом";
+  amount.setAttribute("aria-label", "Скільки HP");
+  amount.addEventListener("input", () => {
+    hpAmountByNode.set(node.id, Math.max(0, Math.trunc(Number(amount.value)) || 0));
+  });
+  amount.addEventListener("wheel", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!event.deltaY) return;
+    const step = (event.shiftKey ? 10 : 1) * (event.deltaY < 0 ? 1 : -1);
+    const next = Math.max(0, hpAmount(node.id) + step);
+    hpAmountByNode.set(node.id, next);
+    amount.value = String(next);
+  }, { passive: false });
+
+  const applyAmount = (sign, label) => {
+    if (node.locked) return;
+    const delta = sign * hpAmount(node.id);
+    if (!delta) return;
+    commitHitPoints();
+    executeCommand(label, () => { node.hp = clamp(currentHitPoints(node, maximum) + delta, 0, maximum); });
+  };
+  const heal = hitPointButton("heal", "+", `Вилікувати ${entity.name}`, () => applyAmount(1, "Вилікувати HP"));
+  const damage = hitPointButton("damage", "−", `Завдати шкоди: ${entity.name}`, () => applyAmount(-1, "Зняти HP"));
+
+  const controls = document.createElement("div");
+  controls.className = "hp-controls";
+  controls.append(amount, heal, damage);
+  tracker.append(current, total, controls);
+  tracker.classList.toggle("down", currentHitPoints(node, maximum) === 0);
+  return tracker;
+}
+
+function hitPointButton(kind, glyph, title, action) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = `hp-button ${kind}`;
+  button.textContent = glyph;
+  button.title = title;
+  button.setAttribute("aria-label", title);
+  button.addEventListener("pointerdown", (event) => event.stopPropagation());
+  button.addEventListener("click", (event) => { event.stopPropagation(); action(); });
+  return button;
+}
+
+// Довгий статблок гортається всередині картки, але на краях списку колесо
+// знову дістається канві — інакше зум перестав би працювати над карткою.
+function onStatblockWheel(event) {
+  const body = event.currentTarget;
+  if (!event.deltaY || body.scrollHeight - body.clientHeight <= 1) return;
+  const up = event.deltaY < 0;
+  if (up ? body.scrollTop <= 0 : body.scrollTop + body.clientHeight >= body.scrollHeight - 1) return;
+  event.stopPropagation();
 }
 
 function layerIcon(node) {
@@ -580,6 +741,7 @@ function updateNoteHistoryReference(nodeId, reference) {
 
 async function undo() {
   if (historyBusy) return;
+  commitHitPoints();
   const command = undoStack.pop();
   if (!command) return;
   historyBusy = true;
@@ -599,6 +761,7 @@ async function undo() {
 
 async function redo() {
   if (historyBusy) return;
+  commitHitPoints();
   const command = redoStack.pop();
   if (!command) return;
   historyBusy = true;
@@ -769,12 +932,16 @@ function renderEntityResults() {
 }
 
 function entityNode(entity, left, top, rect, size = entityKind(entity)?.size ?? ENTITY_CARD) {
-  return {
+  const node = {
     id: crypto.randomUUID(), type: "entity", entity: entity.slug,
     x: (left - rect.x) / rect.width * 100,
     y: (top - rect.y) / rect.height * 100,
     width: size.width, height: size.height, locked: false, children: [],
   };
+  // Свіжа істота виходить на полотно цілою.
+  const maximum = entityKind(entity)?.variant === "statblock" ? maxHitPoints(entity.meta) : null;
+  if (maximum) node.hp = maximum;
+  return node;
 }
 
 // Список карток усередині бере сама локація — рядок «- NPC:» у її секції
@@ -838,6 +1005,7 @@ function showEntityDetails(entity) {
 function onNodePointerDown(event) {
   if (event.button !== 0) return;
   event.stopPropagation();
+  commitHitPoints();
   const node = findNode(layout, event.currentTarget.dataset.id);
   if (!node || node.locked) return;
   select(node.id);
@@ -1271,6 +1439,10 @@ addLocationButton.addEventListener("click", () => {
 addNpcButton.addEventListener("click", () => {
   insertPoint = defaultInsertPoint();
   openEntityPicker("npc");
+});
+addStatblockButton.addEventListener("click", () => {
+  insertPoint = defaultInsertPoint();
+  openEntityPicker("creature");
 });
 toggleLayersButton.addEventListener("click", () => setLayersOpen(!layersOpen));
 for (const overlay of [canvasActions, ...document.querySelectorAll(".hud")]) {

@@ -66,6 +66,9 @@ export function entityRecord(path, meta, body, config, mediaByName = new Map()) 
     links: sectionLinks(body, config.linksSection),
     summary: extractSection(body, config.summarySection),
     body: body.trim(),
+    // Решта метаданих потрібна карткам, що малюють самі цифри — наприклад
+    // статблоку істоти. Парсер віддає об'єкт без прототипу, тож копіюємо.
+    meta: { ...meta },
   };
 }
 

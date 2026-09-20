@@ -81,6 +81,10 @@ export function validateLayout(layout) {
     if (node.type === "entity" && (typeof node.entity !== "string" || !node.entity)) {
       throw new Error(`${node.id}.entity має бути непорожнім slug`);
     }
+    // Поточні HP статблока: у кожної копії істоти свої, тож живуть у вузлі.
+    if (node.hp !== undefined && (!Number.isFinite(node.hp) || node.hp < 0)) {
+      throw new Error(`${node.id}.hp має бути невід'ємним числом`);
+    }
     if (node.type === "note") splitNoteReference(node.note);
     if (!Array.isArray(node.children)) throw new Error(`${node.id}.children має бути масивом`);
     node.children.forEach(visit);

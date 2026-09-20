@@ -98,6 +98,46 @@ svg.icon { width: 20px; height: 20px; }
 .npc-node .entity-summary { color: #ccd8cd; }
 .location-node { border-color: #7c6a4d; background: rgba(33, 30, 25, .72); }
 .location-node > .node-header { background: rgba(78, 62, 39, .28); }
+/* Статблок — палітра бестіарію. Розміри вузла в em його власного кегля, а там,
+   де задано font-size, решта em рахується вже від нього (як у .entity-summary). */
+.statblock-node { border-color: #6e4a43; background: #221e1a; }
+.statblock-node > .node-header { border-bottom-color: rgba(217, 139, 124, .26); background: rgba(110, 74, 67, .3); }
+.statblock-node .node-glyph { color: #d98b7c; }
+.statblock-node .node-title { color: #f2e3da; }
+.statblock-hp { position: absolute; left: 0; right: 0; top: 38em; height: 54em; display: flex; align-items: center; gap: 7em; padding: 0 13em; border-bottom: 1em solid rgba(217, 139, 124, .2); background: rgba(0, 0, 0, .22); pointer-events: auto; }
+/* field-sizing підганяє поле під саме число, щоб підкреслення не тяглося далі. */
+.hp-current { field-sizing: content; min-width: 1.1em; max-width: 4em; padding: 0; border: 0; border-bottom: .07em dashed rgba(236, 228, 218, .26); outline: none; background: transparent; color: #f0e7dd; font: 700 30em/1.1 Georgia, serif; font-variant-numeric: tabular-nums; text-align: right; }
+.hp-current:focus { border-bottom-color: #d98b7c; }
+.statblock-hp.down .hp-current { color: #e0705f; }
+.hp-max { color: #a2948a; font-size: 13em; font-variant-numeric: tabular-nums; }
+.hp-controls { display: flex; align-items: center; gap: 6em; margin-left: auto; }
+.hp-amount { width: 2.9em; height: 2.1em; padding: 0 .25em; border: .08em solid #4a4039; border-radius: .4em; outline: none; background: #191512; color: #ece4da; font: 13em/1 inherit; font-variant-numeric: tabular-nums; text-align: center; }
+.hp-amount:focus { border-color: #d98b7c; }
+.hp-button { display: grid; place-items: center; width: 1.7em; height: 1.7em; padding: 0; border: .07em solid; border-radius: .38em; font-size: 16em; line-height: 1; cursor: pointer; }
+.hp-button.heal { border-color: #4d7a4b; background: rgba(77, 122, 75, .24); color: #8fd08c; }
+.hp-button.heal:hover { background: rgba(77, 122, 75, .44); color: #b6e8b2; }
+.hp-button.damage { border-color: #8f4a42; background: rgba(143, 74, 66, .24); color: #e79184; }
+.hp-button.damage:hover { background: rgba(143, 74, 66, .46); color: #ffb3a5; }
+.hp-button:active { transform: translateY(.06em); }
+.statblock-body { position: absolute; inset: 92em 0 0; overflow: auto; overscroll-behavior: contain; padding: 11em 14em 15em; border-radius: 0 0 9em 9em; color: #ece4da; pointer-events: auto; user-select: text; }
+.statblock-body.no-hp { top: 38em; }
+.statblock-body .sb-sub { margin: 0 0 .82em; color: #a2948a; font-size: 11em; }
+.statblock-body .sb-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10em; }
+.statblock-body .sb-vitals p, .statblock-body .sb-init { margin: .33em 0; font-size: 12em; }
+.statblock-body .sb-init { white-space: nowrap; }
+.statblock-body .sb-abil { width: 100%; margin: 1.04em 0; border-collapse: collapse; font-size: 11.5em; font-variant-numeric: tabular-nums; text-align: center; }
+.statblock-body .sb-abil th, .statblock-body .sb-abil td { padding: .35em .3em; font-weight: 400; }
+.statblock-body .sb-abil thead tr, .statblock-body .sb-abil tr.sb-save { background: #2b2621; }
+.statblock-body .sb-abil thead th, .statblock-body .sb-abil tbody th { font-weight: 700; }
+.statblock-body .sb-abil tbody th { width: 1%; padding-right: 1.2em; text-align: right; white-space: nowrap; }
+.statblock-body .sb-meta { margin: .73em 0 0; font-size: 11em; line-height: 1.5; }
+.statblock-body hr { margin: 12em 0 2em; border: 0; border-top: 2em solid #d98b7c; }
+.statblock-body h3 { margin: 1.12em 0 .48em; color: #d98b7c; font-size: 12.5em; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
+.statblock-body p { margin: .58em 0; font-size: 12em; line-height: 1.45; }
+.statblock-body h3 ~ p strong { font-style: italic; }
+.statblock-body h3 ~ p em { color: #a2948a; }
+.statblock-body .md-link { color: #e6a18f; text-decoration-color: rgba(230, 161, 143, .45); }
+.node.locked > .statblock-body, .node.locked > .statblock-hp { pointer-events: none; }
 .note-node { border-color: #c9ad61; background: #f2e5ae; box-shadow: 0 12em 28em rgba(0,0,0,.24), inset 0 0 28em rgba(153, 112, 31, .08); }
 .note-node.editing { border-color: #f3b83f; box-shadow: 0 0 0 3em rgba(243,184,63,.42), 0 12em 28em rgba(0,0,0,.28); }
 .note-drag-handle { position: absolute; z-index: 2; top: 8em; right: 8em; width: 20em; height: 20em; border: 1em solid rgba(91, 69, 25, .38); border-radius: 4em; background: #d2ad52 radial-gradient(circle, rgba(69, 50, 14, .62) 1.2em, transparent 1.4em) 50% 50% / 6em 6em; box-shadow: 0 2em 5em rgba(77, 55, 16, .24); cursor: grab; pointer-events: auto; }

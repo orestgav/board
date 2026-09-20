@@ -47,6 +47,14 @@ test("layout validation accepts entity nodes", () => {
   assert.throws(() => validateLayout({ formatVersion: 1, children: [{ ...entity, entity: "" }] }), /непорожнім slug/);
 });
 
+test("layout validation keeps statblock hit points and rejects broken ones", () => {
+  const statblock = { id: "hrap-card", type: "entity", entity: "hrap", hp: 12, x: 10, y: 20, width: 440, height: 640, children: [] };
+  assert.equal(validateLayout({ formatVersion: 1, children: [statblock] }).children[0].hp, 12);
+  assert.equal(validateLayout({ formatVersion: 1, children: [{ ...statblock, hp: 0 }] }).children[0].hp, 0);
+  assert.throws(() => validateLayout({ formatVersion: 1, children: [{ ...statblock, hp: -1 }] }), /невід'ємним числом/);
+  assert.throws(() => validateLayout({ formatVersion: 1, children: [{ ...statblock, hp: "12" }] }), /невід'ємним числом/);
+});
+
 test("layout validation accepts note references and rejects unsafe ones", () => {
   const note = { id: "note-1", type: "note", note: "map-world#n1", x: 10, y: 20, width: 320, height: 190, children: [] };
   assert.equal(validateLayout({ formatVersion: 1, children: [note] }).children[0].note, "map-world#n1");

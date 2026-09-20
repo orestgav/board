@@ -19,6 +19,7 @@ test("entity record resolves portrait and supports picker search", () => {
   assert.equal(entity.slug, "ester");
   assert.equal(entity.portrait, "_media/npcs/ester.webp");
   assert.equal(entity.summary, "Небезпечна союзниця.");
+  assert.equal(entity.meta.image, "ester.webp");
   assert.equal(matchesEntity(entity, "ЕСТ"), true);
   assert.equal(matchesEntity(entity, "location"), false);
 });
