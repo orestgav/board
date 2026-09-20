@@ -10,6 +10,7 @@ import {
   findNode,
   nearestAncestor,
   nearestPointParent,
+  nodesInRect,
   outermostIds,
   reparentNode,
   reorderNode,
