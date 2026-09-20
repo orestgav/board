@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Crown Board</title>
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
@@ -45,6 +46,7 @@
           <button id="add-statblock" type="button" data-icon="skull" title="Додати статблок істоти з бестіарію">Статблок</button>
           <button id="add-entity" type="button" data-icon="description" title="Додати картку з репозиторію (Ctrl+K)">Картка</button>
           <button id="add-note" type="button" data-icon="sticky_note_2" title="Створити нотатку в центрі карти">Нотатка</button>
+          <button id="add-music" type="button" data-icon="music_note" title="Додати трек із YouTube">Музика</button>
         </div>
         <div id="empty-state" class="empty-state" hidden>
           <span class="empty-icon" data-icon="crop_square"></span>
@@ -72,6 +74,23 @@
         <div id="entity-results" class="entity-results"></div>
         <small>↑↓ — вибір · Enter — додати · Esc — закрити</small>
       </form>
+    </dialog>
+    <dialog id="music-dialog" class="entity-picker music-dialog">
+      <div class="music-panel">
+        <div class="entity-picker-heading">
+          <strong>Трек із YouTube</strong>
+          <button id="music-close" type="button" data-icon="close" aria-label="Закрити" title="Закрити"></button>
+        </div>
+        <label for="music-url">Лінк на ролік</label>
+        <input id="music-url" type="url" autocomplete="off" spellcheck="false" placeholder="https://www.youtube.com/watch?v=…" />
+        <label for="music-title">Назва треку</label>
+        <input id="music-title" type="text" autocomplete="off" placeholder="Підтягнеться з ютуба" />
+        <small id="music-hint" class="music-hint"></small>
+        <div class="music-actions">
+          <button id="music-cancel" type="button" class="quiet">Скасувати</button>
+          <button id="music-add" type="button">Додати</button>
+        </div>
+      </div>
     </dialog>
     <dialog id="entity-details" class="entity-details">
       <div class="entity-details-panel">

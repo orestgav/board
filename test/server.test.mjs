@@ -61,6 +61,13 @@ test("layout validation accepts note references and rejects unsafe ones", () => 
   assert.throws(() => validateLayout({ formatVersion: 1, children: [{ ...note, note: "../secret#n1" }] }), /Некоректне посилання/);
 });
 
+test("layout validation keeps music cards pointing at a real YouTube video", () => {
+  const music = { id: "track-1", type: "music", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", title: "Тема таверни", x: 10, y: 20, width: 320, height: 46, children: [] };
+  assert.equal(validateLayout({ formatVersion: 1, children: [music] }).children[0].url, music.url);
+  assert.throws(() => validateLayout({ formatVersion: 1, children: [{ ...music, url: "https://evil.example/track" }] }), /ролік YouTube/);
+  assert.throws(() => validateLayout({ formatVersion: 1, children: [{ ...music, title: 7 }] }), /має бути рядком/);
+});
+
 test("entity API indexes configured markdown through the campaign parser", async (context) => {
   const base = await mkdtemp(join(tmpdir(), "crown-board-entities-"));
   await mkdir(join(base, "tools"), { recursive: true });

@@ -15,6 +15,7 @@ import {
   splitNoteReference,
   updateNoteBlock,
 } from "../public/notes.js";
+import { canonicalYouTubeUrl } from "../public/music.js";
 
 export const LAYOUT_VERSION = 1;
 const STATIC_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../public");
@@ -66,7 +67,7 @@ export function validateLayout(layout) {
     if (typeof node.id !== "string" || !node.id) throw new Error("Кожен вузол мусить мати id");
     if (ids.has(node.id)) throw new Error(`Повторний id вузла: ${node.id}`);
     ids.add(node.id);
-    if (!["frame", "image", "entity", "note"].includes(node.type)) throw new Error(`Непідтримуваний тип вузла: ${node.type}`);
+    if (!["frame", "image", "entity", "note", "music"].includes(node.type)) throw new Error(`Непідтримуваний тип вузла: ${node.type}`);
     for (const field of ["x", "y", "width", "height"]) {
       if (!Number.isFinite(node[field])) throw new Error(`${node.id}.${field} має бути числом`);
     }
@@ -85,6 +86,10 @@ export function validateLayout(layout) {
     // Мінус — нормальне значення: так видно, наскільки істоту перебили.
     if (node.hp !== undefined && !Number.isFinite(node.hp)) {
       throw new Error(`${node.id}.hp має бути числом`);
+    }
+    if (node.type === "music") {
+      if (!canonicalYouTubeUrl(node.url)) throw new Error(`${node.id}.url має бути лінком на ролік YouTube`);
+      if (node.title !== undefined && typeof node.title !== "string") throw new Error(`${node.id}.title має бути рядком`);
     }
     if (node.type === "note") splitNoteReference(node.note);
     if (!Array.isArray(node.children)) throw new Error(`${node.id}.children має бути масивом`);

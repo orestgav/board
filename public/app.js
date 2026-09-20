@@ -20,6 +20,7 @@ import { iconElement } from "./icons.js";
 import { renderMarkdown } from "./markdown.js";
 import { maxHitPoints, statblockMarkup } from "./statblock.js";
 import { mapSlugFromPath } from "./notes.js";
+import { canonicalYouTubeUrl, musicTitle, oEmbedUrl, playbackUrl } from "./music.js";
 import { centeredViewOnRect, frameHeaderHeight, maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, rebasedView, rectsOverlap, worldViewportRect, zoomedViewAt } from "./view.js";
 
 const MIN_NODE_SIZE = Number.EPSILON;
@@ -31,6 +32,9 @@ const ENTITY_CARD = { width: 320, height: 190 };
 const NPC_CARD = { width: 400, height: 210 };
 const STATBLOCK_CARD = { width: 440, height: 640 };
 const FRAME_SIZE = { width: 360, height: 230 };
+// Картка музики — заввишки з саму шапку: назва треку й кнопка «плей».
+const MUSIC_CARD = { width: 320, height: 46 };
+const MUSIC_LOOKUP_DELAY = 350;
 const CONTAINER_GAP = 24;
 const CONTAINER_PADDING = 28;
 
@@ -93,6 +97,10 @@ const entityResults = document.querySelector("#entity-results");
 const pickerTitle = document.querySelector("#entity-picker-title");
 const entityDetails = document.querySelector("#entity-details");
 const entityDetailsContent = document.querySelector("#entity-details-content");
+const musicDialog = document.querySelector("#music-dialog");
+const musicUrlInput = document.querySelector("#music-url");
+const musicTitleInput = document.querySelector("#music-title");
+const musicHint = document.querySelector("#music-hint");
 
 let storage;
 let layout;
@@ -122,6 +130,11 @@ let pendingNoteInput = null;
 let pickerSelection = 0;
 let pickerType = null;
 let insertPoint = null;
+// Назву ютуб віддає асинхронно, тож рахуємо запити: у поле потрапляє лише
+// відповідь на останній лінк, а вручну вписана назва не затирається.
+let musicLookup = 0;
+let musicLookupTimer = null;
+let musicTitleEdited = false;
 let renderOrigin = { x: 0, y: 0 };
 let layersOpen = localStorage.getItem("crown-board.layers-open") === "true";
 const storedView = localStorage.getItem("crown-board.viewport");
@@ -160,6 +173,7 @@ function nodeLabel(node) {
   if (node.type === "image") return node.image.split("/").at(-1);
   if (node.type === "entity") return entitiesBySlug.get(node.entity)?.name ?? `[[${node.entity}]]`;
   if (node.type === "note") return notesByRef.get(node.note)?.text.split("\n").find((line) => line.trim())?.slice(0, 60) || "Нотатка";
+  if (node.type === "music") return musicTitle(node.title, node.url);
   return node.title || "Без назви";
 }
 
@@ -410,6 +424,11 @@ function renderNode(node, isRoot = false) {
       });
       element.append(content);
     }
+  } else if (node.type === "music") {
+    element.classList.add("music-node");
+    const header = nodeHeader(node, { icon: "music_note" });
+    header.append(playLink(node));
+    element.append(header);
   } else if (node.type === "image") {
     element.classList.add("image-node");
     const image = document.createElement("img");
@@ -456,6 +475,24 @@ function nodeHeader(node, { icon, entity = null, badge = "" } = {}) {
   header.addEventListener("pointerdown", onNodePointerDown);
   if (entity) header.append(detailsButton(node, entity));
   return header;
+}
+
+// Ютуб памʼятає, де ролик спинили минулого разу, тож «плей» веде на лінк із
+// явною нульовою позначкою часу — трек на сесії починається спочатку.
+function playLink(node) {
+  const link = document.createElement("a");
+  link.className = "node-play";
+  link.href = playbackUrl(node.url) ?? node.url;
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  link.title = `Слухати з початку: ${nodeLabel(node)}`;
+  link.setAttribute("aria-label", link.title);
+  link.append(iconElement("play_arrow"));
+  // Клік лише не доходить до канви: вибір картки перемалював би шапку
+  // просто зараз і забрав би з-під курсора сам лінк, який має відкритися.
+  link.addEventListener("pointerdown", (event) => event.stopPropagation());
+  link.addEventListener("click", (event) => event.stopPropagation());
+  return link;
 }
 
 function detailsButton(node, entity) {
@@ -618,7 +655,7 @@ function layerIcon(node) {
   const kind = entityKind(nodeEntity(node));
   if (kind) return kind.icon;
   return node.type === "image" ? "image" : node.type === "entity" ? "description"
-    : node.type === "note" ? "sticky_note_2" : "crop_square";
+    : node.type === "note" ? "sticky_note_2" : node.type === "music" ? "music_note" : "crop_square";
 }
 
 // Список показує лише те, що зараз хоча б краєм видно на екрані.
@@ -1014,6 +1051,76 @@ function addEntity(entity) {
     selectedId = node.id;
   });
   entityPicker.close();
+}
+
+function setMusicHint(text) {
+  musicHint.textContent = text;
+}
+
+function openMusicDialog() {
+  if (!layout) return;
+  insertPoint ??= defaultInsertPoint();
+  clearTimeout(musicLookupTimer);
+  musicLookup += 1;
+  musicTitleEdited = false;
+  musicUrlInput.value = "";
+  musicTitleInput.value = "";
+  setMusicHint("Встав лінк на ролік — назву канва спитає в ютуба.");
+  musicDialog.showModal();
+  requestAnimationFrame(() => musicUrlInput.focus());
+}
+
+// Назву питаємо в ютуба (oEmbed) один раз — на додаванні. Далі вона лежить
+// у розкладці, тож картка малюється й без мережі.
+async function lookupMusicTitle(url) {
+  const request = ++musicLookup;
+  setMusicHint("Питаю назву в ютуба…");
+  try {
+    const response = await fetch(oEmbedUrl(url), { cache: "no-store" });
+    if (!response.ok) throw new Error(`ютуб відповів ${response.status}`);
+    const { title } = await response.json();
+    if (request !== musicLookup) return;
+    if (!musicTitleEdited) musicTitleInput.value = musicTitle(title, url);
+    setMusicHint("Назва з ютуба — її можна замінити своєю.");
+  } catch (error) {
+    if (request !== musicLookup) return;
+    setMusicHint(`Не вдалося взяти назву з ютуба (${error.message}). Впиши її вручну.`);
+  }
+}
+
+function onMusicUrlInput() {
+  clearTimeout(musicLookupTimer);
+  musicLookup += 1;
+  const url = canonicalYouTubeUrl(musicUrlInput.value);
+  if (!url) {
+    setMusicHint(musicUrlInput.value.trim() ? "Це не схоже на лінк ютуба." : "Встав лінк на ролік — назву канва спитає в ютуба.");
+    return;
+  }
+  musicLookupTimer = setTimeout(() => lookupMusicTitle(url), MUSIC_LOOKUP_DELAY);
+}
+
+function addMusic() {
+  const url = canonicalYouTubeUrl(musicUrlInput.value);
+  if (!url) {
+    setMusicHint("Потрібен лінк на ролік ютуба.");
+    musicUrlInput.focus();
+    return;
+  }
+  clearTimeout(musicLookupTimer);
+  musicLookup += 1;
+  const point = insertPoint ?? defaultInsertPoint();
+  const { parent, rect } = nearestPointParent(layout, point);
+  const node = {
+    id: crypto.randomUUID(), type: "music", url, title: musicTitle(musicTitleInput.value, url),
+    x: (point.x - rect.x) / rect.width * 100,
+    y: (point.y - rect.y) / rect.height * 100,
+    width: MUSIC_CARD.width, height: MUSIC_CARD.height, locked: false, children: [],
+  };
+  executeCommand("Додати музику", () => {
+    (parent ? parent.children : layout.children).push(node);
+    selectedId = node.id;
+  });
+  musicDialog.close();
 }
 
 function showEntityDetails(entity) {
@@ -1425,7 +1532,7 @@ viewport.addEventListener("drop", (event) => {
 });
 
 window.addEventListener("keydown", (event) => {
-  if (entityDetails.open) return;
+  if (entityDetails.open || musicDialog.open) return;
   const command = event.ctrlKey || event.metaKey;
   if (command && event.key.toLowerCase() === "k") {
     event.preventDefault();
@@ -1466,6 +1573,10 @@ document.querySelector("#empty-add").addEventListener("click", addFrame);
 document.querySelector("#add-note").addEventListener("click", () => {
   if (layout) createNoteAt(defaultInsertPoint());
 });
+document.querySelector("#add-music").addEventListener("click", () => {
+  insertPoint = defaultInsertPoint();
+  openMusicDialog();
+});
 document.querySelector("#fit-all").addEventListener("click", fitAll);
 addEntityButton.addEventListener("click", () => {
   insertPoint = defaultInsertPoint();
@@ -1503,6 +1614,22 @@ toast.addEventListener("click", () => { toast.hidden = true; });
 document.querySelector("#close-entity-details").addEventListener("click", () => entityDetails.close());
 entityDetails.addEventListener("click", (event) => {
   if (event.target === entityDetails) entityDetails.close();
+});
+musicUrlInput.addEventListener("input", onMusicUrlInput);
+musicTitleInput.addEventListener("input", () => { musicTitleEdited = true; });
+for (const input of [musicUrlInput, musicTitleInput]) {
+  input.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    addMusic();
+  });
+}
+document.querySelector("#music-add").addEventListener("click", addMusic);
+for (const id of ["#music-cancel", "#music-close"]) {
+  document.querySelector(id).addEventListener("click", () => musicDialog.close());
+}
+musicDialog.addEventListener("click", (event) => {
+  if (event.target === musicDialog) musicDialog.close();
 });
 entitySearch.addEventListener("input", () => { pickerSelection = 0; renderEntityResults(); });
 entitySearch.addEventListener("keydown", (event) => {
