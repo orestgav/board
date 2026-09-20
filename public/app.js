@@ -101,6 +101,7 @@ const entityResults = document.querySelector("#entity-results");
 const pickerTitle = document.querySelector("#entity-picker-title");
 const entityDetails = document.querySelector("#entity-details");
 const entityDetailsContent = document.querySelector("#entity-details-content");
+const nodeContextMenu = document.querySelector("#node-context-menu");
 const musicDialog = document.querySelector("#music-dialog");
 const musicUrlInput = document.querySelector("#music-url");
 const musicTitleInput = document.querySelector("#music-title");
@@ -136,6 +137,7 @@ let pendingNoteInput = null;
 let pickerSelection = 0;
 let pickerType = null;
 let insertPoint = null;
+let contextMenuNodeId = null;
 // Назву ютуб віддає асинхронно, тож рахуємо запити: у поле потрапляє лише
 // відповідь на останній лінк, а вручну вписана назва не затирається.
 let musicLookup = 0;
@@ -1225,6 +1227,71 @@ function showEntityDetails(entity) {
   entityDetailsContent.parentElement.scrollTop = 0;
 }
 
+function showImageDetails(node) {
+  entityDetailsContent.replaceChildren();
+  const image = document.createElement("img");
+  image.className = "entity-details-portrait";
+  image.alt = nodeLabel(node);
+  setDirectImageSource(image, node.image);
+  const title = document.createElement("h1");
+  title.textContent = nodeLabel(node).replace(/\.[^.]+$/, "");
+  const meta = document.createElement("div");
+  meta.className = "entity-details-meta";
+  meta.textContent = isMapNode(node) ? "Карта" : "Ілюстрація";
+  const path = document.createElement("div");
+  path.className = "entity-details-path";
+  path.textContent = node.image;
+  const facts = document.createElement("dl");
+  facts.className = "image-details-facts";
+  const addFact = (term, value) => {
+    const key = document.createElement("dt");
+    const description = document.createElement("dd");
+    key.textContent = term;
+    description.textContent = value;
+    facts.append(key, description);
+    return description;
+  };
+  const sourceSize = addFact("Роздільність", "Завантаження…");
+  addFact("Розмір на полотні", `${Math.round(node.width)} × ${Math.round(node.height)} px`);
+  addFact("Стан", node.locked ? "Заблоковано" : "Розблоковано");
+  image.addEventListener("load", () => { sourceSize.textContent = `${image.naturalWidth} × ${image.naturalHeight} px`; }, { once: true });
+  image.addEventListener("error", () => { sourceSize.textContent = "Не вдалося визначити"; }, { once: true });
+  entityDetailsContent.append(image, title, meta, path, facts);
+  if (!entityDetails.open) entityDetails.showModal();
+  entityDetailsContent.parentElement.scrollTop = 0;
+}
+
+function closeContextMenu() {
+  nodeContextMenu.hidden = true;
+  contextMenuNodeId = null;
+}
+
+function openContextMenu(node, clientX, clientY) {
+  contextMenuNodeId = node.id;
+  const lockButton = nodeContextMenu.querySelector('[data-context-action="lock"]');
+  lockButton.querySelector(".context-menu-icon").replaceChildren(iconElement(node.locked ? "lock_open" : "lock_filled"));
+  lockButton.querySelector(".context-menu-label").textContent = node.locked ? "Розблокувати" : "Заблокувати";
+  const detailsButton = nodeContextMenu.querySelector('[data-context-action="details"]');
+  detailsButton.disabled = node.type === "entity" && !nodeEntity(node);
+  const deleteButton = nodeContextMenu.querySelector('[data-context-action="delete"]');
+  deleteButton.disabled = node.locked;
+  deleteButton.title = node.locked ? "Спочатку розблокуйте елемент" : "";
+  nodeContextMenu.hidden = false;
+  nodeContextMenu.style.left = `${clientX}px`;
+  nodeContextMenu.style.top = `${clientY}px`;
+  const bounds = nodeContextMenu.getBoundingClientRect();
+  nodeContextMenu.style.left = `${clamp(clientX, 8, innerWidth - bounds.width - 8)}px`;
+  nodeContextMenu.style.top = `${clamp(clientY, 8, innerHeight - bounds.height - 8)}px`;
+}
+
+function showNodeDetails(node) {
+  if (node.type === "image") showImageDetails(node);
+  else {
+    const entity = nodeEntity(node);
+    if (entity) showEntityDetails(entity);
+  }
+}
+
 function onNodePointerDown(event) {
   if (event.button !== 0) return;
   event.stopPropagation();
@@ -1710,6 +1777,16 @@ viewport.addEventListener("pointerdown", (event) => {
     } else beginMarquee(event);
   }
 });
+viewport.addEventListener("contextmenu", (event) => {
+  if (!layout) return;
+  const node = deepestNodeAt(layout, screenToWorld(event.clientX, event.clientY), { includeLocked: true });
+  if (!node || (node.type !== "image" && node.type !== "entity")) return closeContextMenu();
+  event.preventDefault();
+  event.stopPropagation();
+  commitHitPoints();
+  select(node.id);
+  openContextMenu(node, event.clientX, event.clientY);
+});
 viewport.addEventListener("pointermove", onPointerMove);
 viewport.addEventListener("pointerup", endInteraction);
 viewport.addEventListener("pointercancel", endInteraction);
@@ -1743,6 +1820,12 @@ viewport.addEventListener("drop", (event) => {
 });
 
 window.addEventListener("keydown", (event) => {
+  if (!nodeContextMenu.hidden && event.key === "Escape") {
+    event.preventDefault();
+    closeContextMenu();
+    viewport.focus();
+    return;
+  }
   if (entityDetails.open || musicDialog.open) return;
   const command = event.ctrlKey || event.metaKey;
   if (command && event.key.toLowerCase() === "k") {
@@ -1825,6 +1908,28 @@ toast.addEventListener("click", () => { toast.hidden = true; });
 document.querySelector("#close-entity-details").addEventListener("click", () => entityDetails.close());
 entityDetails.addEventListener("click", (event) => {
   if (event.target === entityDetails) entityDetails.close();
+});
+nodeContextMenu.addEventListener("click", async (event) => {
+  const action = event.target.closest("[data-context-action]")?.dataset.contextAction;
+  if (!action || event.target.closest("button")?.disabled) return;
+  const node = findNode(layout, contextMenuNodeId);
+  closeContextMenu();
+  if (!node) return;
+  setSelection([node.id]);
+  if (action === "lock") toggleLock();
+  else if (action === "delete") await deleteSelected();
+  else if (action === "details") showNodeDetails(node);
+});
+nodeContextMenu.addEventListener("keydown", (event) => {
+  if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+  event.preventDefault();
+  const buttons = [...nodeContextMenu.querySelectorAll("button:not(:disabled)")];
+  const index = buttons.indexOf(document.activeElement);
+  const direction = event.key === "ArrowDown" ? 1 : -1;
+  buttons[(index + direction + buttons.length) % buttons.length]?.focus();
+});
+document.addEventListener("pointerdown", (event) => {
+  if (!nodeContextMenu.hidden && !nodeContextMenu.contains(event.target)) closeContextMenu();
 });
 musicUrlInput.addEventListener("input", onMusicUrlInput);
 musicTitleInput.addEventListener("input", () => { musicTitleEdited = true; });

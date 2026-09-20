@@ -284,6 +284,19 @@ svg.icon { width: 20px; height: 20px; }
 .entity-details-markdown table { width: 100%; margin: 0 0 14px; border-collapse: collapse; font-size: 13px; }
 .entity-details-markdown th, .entity-details-markdown td { padding: 7px 9px; border: 1px solid #3a352f; text-align: left; vertical-align: top; }
 .entity-details-markdown th { background: #2a2620; color: #e6dbc9; font-weight: 600; }
+.image-details-facts { display: grid; grid-template-columns: minmax(120px, auto) 1fr; gap: 9px 18px; margin: 24px 0 0; font-size: 13px; }
+.image-details-facts dt { color: var(--muted); }
+.image-details-facts dd { margin: 0; color: #e7dfd4; }
+
+.context-menu { position: fixed; z-index: 50; min-width: 228px; padding: 6px; border: 1px solid #5d5449; border-radius: 9px; background: #24211e; color: var(--text); box-shadow: 0 16px 44px rgba(0,0,0,.55); }
+.context-menu[hidden] { display: none; }
+.context-menu button { display: grid; grid-template-columns: 20px 1fr; align-items: center; gap: 9px; width: 100%; min-height: 36px; padding: 6px 9px; border: 0; border-radius: 6px; background: transparent; color: #ddd5ca; cursor: pointer; text-align: left; }
+.context-menu button:hover:not(:disabled), .context-menu button:focus-visible { outline: none; background: #35302a; color: #fff8eb; }
+.context-menu button:disabled { opacity: .42; cursor: default; }
+.context-menu button.danger { color: #e79184; }
+.context-menu button.danger:hover:not(:disabled), .context-menu button.danger:focus-visible { background: rgba(180,87,75,.17); color: #ffb3a5; }
+.context-menu svg.icon { width: 18px; height: 18px; }
+.context-menu hr { margin: 5px 4px; border: 0; border-top: 1px solid #3d3832; }
 
 @media (max-width: 760px) {
   .hud { top: 10px; }

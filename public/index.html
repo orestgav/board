@@ -99,6 +99,19 @@
         <div id="entity-details-content"></div>
       </div>
     </dialog>
+    <div id="node-context-menu" class="context-menu" role="menu" aria-label="Дії з елементом" hidden>
+      <button type="button" role="menuitem" data-context-action="lock">
+        <span class="context-menu-icon"></span>
+        <span class="context-menu-label">Заблокувати</span>
+      </button>
+      <button type="button" role="menuitem" data-context-action="details" data-icon="info">
+        <span>Додаткова інформація</span>
+      </button>
+      <hr />
+      <button type="button" role="menuitem" class="danger" data-context-action="delete" data-icon="delete">
+        <span>Видалити</span>
+      </button>
+    </div>
     <div id="drop-choice" class="drop-choice" hidden>
       <strong id="drop-choice-title">Що це за зображення?</strong>
       <span>Один вибір застосовується до всього дропу.</span>
