@@ -688,10 +688,10 @@ function layerIcon(node) {
     : node.type === "note" ? "sticky_note_2" : node.type === "music" ? "music_note" : "crop_square";
 }
 
-// Список показує лише те, що зараз хоча б краєм видно на екрані.
+// Список показує видимі вузли та найбільший вузол борду, навіть коли той поза екраном.
 function visibleLayerRows() {
   const screen = worldViewportRect(view, viewport.clientWidth, viewport.clientHeight);
-  return nodesInRect(layout, screen, rectsOverlap);
+  return nodesInRect(layout, screen, rectsOverlap, { includeLargest: true });
 }
 
 // Панорамування перемальовує панель на кожен крок, тож однаковий вміст

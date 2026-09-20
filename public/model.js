@@ -120,8 +120,9 @@ export function allAbsoluteRects(layout) {
 
 // Обхід із прямокутниками напохваті: дочірні відлічуються від батьківського
 // прямокутника, тому дерево проходиться один раз, без absoluteRect на вузол.
-export function nodesInRect(layout, rect, overlaps) {
-  const result = [];
+export function nodesInRect(layout, rect, overlaps, { includeLargest = false } = {}) {
+  const rows = [];
+  let largest = null;
   const collect = (children, area, depth) => {
     children.forEach((node) => {
       const nodeRect = {
@@ -130,12 +131,14 @@ export function nodesInRect(layout, rect, overlaps) {
         width: node.width,
         height: node.height,
       };
-      if (overlaps(nodeRect, rect)) result.push({ node, depth, rect: nodeRect });
+      const row = { node, depth, rect: nodeRect };
+      rows.push(row);
+      if (!largest || nodeRect.width * nodeRect.height > largest.rect.width * largest.rect.height) largest = row;
       collect(node.children, nodeRect, depth + 1);
     });
   };
   collect(layout.children, { x: 0, y: 0, width: WORLD_SIZE, height: WORLD_SIZE }, 0);
-  return result;
+  return rows.filter((row) => overlaps(row.rect, rect) || (includeLargest && row === largest));
 }
 
 export function nearestPointParent(layout, point) {

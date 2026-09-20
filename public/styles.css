@@ -70,7 +70,6 @@ svg.icon { width: 20px; height: 20px; }
 .node.selected { border-color: var(--selection); box-shadow: 0 0 0 1em var(--selection), 0 12em 28em rgba(0,0,0,.3); }
 .node-header { height: 38em; display: flex; border-radius: 9em 9em 0 0; align-items: center; gap: 9em; padding: 0 12em; border-bottom: 1em solid rgba(145,132,115,.25); cursor: grab; pointer-events: auto; }
 .node-header:active { cursor: grabbing; }
-.node.locked { border-style: dashed; }
 .node.locked > .node-header { pointer-events: none; }
 .node-lock-indicator { width: 13em; height: 13em; margin-left: auto; color: #9b7950; }
 .node-glyph { width: 15em; height: 15em; color: var(--gold); }

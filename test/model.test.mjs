@@ -130,3 +130,14 @@ test("a rect far from every node lists nothing", () => {
   const layout = { formatVersion: 1, children: [frame("only", 10, 10, 400, 300)] };
   assert.deepEqual(nodesInRect(layout, { x: 8000, y: 8000, width: 200, height: 200 }, overlaps), []);
 });
+
+test("the largest node can stay listed outside the visible rect", () => {
+  const overlaps = (first, second) => first.x < second.x + second.width && second.x < first.x + first.width
+    && first.y < second.y + second.height && second.y < first.y + first.height;
+  const layout = {
+    formatVersion: 1,
+    children: [frame("largest", 70, 70, 1200, 900), frame("visible", 1, 1, 200, 150), frame("hidden", 80, 10, 300, 200)],
+  };
+  const rows = nodesInRect(layout, { x: 0, y: 0, width: 500, height: 500 }, overlaps, { includeLargest: true });
+  assert.deepEqual(rows.map(({ node }) => node.id), ["largest", "visible"]);
+});
