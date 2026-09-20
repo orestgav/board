@@ -15,37 +15,38 @@
         </div>
         <div id="layer-tree" class="layer-tree"></div>
         <div id="layer-actions" class="layer-actions" hidden>
-          <button data-layer-action="back" title="У самий низ">⇤</button>
-          <button data-layer-action="backward" title="На крок униз">←</button>
-          <button data-layer-action="forward" title="На крок угору">→</button>
-          <button data-layer-action="front" title="У самий верх">⇥</button>
+          <button type="button" data-layer-action="back" data-icon="vertical_align_bottom" title="У самий низ" aria-label="У самий низ"></button>
+          <button type="button" data-layer-action="backward" data-icon="arrow_downward" title="На крок униз" aria-label="На крок униз"></button>
+          <button type="button" data-layer-action="forward" data-icon="arrow_upward" title="На крок угору" aria-label="На крок угору"></button>
+          <button type="button" data-layer-action="front" data-icon="vertical_align_top" title="У самий верх" aria-label="У самий верх"></button>
         </div>
       </aside>
       <section id="viewport" class="viewport" tabindex="0" aria-label="Полотно">
         <div id="grid" class="grid"></div>
         <div id="scene" class="scene"></div>
         <div class="hud hud-left">
-          <button id="toggle-layers" class="hud-button icon" type="button" aria-expanded="false" aria-label="Відкрити шари" title="Відкрити шари">☰</button>
-          <button id="change-campaign" class="hud-button campaign" type="button" title="Обрати іншу локальну папку"><span id="campaign-name">Завантаження…</span></button>
+          <button id="toggle-layers" class="hud-button icon" type="button" aria-expanded="false" aria-label="Відкрити шари" title="Відкрити шари"></button>
+          <button id="change-campaign" class="hud-button campaign" type="button" data-icon="folder_open" title="Обрати іншу локальну папку"><span id="campaign-name">Завантаження…</span></button>
         </div>
         <div class="hud hud-right" role="toolbar" aria-label="Інструменти канви">
           <div class="hud-row">
-            <button id="undo" class="hud-button icon" type="button" title="Скасувати (Ctrl+Z)" disabled>↶</button>
-            <button id="redo" class="hud-button icon" type="button" title="Повторити (Ctrl+Shift+Z)" disabled>↷</button>
-            <button id="zoom-out" class="hud-button icon" type="button" title="Віддалити">−</button>
-            <button id="zoom-in" class="hud-button icon" type="button" title="Наблизити">＋</button>
-            <button id="fit-all" class="hud-button icon" type="button" title="Вписати все">⤢</button>
+            <button id="undo" class="hud-button icon" type="button" data-icon="undo" title="Скасувати (Ctrl+Z)" aria-label="Скасувати" disabled></button>
+            <button id="redo" class="hud-button icon" type="button" data-icon="redo" title="Повторити (Ctrl+Shift+Z)" aria-label="Повторити" disabled></button>
+            <button id="zoom-out" class="hud-button icon" type="button" data-icon="zoom_out" title="Віддалити" aria-label="Віддалити"></button>
+            <button id="zoom-in" class="hud-button icon" type="button" data-icon="zoom_in" title="Наблизити" aria-label="Наблизити"></button>
+            <button id="fit-all" class="hud-button icon" type="button" data-icon="fit_screen" title="Вписати все" aria-label="Вписати все"></button>
           </div>
           <div id="save-status" class="hud-status" role="status">Завантаження…</div>
         </div>
         <div class="canvas-actions" role="toolbar" aria-label="Додати на полотно">
-          <button id="add-frame" type="button" title="Створити рамку (F)"><span>＋</span>Рамка</button>
-          <button id="add-location" type="button" title="Додати локацію з репозиторію"><span>⬡</span>Локація</button>
-          <button id="add-entity" type="button" title="Додати картку з репозиторію (Ctrl+K)"><span>◇</span>Картка</button>
-          <button id="add-note" type="button" title="Створити нотатку в центрі карти"><span>✦</span>Нотатка</button>
+          <button id="add-frame" type="button" data-icon="crop_square" title="Створити рамку (F)">Рамка</button>
+          <button id="add-location" type="button" data-icon="location_on" title="Додати локацію з репозиторію">Локація</button>
+          <button id="add-npc" type="button" data-icon="person" title="Додати NPC з репозиторію">NPC</button>
+          <button id="add-entity" type="button" data-icon="description" title="Додати картку з репозиторію (Ctrl+K)">Картка</button>
+          <button id="add-note" type="button" data-icon="sticky_note_2" title="Створити нотатку в центрі карти">Нотатка</button>
         </div>
         <div id="empty-state" class="empty-state" hidden>
-          <span class="empty-icon">◇</span>
+          <span class="empty-icon" data-icon="crop_square"></span>
           <h1>Порожнє полотно</h1>
           <p>Створи першу рамку — далі її можна вкладати, рухати й змінювати розмір.</p>
           <button id="empty-add">Створити рамку</button>
@@ -55,7 +56,7 @@
           <span class="connection-mark">C</span>
           <h1>Відкрий локальну кампанію</h1>
           <p>Канва отримає доступ лише до обраної папки. Файли не завантажуються на сайт.</p>
-          <button id="open-campaign">Обрати папку crown</button>
+          <button id="open-campaign" type="button" data-icon="folder_open">Обрати папку crown</button>
           <small id="connection-hint">Потрібен desktop Chrome або Edge.</small>
         </div>
       </section>
@@ -64,7 +65,7 @@
       <form method="dialog" class="entity-picker-panel">
         <div class="entity-picker-heading">
           <strong id="entity-picker-title">Картка з репозиторію</strong>
-          <button value="cancel" aria-label="Закрити">×</button>
+          <button value="cancel" data-icon="close" aria-label="Закрити" title="Закрити"></button>
         </div>
         <input id="entity-search" type="search" autocomplete="off" placeholder="Назва, slug або тип…" />
         <div id="entity-results" class="entity-results"></div>
@@ -73,7 +74,7 @@
     </dialog>
     <dialog id="entity-details" class="entity-details">
       <div class="entity-details-panel">
-        <button id="close-entity-details" class="entity-details-close" type="button" aria-label="Закрити">×</button>
+        <button id="close-entity-details" class="entity-details-close" type="button" data-icon="close" aria-label="Закрити" title="Закрити"></button>
         <div id="entity-details-content"></div>
       </div>
     </dialog>

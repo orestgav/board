@@ -15,6 +15,7 @@ import {
 } from "./model.js";
 import { createStorage } from "./storage.js";
 import { linkedEntities, matchesEntity } from "./entities.js";
+import { iconElement } from "./icons.js";
 import { renderMarkdown } from "./markdown.js";
 import { mapSlugFromPath } from "./notes.js";
 import { centeredViewOnRect, frameHeaderHeight, maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, rebasedView, zoomedViewAt } from "./view.js";
@@ -33,7 +34,7 @@ const CONTAINER_PADDING = 28;
 // поки малюється спільною карткою й додається кнопкою «Картка».
 const ENTITY_KINDS = {
   location: {
-    glyph: "⬡",
+    icon: "location_on",
     variant: "frame",
     members: "npc",
     command: "Додати локацію",
@@ -41,9 +42,12 @@ const ENTITY_KINDS = {
     searchPlaceholder: "Назва або slug локації…",
   },
   npc: {
-    glyph: "♟",
+    icon: "person",
     variant: "npc",
     size: NPC_CARD,
+    command: "Додати NPC",
+    pickerTitle: "NPC з репозиторію",
+    searchPlaceholder: "Назва або slug NPC…",
   },
 };
 
@@ -69,6 +73,7 @@ const openCampaignButton = document.querySelector("#open-campaign");
 const changeCampaignButton = document.querySelector("#change-campaign");
 const addEntityButton = document.querySelector("#add-entity");
 const addLocationButton = document.querySelector("#add-location");
+const addNpcButton = document.querySelector("#add-npc");
 const entityPicker = document.querySelector("#entity-picker");
 const entitySearch = document.querySelector("#entity-search");
 const entityResults = document.querySelector("#entity-results");
@@ -107,7 +112,7 @@ let view = loadView();
 function setLayersOpen(open, persist = true) {
   layersOpen = open;
   workspace.classList.toggle("layers-open", open);
-  toggleLayersButton.textContent = open ? "←" : "☰";
+  toggleLayersButton.replaceChildren(iconElement(open ? "chevron_left" : "layers"));
   toggleLayersButton.title = open ? "Закрити шари" : "Відкрити шари";
   toggleLayersButton.setAttribute("aria-label", toggleLayersButton.title);
   toggleLayersButton.setAttribute("aria-expanded", String(open));
@@ -341,13 +346,13 @@ function renderNode(node, isRoot = false) {
     } else if (kind?.variant === "frame") {
       // Локація — контейнер: лише шапка з назвою, без портрета й секції картки.
       element.classList.add("location-node");
-      element.append(nodeHeader(node, { glyph: kind.glyph, entity }));
+      element.append(nodeHeader(node, { icon: kind.icon, entity }));
     } else {
       // NPC не згортається на дальньому зумі: арт і текст видно завжди.
       const npc = kind?.variant === "npc";
       element.classList.add(npc ? "npc-node" : "entity-node");
       if (!npc) element.classList.toggle("entity-far", node.width * view.scale < 180);
-      element.append(nodeHeader(node, { glyph: kind?.glyph ?? "◇", entity, badge: npc ? "" : entity.type }));
+      element.append(nodeHeader(node, { icon: kind?.icon ?? "description", entity, badge: npc ? "" : entity.type }));
 
       const content = document.createElement("div");
       content.className = `entity-content${entity.portrait ? "" : " no-portrait"}`;
@@ -380,7 +385,7 @@ function renderNode(node, isRoot = false) {
     image.addEventListener("pointerdown", onNodePointerDown);
     element.append(image);
   } else {
-    element.append(nodeHeader(node, { glyph: "◇" }));
+    element.append(nodeHeader(node, { icon: "crop_square" }));
 
     const body = document.createElement("div");
     body.className = "node-body";
@@ -402,15 +407,16 @@ function renderNode(node, isRoot = false) {
   return element;
 }
 
-function nodeHeader(node, { glyph, entity = null, badge = "" } = {}) {
+function nodeHeader(node, { icon, entity = null, badge = "" } = {}) {
   const header = document.createElement("div");
   header.className = "node-header";
   header.dataset.id = node.id;
-  header.innerHTML = `<span class="node-glyph">${glyph}</span><span class="node-title"></span>`
-    + `${badge ? '<span class="entity-type"></span>' : ""}`
-    + `${node.locked ? '<span class="node-lock-indicator">●</span>' : ""}`;
+  header.innerHTML = '<span class="node-title"></span>'
+    + (badge ? '<span class="entity-type"></span>' : "");
   header.querySelector(".node-title").textContent = nodeLabel(node);
   if (badge) header.querySelector(".entity-type").textContent = badge;
+  header.prepend(iconElement(icon, "node-glyph"));
+  if (node.locked) header.append(iconElement("lock", "node-lock-indicator"));
   header.addEventListener("pointerdown", onNodePointerDown);
   if (entity) header.append(detailsButton(node, entity));
   return header;
@@ -420,7 +426,7 @@ function detailsButton(node, entity) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "node-details";
-  button.textContent = "i";
+  button.append(iconElement("info"));
   button.title = `Деталі: ${entity.name}`;
   button.setAttribute("aria-label", `Деталі: ${entity.name}`);
   button.addEventListener("pointerdown", (event) => event.stopPropagation());
@@ -432,10 +438,11 @@ function detailsButton(node, entity) {
   return button;
 }
 
-function layerGlyph(node) {
+function layerIcon(node) {
   const kind = entityKind(nodeEntity(node));
-  if (kind) return kind.glyph;
-  return node.type === "image" ? "▧" : node.type === "entity" ? "◈" : node.type === "note" ? "✦" : "◇";
+  if (kind) return kind.icon;
+  return node.type === "image" ? "image" : node.type === "entity" ? "description"
+    : node.type === "note" ? "sticky_note_2" : "crop_square";
 }
 
 function renderLayers() {
@@ -451,11 +458,13 @@ function renderLayers() {
       row.className = `layer-row${node.id === selectedId ? " selected" : ""}${node.locked ? " locked" : ""}`;
       row.style.setProperty("--depth", depth);
       row.dataset.id = node.id;
-      row.innerHTML = `<span class="layer-glyph">${layerGlyph(node)}</span><span class="layer-title"></span><button class="layer-lock" type="button"></button>`;
+      row.innerHTML = '<span class="layer-title"></span><button class="layer-lock" type="button"></button>';
+      row.prepend(iconElement(layerIcon(node), "layer-glyph"));
       row.querySelector(".layer-title").textContent = nodeLabel(node);
       const lock = row.querySelector(".layer-lock");
-      lock.textContent = node.locked ? "●" : "○";
+      lock.append(iconElement(node.locked ? "lock" : "lock_open"));
       lock.title = node.locked ? "Розблокувати" : "Заблокувати";
+      lock.setAttribute("aria-label", lock.title);
       lock.addEventListener("click", (event) => {
         event.stopPropagation();
         select(node.id);
@@ -1255,6 +1264,10 @@ addLocationButton.addEventListener("click", () => {
   insertPoint = defaultInsertPoint();
   openEntityPicker("location");
 });
+addNpcButton.addEventListener("click", () => {
+  insertPoint = defaultInsertPoint();
+  openEntityPicker("npc");
+});
 toggleLayersButton.addEventListener("click", () => setLayersOpen(!layersOpen));
 for (const overlay of [canvasActions, ...document.querySelectorAll(".hud")]) {
   overlay.addEventListener("pointerdown", (event) => event.stopPropagation());
@@ -1332,6 +1345,10 @@ async function connectCampaign(chooseNew = false) {
 
 openCampaignButton.addEventListener("click", () => connectCampaign(false));
 changeCampaignButton.addEventListener("click", () => connectCampaign(true));
+
+for (const element of document.querySelectorAll("[data-icon]")) {
+  element.prepend(iconElement(element.dataset.icon));
+}
 
 try {
   storage = await createStorage();

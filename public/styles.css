@@ -13,13 +13,15 @@
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; overflow: hidden; background: var(--bg); color: var(--text); }
 button { font: inherit; color: inherit; }
+svg { flex: 0 0 auto; display: block; fill: currentColor; }
+svg.icon { width: 20px; height: 20px; }
 
 .hud { position: absolute; z-index: 16; top: 14px; display: flex; gap: 8px; }
 .hud-left { left: 14px; align-items: center; transition: left .18s ease; }
 .workspace.layers-open .hud-left { left: 252px; }
 .hud-right { right: 14px; flex-direction: column; align-items: flex-end; }
 .hud-row { display: flex; align-items: center; gap: 8px; }
-.hud-button { display: inline-grid; place-items: center; height: 40px; padding: 0 13px; border: 1px solid #514a42; border-radius: 9px; background: #292622; color: #d8d0c6; box-shadow: 0 8px 22px rgba(0,0,0,.32); cursor: pointer; font-size: 13px; }
+.hud-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 40px; padding: 0 13px; border: 1px solid #514a42; border-radius: 9px; background: #292622; color: #d8d0c6; box-shadow: 0 8px 22px rgba(0,0,0,.32); cursor: pointer; font-size: 13px; }
 .hud-button.icon { width: 40px; padding: 0; font-size: 18px; }
 .hud-button:hover:not(:disabled) { border-color: #8b7550; background: #36312b; }
 .hud-button:active:not(:disabled) { transform: translateY(1px); }
@@ -41,21 +43,23 @@ button { font: inherit; color: inherit; }
 .layer-row { --depth: 0; display: grid; grid-template-columns: 18px 1fr 28px; align-items: center; min-height: 32px; padding: 0 3px 0 calc(5px + var(--depth) * 14px); border: 1px solid transparent; border-radius: 5px; color: #aaa298; cursor: pointer; }
 .layer-row:hover { background: #25221f; color: #ddd5ca; }
 .layer-row.selected { border-color: #40698b; background: #24323e; color: #e7eef4; }
-.layer-row .layer-glyph { color: var(--gold); font-size: 11px; }
+.layer-row .layer-glyph { width: 15px; height: 15px; color: var(--gold); }
 .layer-row .layer-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
-.layer-lock { width: 25px; height: 25px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: #716a62; cursor: pointer; }
+.layer-lock { display: grid; place-items: center; width: 25px; height: 25px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: #716a62; cursor: pointer; }
 .layer-lock:hover { background: #35312c; color: var(--gold-bright); }
+.layer-lock svg.icon { width: 15px; height: 15px; }
 .layer-actions { position: absolute; left: 0; right: 0; bottom: 0; height: 46px; display: flex; align-items: center; justify-content: center; gap: 4px; border-top: 1px solid #302d29; background: #1e1c1a; }
 .layer-actions[hidden] { display: none; }
-.layer-actions button { width: 34px; height: 29px; padding: 0; border: 1px solid #3d3934; border-radius: 5px; background: #292622; color: #aaa298; cursor: pointer; }
+.layer-actions button { display: grid; place-items: center; width: 34px; height: 29px; padding: 0; border: 1px solid #3d3934; border-radius: 5px; background: #292622; color: #aaa298; cursor: pointer; }
 .layer-actions button:hover { border-color: #695f52; color: var(--text); }
+.layer-actions svg.icon { width: 17px; height: 17px; }
 .viewport { position: relative; width: 100%; min-width: 0; height: 100%; overflow: hidden; outline: none; cursor: default; touch-action: none; }
 .viewport.panning { cursor: grabbing; }
 .grid { position: absolute; inset: 0; pointer-events: none; background-color: #151412; background-image: radial-gradient(circle, rgba(206, 190, 168, .22) 1px, transparent 1.2px); }
 .scene { position: absolute; left: 0; top: 0; width: 10000px; height: 10000px; transform-origin: 0 0; }
 .canvas-actions { position: absolute; z-index: 12; right: 14px; top: 50%; display: flex; flex-direction: column; gap: 9px; transform: translateY(-50%); }
 .canvas-actions button { display: grid; place-items: center; gap: 2px; width: 58px; min-height: 54px; padding: 6px 4px; border: 1px solid #514a42; border-radius: 10px; background: #292622; color: #cfc7bc; box-shadow: 0 8px 22px rgba(0,0,0,.32); cursor: pointer; font-size: 9px; }
-.canvas-actions button span { color: var(--gold-bright); font-size: 20px; line-height: 1; }
+.canvas-actions button svg.icon { width: 22px; height: 22px; color: var(--gold-bright); }
 .canvas-actions button:hover { border-color: #8b7550; background: #36312b; color: #fff8eb; }
 .canvas-actions button:active { transform: translateY(1px); }
 
@@ -66,8 +70,8 @@ button { font: inherit; color: inherit; }
 .node-header:active { cursor: grabbing; }
 .node.locked { border-style: dashed; }
 .node.locked > .node-header { pointer-events: none; }
-.node-lock-indicator { margin-left: auto; color: #9b7950; font-size: 11em; }
-.node-glyph { color: var(--gold); font-size: 13em; }
+.node-lock-indicator { width: 13em; height: 13em; margin-left: auto; color: #9b7950; }
+.node-glyph { width: 15em; height: 15em; color: var(--gold); }
 .node-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: Georgia, serif; font-size: 14em; }
 .node-body { padding: 1.5em; color: #817a71; font-size: 12em; }
 .entity-node { background: rgba(34, 31, 28, .94); }
@@ -83,8 +87,9 @@ button { font: inherit; color: inherit; }
 .entity-missing { padding: 1.333333em; color: #e08b7d; font-size: 12em; pointer-events: auto; }
 .node.locked > .entity-content, .node.locked > .entity-missing { pointer-events: none; }
 /* Розміри кнопки — в частках її власного кегля (12em вузла), як у .entity-summary. */
-.node-details { flex: 0 0 auto; display: grid; place-items: center; width: 1.833333em; height: 1.833333em; padding: 0; border: .083333em solid rgba(172, 156, 130, .38); border-radius: 50%; background: rgba(0, 0, 0, .18); color: #cfc5b6; font: italic 700 12em/1 Georgia, serif; cursor: pointer; pointer-events: auto; }
-.node-details:hover { border-color: var(--gold); background: rgba(210, 168, 92, .14); color: var(--gold-bright); }
+.node-details { flex: 0 0 auto; display: grid; place-items: center; width: 1.666667em; height: 1.666667em; padding: 0; border: 0; border-radius: 50%; background: transparent; color: #b3aa9c; font-size: 12em; cursor: pointer; pointer-events: auto; }
+.node-details svg.icon { width: 1.333333em; height: 1.333333em; }
+.node-details:hover { background: rgba(210, 168, 92, .16); color: var(--gold-bright); }
 .npc-node { border-color: #506d54; background: rgba(26, 35, 29, .95); }
 .npc-node > .node-header { border-bottom-color: rgba(122, 162, 128, .24); background: rgba(62, 98, 68, .3); }
 .npc-node .node-glyph { color: #9ed3a6; }
@@ -114,7 +119,8 @@ button { font: inherit; color: inherit; }
 
 .empty-state { position: absolute; left: 50%; top: 45%; width: min(420px, 80vw); transform: translate(-50%, -50%); text-align: center; color: var(--muted); }
 .empty-state[hidden] { display: none; }
-.empty-icon { display: block; color: #665b4c; font-size: 52px; }
+.empty-icon { display: block; color: #665b4c; }
+.empty-icon svg.icon { width: 46px; height: 46px; margin: 0 auto; }
 .empty-state h1 { margin: 8px 0; color: #d8d0c6; font: 24px Georgia, serif; }
 .empty-state p { margin: 0 auto 18px; line-height: 1.55; }
 .empty-state button { min-height: 34px; padding: 0 12px; border: 1px solid #745f39; border-radius: 7px; background: #292622; color: var(--gold-bright); cursor: pointer; }
@@ -136,15 +142,16 @@ button { font: inherit; color: inherit; }
 .connection-mark { width: 64px; height: 64px; display: grid; place-items: center; margin-bottom: 14px; border: 1px solid #78613a; border-radius: 50%; color: var(--gold-bright); font: 34px Georgia, serif; }
 .connection-screen h1 { margin: 0 0 9px; font: 27px Georgia, serif; }
 .connection-screen p { max-width: 480px; margin: 0 0 20px; color: var(--muted); line-height: 1.55; }
-.connection-screen button { padding: 11px 17px; border: 1px solid #80683f; border-radius: 7px; background: #312a21; color: var(--gold-bright); cursor: pointer; }
+.connection-screen button { display: inline-flex; align-items: center; gap: 9px; padding: 11px 17px; border: 1px solid #80683f; border-radius: 7px; background: #312a21; color: var(--gold-bright); cursor: pointer; }
 .connection-screen button:hover { border-color: var(--gold-bright); }
 .connection-screen small { margin-top: 12px; color: #756e66; }
 .entity-picker { width: min(620px, calc(100vw - 32px)); max-height: min(680px, calc(100vh - 32px)); padding: 0; border: 1px solid #655943; border-radius: 12px; background: #201d1a; color: var(--text); box-shadow: 0 24px 80px rgba(0,0,0,.65); }
 .entity-picker::backdrop { background: rgba(8, 8, 7, .7); backdrop-filter: blur(3px); }
 .entity-picker-panel { display: grid; grid-template-rows: auto auto minmax(100px, 1fr) auto; max-height: min(680px, calc(100vh - 32px)); padding: 15px; }
 .entity-picker-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; font: 17px Georgia, serif; }
-.entity-picker-heading button, .entity-details-close { width: 32px; height: 32px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); cursor: pointer; font-size: 22px; }
+.entity-picker-heading button, .entity-details-close { display: grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); cursor: pointer; font-size: 22px; }
 .entity-picker-heading button:hover, .entity-details-close:hover { background: #35302a; color: var(--text); }
+.entity-picker-heading svg.icon, .entity-details-close svg.icon { width: 18px; height: 18px; }
 #entity-search { width: 100%; height: 42px; padding: 0 12px; border: 1px solid #514a42; border-radius: 7px; outline: none; background: #151412; color: var(--text); font: inherit; }
 #entity-search:focus { border-color: var(--gold); }
 .entity-results { min-height: 120px; margin: 10px 0; overflow: auto; }
