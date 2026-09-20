@@ -71,10 +71,12 @@
         <small>↑↓ — вибір · Enter — додати · Esc — закрити</small>
       </form>
     </dialog>
-    <aside id="entity-details" class="entity-details" hidden>
-      <button id="close-entity-details" class="entity-details-close" aria-label="Закрити">×</button>
-      <div id="entity-details-content"></div>
-    </aside>
+    <dialog id="entity-details" class="entity-details">
+      <div class="entity-details-panel">
+        <button id="close-entity-details" class="entity-details-close" type="button" aria-label="Закрити">×</button>
+        <div id="entity-details-content"></div>
+      </div>
+    </dialog>
     <div id="drop-choice" class="drop-choice" hidden>
       <strong id="drop-choice-title">Що це за зображення?</strong>
       <span>Один вибір застосовується до всього дропу.</span>

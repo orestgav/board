@@ -15,6 +15,7 @@ import {
 } from "./model.js";
 import { createStorage } from "./storage.js";
 import { linkedEntities, matchesEntity } from "./entities.js";
+import { renderMarkdown } from "./markdown.js";
 import { mapSlugFromPath } from "./notes.js";
 import { centeredViewOnRect, frameHeaderHeight, maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, rebasedView, zoomedViewAt } from "./view.js";
 
@@ -23,6 +24,7 @@ const MIN_LARGEST_NODE_PIXELS = 32;
 const MAX_ZOOM_VIEWPORT_PADDING = 32;
 const SAVE_DELAY = 450;
 const ENTITY_CARD = { width: 320, height: 190 };
+const NPC_CARD = { width: 400, height: 210 };
 const FRAME_SIZE = { width: 360, height: 230 };
 const CONTAINER_GAP = 24;
 const CONTAINER_PADDING = 28;
@@ -37,6 +39,11 @@ const ENTITY_KINDS = {
     command: "Додати локацію",
     pickerTitle: "Локація з репозиторію",
     searchPlaceholder: "Назва або slug локації…",
+  },
+  npc: {
+    glyph: "♟",
+    variant: "npc",
+    size: NPC_CARD,
   },
 };
 
@@ -130,6 +137,10 @@ function nodeLabel(node) {
   if (node.type === "entity") return entitiesBySlug.get(node.entity)?.name ?? `[[${node.entity}]]`;
   if (node.type === "note") return notesByRef.get(node.note)?.text.split("\n").find((line) => line.trim())?.slice(0, 60) || "Нотатка";
   return node.title || "Без назви";
+}
+
+function summarySection() {
+  return boardConfig?.entities?.summarySection ?? "";
 }
 
 function nodeEntity(node) {
@@ -328,20 +339,15 @@ function renderNode(node, isRoot = false) {
       missing.addEventListener("click", () => select(node.id));
       element.append(missing);
     } else if (kind?.variant === "frame") {
-      // Локація — контейнер: лише шапка з назвою, без портрета й «На дошці».
+      // Локація — контейнер: лише шапка з назвою, без портрета й секції картки.
       element.classList.add("location-node");
-      element.append(frameHeader(node, kind.glyph));
+      element.append(nodeHeader(node, { glyph: kind.glyph, entity }));
     } else {
-      element.classList.add("entity-node");
-      element.classList.toggle("entity-far", node.width * view.scale < 180);
-      const header = document.createElement("div");
-      header.className = "node-header";
-      header.dataset.id = node.id;
-      header.innerHTML = '<span class="node-glyph">◇</span><span class="node-title"></span><span class="entity-type"></span>';
-      header.querySelector(".node-title").textContent = entity.name;
-      header.querySelector(".entity-type").textContent = entity.type;
-      header.addEventListener("pointerdown", onNodePointerDown);
-      element.append(header);
+      // NPC не згортається на дальньому зумі: арт і текст видно завжди.
+      const npc = kind?.variant === "npc";
+      element.classList.add(npc ? "npc-node" : "entity-node");
+      if (!npc) element.classList.toggle("entity-far", node.width * view.scale < 180);
+      element.append(nodeHeader(node, { glyph: kind?.glyph ?? "◇", entity, badge: npc ? "" : entity.type }));
 
       const content = document.createElement("div");
       content.className = `entity-content${entity.portrait ? "" : " no-portrait"}`;
@@ -355,12 +361,11 @@ function renderNode(node, isRoot = false) {
       }
       const summary = document.createElement("p");
       summary.className = "entity-summary";
-      summary.textContent = entity.summary ? plainSummary(entity.summary) : "Немає секції «На дошці»";
+      summary.textContent = entity.summary ? plainSummary(entity.summary) : `Немає секції «${summarySection()}»`;
       content.append(summary);
       content.addEventListener("click", (event) => {
         event.stopPropagation();
         select(node.id);
-        showEntityDetails(entity);
       });
       element.append(content);
     }
@@ -375,7 +380,7 @@ function renderNode(node, isRoot = false) {
     image.addEventListener("pointerdown", onNodePointerDown);
     element.append(image);
   } else {
-    element.append(frameHeader(node, "◇"));
+    element.append(nodeHeader(node, { glyph: "◇" }));
 
     const body = document.createElement("div");
     body.className = "node-body";
@@ -397,14 +402,34 @@ function renderNode(node, isRoot = false) {
   return element;
 }
 
-function frameHeader(node, glyph) {
+function nodeHeader(node, { glyph, entity = null, badge = "" } = {}) {
   const header = document.createElement("div");
   header.className = "node-header";
   header.dataset.id = node.id;
-  header.innerHTML = `<span class="node-glyph">${glyph}</span><span class="node-title"></span>${node.locked ? '<span class="node-lock-indicator">●</span>' : ""}`;
+  header.innerHTML = `<span class="node-glyph">${glyph}</span><span class="node-title"></span>`
+    + `${badge ? '<span class="entity-type"></span>' : ""}`
+    + `${node.locked ? '<span class="node-lock-indicator">●</span>' : ""}`;
   header.querySelector(".node-title").textContent = nodeLabel(node);
+  if (badge) header.querySelector(".entity-type").textContent = badge;
   header.addEventListener("pointerdown", onNodePointerDown);
+  if (entity) header.append(detailsButton(node, entity));
   return header;
+}
+
+function detailsButton(node, entity) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "node-details";
+  button.textContent = "i";
+  button.title = `Деталі: ${entity.name}`;
+  button.setAttribute("aria-label", `Деталі: ${entity.name}`);
+  button.addEventListener("pointerdown", (event) => event.stopPropagation());
+  button.addEventListener("click", (event) => {
+    event.stopPropagation();
+    select(node.id);
+    showEntityDetails(entity);
+  });
+  return button;
 }
 
 function layerGlyph(node) {
@@ -734,7 +759,7 @@ function renderEntityResults() {
   entityResults.querySelector(".active")?.scrollIntoView({ block: "nearest" });
 }
 
-function entityNode(entity, left, top, rect, size = ENTITY_CARD) {
+function entityNode(entity, left, top, rect, size = entityKind(entity)?.size ?? ENTITY_CARD) {
   return {
     id: crypto.randomUUID(), type: "entity", entity: entity.slug,
     x: (left - rect.x) / rect.width * 100,
@@ -748,7 +773,7 @@ function entityNode(entity, left, top, rect, size = ENTITY_CARD) {
 function containerNode(entity, kind, point, rect) {
   const members = linkedEntities(entities, entity.slug, kind.members);
   const grid = containerGrid(members.length, {
-    cell: ENTITY_CARD,
+    cell: ENTITY_KINDS[kind.members]?.size ?? ENTITY_CARD,
     gap: CONTAINER_GAP,
     padding: CONTAINER_PADDING,
     minimum: FRAME_SIZE,
@@ -789,11 +814,12 @@ function showEntityDetails(entity) {
   const path = document.createElement("div");
   path.className = "entity-details-path";
   path.textContent = entity.path;
-  const body = document.createElement("pre");
+  const body = document.createElement("div");
   body.className = "entity-details-markdown";
-  body.textContent = entity.body;
+  body.innerHTML = renderMarkdown(entity.body);
   entityDetailsContent.append(title, meta, path, body);
-  entityDetails.hidden = false;
+  if (!entityDetails.open) entityDetails.showModal();
+  entityDetailsContent.parentElement.scrollTop = 0;
 }
 
 function onNodePointerDown(event) {
@@ -1179,6 +1205,7 @@ viewport.addEventListener("drop", (event) => {
 });
 
 window.addEventListener("keydown", (event) => {
+  if (entityDetails.open) return;
   const command = event.ctrlKey || event.metaKey;
   if (command && event.key.toLowerCase() === "k") {
     event.preventDefault();
@@ -1245,7 +1272,10 @@ dropChoice.addEventListener("click", (event) => {
 document.querySelector("#zoom-in").addEventListener("click", () => zoomAt(viewport.getBoundingClientRect().left + viewport.clientWidth / 2, viewport.getBoundingClientRect().top + viewport.clientHeight / 2, 1.2));
 document.querySelector("#zoom-out").addEventListener("click", () => zoomAt(viewport.getBoundingClientRect().left + viewport.clientWidth / 2, viewport.getBoundingClientRect().top + viewport.clientHeight / 2, 1 / 1.2));
 toast.addEventListener("click", () => { toast.hidden = true; });
-document.querySelector("#close-entity-details").addEventListener("click", () => { entityDetails.hidden = true; });
+document.querySelector("#close-entity-details").addEventListener("click", () => entityDetails.close());
+entityDetails.addEventListener("click", (event) => {
+  if (event.target === entityDetails) entityDetails.close();
+});
 entitySearch.addEventListener("input", () => { pickerSelection = 0; renderEntityResults(); });
 entitySearch.addEventListener("keydown", (event) => {
   const matches = filteredEntities();

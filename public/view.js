@@ -36,7 +36,8 @@ export const FRAME_HEADER_UNITS = 38;
 export function nodeVisualScale(node, variant = node.type) {
   const [baseWidth, baseHeight] = variant === "frame" ? [360, 230]
     : variant === "image" ? [480, 320]
-      : [320, 190];
+      : variant === "npc" ? [400, 210]
+        : [320, 190];
   return Math.min(node.width / baseWidth, node.height / baseHeight);
 }
 

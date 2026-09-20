@@ -68,12 +68,12 @@ button { font: inherit; color: inherit; }
 .node.locked > .node-header { pointer-events: none; }
 .node-lock-indicator { margin-left: auto; color: #9b7950; font-size: 11em; }
 .node-glyph { color: var(--gold); font-size: 13em; }
-.node-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: Georgia, serif; font-size: 14em; }
+.node-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: Georgia, serif; font-size: 14em; }
 .node-body { padding: 1.5em; color: #817a71; font-size: 12em; }
 .entity-node { overflow: hidden; background: rgba(34, 31, 28, .94); }
 .entity-node .node-header { background: rgba(78, 62, 39, .22); }
 .entity-type { margin-left: auto; color: #9c8c77; font-size: 9em; letter-spacing: .08em; text-transform: uppercase; }
-.entity-content { position: absolute; inset: 38em 0 0; display: grid; grid-template-columns: minmax(72em, 34%) 1fr; min-height: 0; cursor: pointer; pointer-events: auto; }
+.entity-content { position: absolute; inset: 38em 0 0; display: grid; grid-template-columns: minmax(72em, 34%) 1fr; min-height: 0; pointer-events: auto; }
 .entity-content.no-portrait { display: block; }
 .entity-portrait { width: 100%; height: 100%; min-height: 0; object-fit: cover; border-right: 1em solid rgba(145,132,115,.2); }
 .entity-summary { overflow: hidden; margin: 0; padding: 1.083333em; color: #c5bdb3; font-size: 12em; line-height: 1.45; white-space: pre-line; }
@@ -82,6 +82,15 @@ button { font: inherit; color: inherit; }
 .entity-node.entity-far .entity-portrait { border: 0; opacity: .78; }
 .entity-missing { padding: 1.333333em; color: #e08b7d; font-size: 12em; pointer-events: auto; }
 .node.locked > .entity-content, .node.locked > .entity-missing { pointer-events: none; }
+/* Розміри кнопки — в частках її власного кегля (12em вузла), як у .entity-summary. */
+.node-details { flex: 0 0 auto; display: grid; place-items: center; width: 1.833333em; height: 1.833333em; padding: 0; border: .083333em solid rgba(172, 156, 130, .38); border-radius: 50%; background: rgba(0, 0, 0, .18); color: #cfc5b6; font: italic 700 12em/1 Georgia, serif; cursor: pointer; pointer-events: auto; }
+.node-details:hover { border-color: var(--gold); background: rgba(210, 168, 92, .14); color: var(--gold-bright); }
+.npc-node { overflow: hidden; border-color: #506d54; background: rgba(26, 35, 29, .95); }
+.npc-node > .node-header { border-bottom-color: rgba(122, 162, 128, .24); background: rgba(62, 98, 68, .3); }
+.npc-node .node-glyph { color: #9ed3a6; }
+.npc-node .entity-content { grid-template-columns: 150em 1fr; }
+.npc-node .entity-portrait { border-right-color: rgba(122, 162, 128, .22); background: rgba(0, 0, 0, .32); object-fit: contain; }
+.npc-node .entity-summary { color: #ccd8cd; }
 .location-node { border-color: #7c6a4d; background: rgba(33, 30, 25, .72); }
 .location-node > .node-header { background: rgba(78, 62, 39, .28); }
 .note-node { border-color: #c9ad61; background: #f2e5ae; box-shadow: 0 12em 28em rgba(0,0,0,.24), inset 0 0 28em rgba(153, 112, 31, .08); }
@@ -147,15 +156,45 @@ button { font: inherit; color: inherit; }
 .entity-result small, .entity-picker-panel > small { color: var(--muted); font-size: 10px; }
 .entity-result > em { color: #9f907b; font-size: 9px; font-style: normal; text-transform: uppercase; }
 .entity-picker-empty { padding: 34px; color: var(--muted); text-align: center; }
-.entity-details { position: fixed; z-index: 35; top: 0; right: 0; bottom: 0; width: min(520px, calc(100vw - 32px)); overflow: auto; border-left: 1px solid #544b40; background: rgba(27, 25, 23, .98); box-shadow: -18px 0 50px rgba(0,0,0,.4); }
-.entity-details[hidden] { display: none; }
+.entity-details { width: min(760px, calc(100vw - 28px)); max-height: calc(100vh - 44px); padding: 0; overflow: hidden; border: 1px solid #655943; border-radius: 12px; background: #201d1a; color: var(--text); box-shadow: 0 24px 80px rgba(0,0,0,.65); }
+.entity-details::backdrop { background: rgba(8, 8, 7, .72); backdrop-filter: blur(3px); }
+.entity-details-panel { max-height: calc(100vh - 44px); overflow: auto; overscroll-behavior: contain; }
 .entity-details-close { position: sticky; z-index: 2; top: 10px; float: right; margin: 10px; background: #292622; }
-#entity-details-content { padding: 36px 34px 60px; }
-.entity-details-portrait { width: 100%; max-height: 320px; margin-bottom: 20px; border-radius: 9px; object-fit: cover; }
+#entity-details-content { padding: 30px 34px 46px; }
+.entity-details-portrait { width: 100%; max-height: 300px; margin-bottom: 20px; border-radius: 9px; background: rgba(0, 0, 0, .3); object-fit: contain; }
 #entity-details-content h1 { margin: 0 38px 5px 0; font: 29px Georgia, serif; }
 .entity-details-meta { color: var(--gold); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
 .entity-details-path { margin: 5px 0 22px; color: #777067; font-size: 10px; }
-.entity-details-markdown { margin: 0; color: #d3cbc1; font: 13px/1.6 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; word-break: break-word; }
+.entity-details-markdown { color: #d3cbc1; font-size: 14px; line-height: 1.62; word-break: break-word; }
+.entity-details-markdown > :first-child { margin-top: 0; }
+.entity-details-markdown h2, .entity-details-markdown h3, .entity-details-markdown h4, .entity-details-markdown h5, .entity-details-markdown h6 { margin: 26px 0 9px; color: #f0e6d8; font-family: Georgia, serif; font-weight: 400; }
+.entity-details-markdown h2 { font-size: 21px; }
+.entity-details-markdown h3 { font-size: 17px; }
+.entity-details-markdown h4, .entity-details-markdown h5, .entity-details-markdown h6 { font-size: 15px; }
+.entity-details-markdown p { margin: 0 0 12px; }
+.entity-details-markdown ul, .entity-details-markdown ol { margin: 0 0 12px; padding-left: 21px; }
+.entity-details-markdown li { margin-bottom: 5px; }
+.entity-details-markdown li > ul, .entity-details-markdown li > ol { margin: 5px 0 0; }
+.entity-details-markdown strong { color: #f3ead9; }
+.entity-details-markdown a { color: #8fc0ec; }
+.entity-details-markdown code { padding: 1px 5px; border-radius: 4px; background: #2c2823; font: 12px ui-monospace, SFMono-Regular, Consolas, monospace; }
+.entity-details-markdown hr { margin: 22px 0; border: 0; border-top: 1px solid #3a352f; }
+.entity-details-markdown blockquote { margin: 0 0 14px; padding: 2px 0 2px 14px; border-left: 2px solid #4b443b; color: #b7afa5; }
+.entity-details-markdown blockquote > :last-child, .md-callout > :last-child { margin-bottom: 0; }
+.md-link { color: var(--gold); text-decoration: underline dotted rgba(210, 168, 92, .45); text-underline-offset: 2px; }
+.md-callout { margin: 0 0 14px; padding: 11px 14px; border: 1px solid #423c34; border-left: 3px solid #857a6a; border-radius: 8px; background: rgba(255, 255, 255, .022); }
+.md-callout-title { margin: 0 0 6px; color: #cfc5b6; font-size: 11px; font-weight: 700; letter-spacing: .06em; line-height: 1.3; text-transform: uppercase; }
+.md-callout[data-callout="danger"] { border-left-color: #b4574b; background: rgba(180, 87, 75, .09); }
+.md-callout[data-callout="danger"] .md-callout-title { color: #e79184; }
+.md-callout[data-callout="warning"] { border-left-color: #b98c3f; background: rgba(185, 140, 63, .09); }
+.md-callout[data-callout="warning"] .md-callout-title { color: #e0b467; }
+.md-callout[data-callout="important"] { border-left-color: #8a6fb5; background: rgba(138, 111, 181, .09); }
+.md-callout[data-callout="important"] .md-callout-title { color: #b79ee0; }
+.md-callout[data-callout="note"], .md-callout[data-callout="info"] { border-left-color: #5c86a8; background: rgba(92, 134, 168, .09); }
+.md-callout[data-callout="note"] .md-callout-title, .md-callout[data-callout="info"] .md-callout-title { color: #93bada; }
+.entity-details-markdown table { width: 100%; margin: 0 0 14px; border-collapse: collapse; font-size: 13px; }
+.entity-details-markdown th, .entity-details-markdown td { padding: 7px 9px; border: 1px solid #3a352f; text-align: left; vertical-align: top; }
+.entity-details-markdown th { background: #2a2620; color: #e6dbc9; font-weight: 600; }
 
 @media (max-width: 760px) {
   .hud { top: 10px; }
