@@ -483,8 +483,10 @@ function playLink(node) {
   const link = document.createElement("a");
   link.className = "node-play";
   link.href = playbackUrl(node.url) ?? node.url;
+  // Голий target="_blank" — найпростіше прохання «нова вкладка»: у Chrome
+  // і Edge, яких дошка й так вимагає, він сам означає noopener, а явний rel
+  // деякі браузери читають як прохання відкрити цілим вікном.
   link.target = "_blank";
-  link.rel = "noopener noreferrer";
   link.title = `Слухати з початку: ${nodeLabel(node)}`;
   link.setAttribute("aria-label", link.title);
   link.append(iconElement("play_arrow"));
