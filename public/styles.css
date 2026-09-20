@@ -108,7 +108,7 @@ svg.icon { width: 20px; height: 20px; }
 /* field-sizing підганяє поле під саме число, щоб підкреслення не тяглося далі. */
 .hp-current { field-sizing: content; min-width: 1.1em; max-width: 4em; padding: 0; border: 0; border-bottom: .07em dashed rgba(236, 228, 218, .26); outline: none; background: transparent; color: #f0e7dd; font: 700 30em/1.1 Georgia, serif; font-variant-numeric: tabular-nums; text-align: right; }
 .hp-current:focus { border-bottom-color: #d98b7c; }
-.statblock-hp.down .hp-current { color: #e0705f; }
+.statblock-hp.hurt .hp-current { color: #e0705f; }
 .hp-max { color: #a2948a; font-size: 13em; font-variant-numeric: tabular-nums; }
 .hp-controls { display: flex; align-items: center; gap: 6em; margin-left: auto; }
 .hp-amount { width: 2.9em; height: 2.1em; padding: 0 .25em; border: .08em solid #4a4039; border-radius: .4em; outline: none; background: #191512; color: #ece4da; font: 13em/1 inherit; font-variant-numeric: tabular-nums; text-align: center; }

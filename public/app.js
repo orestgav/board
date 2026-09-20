@@ -473,8 +473,15 @@ function detailsButton(node, entity) {
 
 // Поточні HP живуть у розкладці (у кожної копії істоти свої), а не в картці
 // бестіарію: на полотні може стояти три однакові стражники з різним здоров'ям.
+// Вище максимуму HP не піднімаються, а вниз ідуть скільки завгодно: мінус
+// показує, наскільки удар перебив істоту.
 function currentHitPoints(node, maximum) {
-  return Number.isFinite(node.hp) ? clamp(node.hp, 0, maximum) : maximum;
+  return Number.isFinite(node.hp) ? Math.min(node.hp, maximum) : maximum;
+}
+
+// Червоним число стає, щойно в істоти лишилося менше за половину здоров'я.
+function hurt(value, maximum) {
+  return value < maximum / 2;
 }
 
 function hpAmount(nodeId) {
@@ -517,20 +524,21 @@ function hitPointTracker(node, entity, maximum) {
     event.stopPropagation();
     if (!event.deltaY || node.locked) return;
     const step = (event.shiftKey ? 10 : 1) * (event.deltaY < 0 ? 1 : -1);
-    node.hp = clamp(currentHitPoints(node, maximum) + step, 0, maximum);
+    node.hp = Math.min(currentHitPoints(node, maximum) + step, maximum);
     current.value = String(node.hp);
-    tracker.classList.toggle("down", node.hp === 0);
+    tracker.classList.toggle("hurt", hurt(node.hp, maximum));
     beginHitPointEdit(node);
   }, { passive: false });
   current.addEventListener("keydown", (event) => { if (event.key === "Enter") current.blur(); });
   current.addEventListener("change", () => {
     commitHitPoints();
-    const typed = /^\d+$/.test(current.value.trim()) ? Number(current.value.trim()) : NaN;
+    const raw = current.value.trim().replace("−", "-");
+    const typed = /^-?\d+$/.test(raw) ? Number(raw) : NaN;
     if (!Number.isFinite(typed)) {
       current.value = String(currentHitPoints(node, maximum));
       return;
     }
-    executeCommand("Змінити HP", () => { node.hp = clamp(typed, 0, maximum); });
+    executeCommand("Змінити HP", () => { node.hp = Math.min(typed, maximum); });
   });
   current.addEventListener("blur", commitHitPoints);
 
@@ -564,16 +572,16 @@ function hitPointTracker(node, entity, maximum) {
     const delta = sign * hpAmount(node.id);
     if (!delta) return;
     commitHitPoints();
-    executeCommand(label, () => { node.hp = clamp(currentHitPoints(node, maximum) + delta, 0, maximum); });
+    executeCommand(label, () => { node.hp = Math.min(currentHitPoints(node, maximum) + delta, maximum); });
   };
-  const heal = hitPointButton("heal", "+", `Вилікувати ${entity.name}`, () => applyAmount(1, "Вилікувати HP"));
   const damage = hitPointButton("damage", "−", `Завдати шкоди: ${entity.name}`, () => applyAmount(-1, "Зняти HP"));
+  const heal = hitPointButton("heal", "+", `Вилікувати ${entity.name}`, () => applyAmount(1, "Вилікувати HP"));
 
   const controls = document.createElement("div");
   controls.className = "hp-controls";
-  controls.append(amount, heal, damage);
+  controls.append(amount, damage, heal);
   tracker.append(current, total, controls);
-  tracker.classList.toggle("down", currentHitPoints(node, maximum) === 0);
+  tracker.classList.toggle("hurt", hurt(currentHitPoints(node, maximum), maximum));
   return tracker;
 }
 

@@ -51,8 +51,8 @@ test("layout validation keeps statblock hit points and rejects broken ones", () 
   const statblock = { id: "hrap-card", type: "entity", entity: "hrap", hp: 12, x: 10, y: 20, width: 440, height: 640, children: [] };
   assert.equal(validateLayout({ formatVersion: 1, children: [statblock] }).children[0].hp, 12);
   assert.equal(validateLayout({ formatVersion: 1, children: [{ ...statblock, hp: 0 }] }).children[0].hp, 0);
-  assert.throws(() => validateLayout({ formatVersion: 1, children: [{ ...statblock, hp: -1 }] }), /невід'ємним числом/);
-  assert.throws(() => validateLayout({ formatVersion: 1, children: [{ ...statblock, hp: "12" }] }), /невід'ємним числом/);
+  assert.equal(validateLayout({ formatVersion: 1, children: [{ ...statblock, hp: -7 }] }).children[0].hp, -7);
+  assert.throws(() => validateLayout({ formatVersion: 1, children: [{ ...statblock, hp: "12" }] }), /має бути числом/);
 });
 
 test("layout validation accepts note references and rejects unsafe ones", () => {
