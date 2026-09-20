@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { entityRecord, extractSection, finalizeEntities, linkedEntities, locationLinks, matchesEntity } from "../public/entities.js";
+import { entityRecord, extractSection, finalizeEntities, matchesEntity, sectionLinks, wikiLinks } from "../public/entities.js";
 
 test("board summary stops at the next heading of the same level", () => {
   const body = "# Картка\n\n## На дошці\n- Перша теза\n- Друга теза\n\n### Деталь\nТекст\n\n## Секрети\nНі";
@@ -27,31 +27,56 @@ test("entity index rejects duplicate slugs", () => {
   assert.throws(() => finalizeEntities([{ slug: "ester", name: "A" }, { slug: "ester", name: "B" }]), /Повторний slug/);
 });
 
-test("location links are read from plain references and from phrases", () => {
-  assert.deepEqual(locationLinks("[[arven]]"), ["arven"]);
-  assert.deepEqual(locationLinks("тракт [[lauris]] — [[arven]]"), ["lauris", "arven"]);
-  assert.deepEqual(locationLinks("[[arven|Арвен]]"), ["arven"]);
-  assert.deepEqual(locationLinks("не визначено"), []);
-  assert.deepEqual(locationLinks(undefined), []);
+test("посилання беруться і з чистого значення, і з фрази", () => {
+  assert.deepEqual(wikiLinks("[[arven]]"), ["arven"]);
+  assert.deepEqual(wikiLinks("тракт [[lauris]] — [[arven]]"), ["lauris", "arven"]);
+  assert.deepEqual(wikiLinks("[[arven|Арвен]]"), ["arven"]);
+  assert.deepEqual(wikiLinks("[[arven#Влада]]"), ["arven"]);
+  assert.deepEqual(wikiLinks("не визначено"), []);
+  assert.deepEqual(wikiLinks(undefined), []);
 });
 
-test("entity record keeps the locations it links to", () => {
+const ЗВЯЗКИ = [
+  "## Коротко",
+  "",
+  "- Місто в [[kingdom-garona]].",
+  "",
+  "## Звʼязки",
+  "",
+  "- Країна: [[kingdom-garona]]",
+  "- Фракції: [[rebels]], [[astur-empire]]",
+  "- NPC (ще): [[father-dominic]], [[fiia]]",
+  "- NPC: [[king-lionel-iv]], [[fiia]]",
+  "- Порожньо:",
+  "- Просто речення без мітки.",
+].join("\n");
+
+test("секція звʼязків читається мітками рядків", () => {
+  const links = sectionLinks(ЗВЯЗКИ, "## Зв'язки");
+  assert.deepEqual(links.npc, ["father-dominic", "fiia", "king-lionel-iv"]);
+  assert.deepEqual(links.країна, ["kingdom-garona"]);
+  assert.deepEqual(links.фракції, ["rebels", "astur-empire"]);
+  assert.equal(links.порожньо, undefined);
+  assert.equal(Object.keys(links).length, 3);
+});
+
+test("вид апострофа в заголовку не має значення", () => {
+  assert.deepEqual(sectionLinks(ЗВЯЗКИ, "## Зв'язки").npc.length, 3);
+  assert.deepEqual(sectionLinks(ЗВЯЗКИ.replace("Звʼязки", "Зв’язки")).npc.length, 3);
+  assert.deepEqual(sectionLinks(ЗВЯЗКИ, "## Локації"), {});
+});
+
+test("сусідня секція з тією ж назвою-префіксом не підхоплюється", () => {
+  const body = "## Звʼязки з Лантаро\n\n- NPC: [[bob]]\n\n## Звʼязки\n\n- NPC: [[keira]]";
+  assert.deepEqual(sectionLinks(body).npc, ["keira"]);
+});
+
+test("картка тримає звʼязки зі свого тіла", () => {
   const entity = entityRecord(
-    "npcs/arven/pekar.md",
-    { type: "npc", name: "Пекар", location: "[[arven]]" },
-    "",
+    "locations/kingdom-garona/dunmere.md",
+    { type: "location", name: "Данмер" },
+    ЗВЯЗКИ,
     { portraitField: "image", summarySection: "## На дошці" },
   );
-  assert.deepEqual(entity.locations, ["arven"]);
-});
-
-test("members of a location are the linked cards of the asked type", () => {
-  const cards = [
-    { slug: "pekar", type: "npc", locations: ["arven"] },
-    { slug: "barni", type: "npc", locations: ["arven"] },
-    { slug: "ester", type: "npc", locations: ["garona"] },
-    { slug: "zalizo", type: "location", locations: ["arven"] },
-  ];
-  assert.deepEqual(linkedEntities(cards, "arven", "npc").map((card) => card.slug), ["pekar", "barni"]);
-  assert.deepEqual(linkedEntities(cards, "lauris", "npc"), []);
+  assert.deepEqual(entity.links.npc, ["father-dominic", "fiia", "king-lionel-iv"]);
 });

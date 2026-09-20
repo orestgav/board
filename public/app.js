@@ -14,7 +14,7 @@ import {
   reorderNode,
 } from "./model.js";
 import { createStorage } from "./storage.js";
-import { linkedEntities, matchesEntity } from "./entities.js";
+import { matchesEntity } from "./entities.js";
 import { iconElement } from "./icons.js";
 import { renderMarkdown } from "./markdown.js";
 import { mapSlugFromPath } from "./notes.js";
@@ -36,7 +36,7 @@ const ENTITY_KINDS = {
   location: {
     icon: "location_on",
     variant: "frame",
-    members: "npc",
+    members: "npc", // мітка рядка в секції звʼязків локації
     command: "Додати локацію",
     pickerTitle: "Локація з репозиторію",
     searchPlaceholder: "Назва або slug локації…",
@@ -777,10 +777,14 @@ function entityNode(entity, left, top, rect, size = entityKind(entity)?.size ?? 
   };
 }
 
-// Локація лягає на полотно вже з картками, що вказали її у своєму полі
-// location: вони розкладаються сіткою під шапкою контейнера.
+// Список карток усередині бере сама локація — рядок «- NPC:» у її секції
+// звʼязків. Посилання на неіндексовані типи (наприклад players/) на полотно
+// не кладемо, але про них повідомляємо.
 function containerNode(entity, kind, point, rect) {
-  const members = linkedEntities(entities, entity.slug, kind.members);
+  const slugs = entity.links[kind.members] ?? [];
+  const members = slugs.map((slug) => entitiesBySlug.get(slug)).filter(Boolean);
+  const missing = slugs.filter((slug) => !entitiesBySlug.has(slug));
+  if (missing.length) showToast(`Немає в індексі карток: ${missing.join(", ")}`);
   const grid = containerGrid(members.length, {
     cell: ENTITY_KINDS[kind.members]?.size ?? ENTITY_CARD,
     gap: CONTAINER_GAP,
