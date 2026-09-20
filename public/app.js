@@ -484,9 +484,10 @@ function hurt(value, maximum) {
   return value < maximum / 2;
 }
 
+// Поле кількості порожнє (нуль) доти, доки ДМ не набрав шкоду чи лікування.
 function hpAmount(nodeId) {
   const value = hpAmountByNode.get(nodeId);
-  return Number.isFinite(value) ? value : 1;
+  return Number.isFinite(value) ? value : 0;
 }
 
 // Колесо міняє HP без окремої команди на кожен клац: історія отримує один
@@ -572,6 +573,9 @@ function hitPointTracker(node, entity, maximum) {
     const delta = sign * hpAmount(node.id);
     if (!delta) return;
     commitHitPoints();
+    // Число згоріло разом із ударом: наступний удар набирається з нуля.
+    hpAmountByNode.set(node.id, 0);
+    amount.value = "0";
     executeCommand(label, () => { node.hp = Math.min(currentHitPoints(node, maximum) + delta, maximum); });
   };
   const damage = hitPointButton("damage", "−", `Завдати шкоди: ${entity.name}`, () => applyAmount(-1, "Зняти HP"));
