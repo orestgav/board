@@ -5,12 +5,12 @@ import { join } from "node:path";
 import test from "node:test";
 import { emptyLayout, startServer, validateLayout } from "../src/server.mjs";
 
-async function fixture() {
+async function fixture(media = { dir: "_media", format: "webp" }) {
   const base = await mkdtemp(join(tmpdir(), "crown-board-"));
   await writeFile(join(base, "board.config.json"), JSON.stringify({
     boardConfigVersion: 1,
     layout: "board/canvas.json",
-    media: { dir: "_media", format: "webp" },
+    media,
   }));
   const running = await startServer({ base, port: 0 });
   return { base, ...running };
@@ -83,7 +83,7 @@ test("entity API indexes configured markdown through the campaign parser", async
     boardConfigVersion: 1,
     frontmatter: "tools/frontmatter.mjs",
     layout: "board/canvas.json",
-    media: { dir: "_media", format: "webp" },
+    media: { dir: "board/media", entityDir: "_media", cacheDir: "board/cache", format: "webp" },
     entities: { skipDirs: ["tools"], types: ["npc"], summarySection: "## На дошці", portraitField: "image" },
   }));
   const running = await startServer({ base, port: 0 });
@@ -168,8 +168,8 @@ test("server exposes the editor and its model module", async (context) => {
   assert.deepEqual(await (await fetch(`${running.url}/api/health`)).json(), { ok: true });
 });
 
-test("media upload chooses a global unique WebP name and serves its thumbnail", async (context) => {
-  const running = await fixture();
+test("media upload chooses a unique board WebP name and serves its configured thumbnail", async (context) => {
+  const running = await fixture({ dir: "board/media", entityDir: "_media", cacheDir: "board/cache", format: "webp" });
   context.after(() => running.server.close());
   const webp = Buffer.concat([Buffer.from("RIFF"), Buffer.alloc(4), Buffer.from("WEBPVP8 ")]);
   const upload = () => fetch(`${running.url}/api/media`, {
@@ -182,12 +182,14 @@ test("media upload chooses a global unique WebP name and serves its thumbnail", 
   const secondMedia = await (await upload()).json();
   assert.equal(first.status, 201);
   assert.equal(firstMedia.name, "Мапа.webp");
+  assert.equal(firstMedia.path, "board/media/maps/Мапа.webp");
   assert.equal(secondMedia.name, "Мапа-2.webp");
 
   const thumbnail = await fetch(`${running.url}/api/thumbnail`, {
     method: "POST", headers: { "content-type": "image/webp", "x-media-path": encodeURIComponent(firstMedia.path) }, body: webp,
   });
   assert.equal(thumbnail.status, 201);
+  assert.equal(Buffer.compare(await readFile(join(running.base, "board/cache/Мапа.webp")), webp), 0);
   const served = await fetch(`${running.url}/api/media?thumbnail=1&path=${encodeURIComponent(firstMedia.path)}`);
   assert.equal(served.status, 200);
   assert.equal(Buffer.compare(Buffer.from(await served.arrayBuffer()), webp), 0);

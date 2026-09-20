@@ -201,7 +201,7 @@ async function readEntities(campaignRoot, config) {
   const parserPath = safePath(campaignRoot, config.frontmatter);
   const parser = await import(`${pathToFileURL(parserPath).href}?board=${Date.now()}`);
   if (typeof parser.parseFrontmatter !== "function") throw new Error(`${config.frontmatter} не експортує parseFrontmatter`);
-  const mediaRoot = safePath(campaignRoot, config.media.dir);
+  const mediaRoot = safePath(campaignRoot, config.media.entityDir ?? config.media.dir);
   const mediaByName = await collectMediaPaths(mediaRoot, campaignRoot);
   const documents = await collectMarkdown(campaignRoot, new Set(config.entities.skipDirs));
   const types = new Set(config.entities.types);
@@ -330,13 +330,23 @@ function pathInside(root, target) {
   return relation !== ".." && !relation.startsWith(`..${sep}`) && !isAbsolute(relation);
 }
 
+function mediaRoots(campaignRoot, config) {
+  return [...new Set([config.media?.dir, config.media?.entityDir].filter(Boolean))]
+    .map((path) => safePath(campaignRoot, path));
+}
+
+function cacheRoot(campaignRoot, config) {
+  return safePath(campaignRoot, config.media?.cacheDir ?? ".cache/board");
+}
+
 async function serveMedia(config, campaignRoot, url, response) {
-  const mediaRoot = safePath(campaignRoot, config.media?.dir);
   const requested = url.searchParams.get("path");
   if (!requested) return errorResponse(response, 400, "Потрібен шлях до медіафайлу");
   const original = resolve(campaignRoot, requested);
-  if (!pathInside(mediaRoot, original)) return errorResponse(response, 403, "Медіафайл поза дозволеною текою");
-  const thumbnail = join(campaignRoot, ".cache", "board", basename(original));
+  if (!mediaRoots(campaignRoot, config).some((root) => pathInside(root, original))) {
+    return errorResponse(response, 403, "Медіафайл поза дозволеними теками");
+  }
+  const thumbnail = join(cacheRoot(campaignRoot, config), basename(original));
   let target = url.searchParams.get("thumbnail") === "1" ? thumbnail : original;
   try {
     await stat(target);
@@ -478,10 +488,10 @@ export async function startServer({ base, host = "127.0.0.1", port = 4173 }) {
         try { mediaPath = decodeURIComponent(encodedPath); } catch { mediaPath = ""; }
         const mediaRoot = safePath(campaignRoot, config.media?.dir);
         const original = resolve(campaignRoot, mediaPath || "");
-        if (!pathInside(mediaRoot, original)) return errorResponse(response, 403, "Медіафайл поза дозволеною текою");
+        if (!pathInside(mediaRoot, original)) return errorResponse(response, 403, "Медіафайл поза текою медіа дошки");
         const buffer = await readBuffer(request, 20_000_000);
         if (!isWebP(buffer)) return errorResponse(response, 415, "Мініатюра має бути WebP");
-        const target = join(campaignRoot, ".cache", "board", basename(original));
+        const target = join(cacheRoot(campaignRoot, config), basename(original));
         await atomicWrite(target, buffer);
         return json(response, 201, { ok: true });
       }

@@ -234,8 +234,9 @@ function createDirectoryStorage() {
     async loadEntities() {
       if (!root || !config) throw new Error("Спочатку відкрий папку кампанії");
       const parseFrontmatter = await importFrontmatter(root, config.frontmatter);
-      const mediaRoot = await directoryAt(root, pathParts(config.media.dir));
-      const mediaByName = await collectMedia(mediaRoot, config.media.dir);
+      const entityMediaDir = config.media.entityDir ?? config.media.dir;
+      const mediaRoot = await directoryAt(root, pathParts(entityMediaDir));
+      const mediaByName = await collectMedia(mediaRoot, entityMediaDir);
       const documents = await collectMarkdown(root, new Set(config.entities.skipDirs));
       const types = new Set(config.entities.types);
       return finalizeEntities(documents.flatMap(({ path, source }) => {
@@ -330,14 +331,16 @@ function createDirectoryStorage() {
       return { name, path };
     },
     async saveThumbnail(blob, mediaPath) {
-      await writeFile(root, `.cache/board/${mediaPath.split("/").at(-1)}`, blob);
+      const cacheDir = config.media.cacheDir ?? ".cache/board";
+      await writeFile(root, `${cacheDir}/${mediaPath.split("/").at(-1)}`, blob);
     },
     async mediaUrl(mediaPath, thumbnail = false) {
       const key = `${thumbnail ? "thumb:" : "full:"}${mediaPath}`;
       if (objectUrls.has(key)) return objectUrls.get(key);
       let handle;
       try {
-        handle = await fileAt(root, thumbnail ? `.cache/board/${mediaPath.split("/").at(-1)}` : mediaPath);
+        const cacheDir = config.media.cacheDir ?? ".cache/board";
+        handle = await fileAt(root, thumbnail ? `${cacheDir}/${mediaPath.split("/").at(-1)}` : mediaPath);
       } catch (error) {
         if (!thumbnail || error.name !== "NotFoundError") throw error;
         return this.mediaUrl(mediaPath, false);
