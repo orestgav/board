@@ -21,7 +21,7 @@ import { renderMarkdown } from "./markdown.js";
 import { maxHitPoints, statblockMarkup } from "./statblock.js";
 import { mapSlugFromPath } from "./notes.js";
 import { canonicalYouTubeUrl, musicTitle, oEmbedUrl, playbackUrl } from "./music.js";
-import { centeredViewOnRect, frameHeaderHeight, maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, rebasedView, rectsOverlap, worldViewportRect, zoomedViewAt } from "./view.js";
+import { centeredViewOnRect, locationHeaderHeight, maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, rebasedView, rectsOverlap, worldViewportRect, zoomedViewAt } from "./view.js";
 
 const MIN_NODE_SIZE = Number.EPSILON;
 const MIN_LARGEST_NODE_PIXELS = 32;
@@ -1035,7 +1035,7 @@ function containerNode(entity, kind, point, rect) {
     gap: CONTAINER_GAP,
     padding: CONTAINER_PADDING,
     minimum: FRAME_SIZE,
-    header: frameHeaderHeight,
+    header: locationHeaderHeight,
   });
   const node = entityNode(entity, point.x - grid.width / 2, point.y - grid.height / 2, rect, grid);
   const inside = { x: 0, y: 0, width: grid.width, height: grid.height };

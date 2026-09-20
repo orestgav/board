@@ -46,7 +46,9 @@ export function rebasedView(view, viewportWidth, viewportHeight) {
   };
 }
 
-export const FRAME_HEADER_UNITS = 38;
+// Шапка локації нижча за спільну шапку вузла (38): під нею лежать картки,
+// і висока смуга з назвою забирала б у них надто багато висоти.
+export const LOCATION_HEADER_UNITS = 26;
 
 // Вузол-локація малюється рамкою, тому масштаб береться за її варіантом,
 // а не за типом вузла в розкладці.
@@ -60,8 +62,8 @@ export function nodeVisualScale(node, variant = node.type) {
   return Math.min(node.width / baseWidth, node.height / baseHeight);
 }
 
-export function frameHeaderHeight(width, height) {
-  return FRAME_HEADER_UNITS * nodeVisualScale({ width, height }, "frame");
+export function locationHeaderHeight(width, height) {
+  return LOCATION_HEADER_UNITS * nodeVisualScale({ width, height }, "frame");
 }
 
 export function minimumScaleForNodes(rects, minimumVisiblePixels) {

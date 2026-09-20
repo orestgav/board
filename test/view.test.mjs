@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { centeredViewOnRect, frameHeaderHeight, maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, rebasedView, zoomedViewAt , rectsOverlap, worldViewportRect } from "../public/view.js";
+import { centeredViewOnRect, locationHeaderHeight, maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, rebasedView, zoomedViewAt , rectsOverlap, worldViewportRect } from "../public/view.js";
 
 test("zoom math accepts arbitrary finite scales", () => {
   assert.equal(zoomedViewAt({ x: 0, y: 0, scale: 1 }, 0, 0, 10).scale, 10);
@@ -65,7 +65,7 @@ test("a card drawn as a frame scales by the frame base size", () => {
   const node = { type: "entity", width: 720, height: 460 };
   assert.equal(nodeVisualScale(node), Math.min(720 / 320, 460 / 190));
   assert.equal(nodeVisualScale(node, "frame"), 2);
-  assert.equal(frameHeaderHeight(720, 460), 76);
+  assert.equal(locationHeaderHeight(720, 460), 52);
 });
 
 test("the visible world rect mirrors screen-to-world conversion", () => {
