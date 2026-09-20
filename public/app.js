@@ -10,7 +10,6 @@ import {
   findNode,
   nearestAncestor,
   nearestPointParent,
-  nodesInRect,
   outermostIds,
   reparentNode,
   reorderNode,
@@ -1246,7 +1245,7 @@ function beginMarquee(event) {
   if (!layout) return;
   interaction = {
     type: "marquee", pointerId: event.pointerId, startX: event.clientX, startY: event.clientY,
-    origin: screenToWorld(event.clientX, event.clientY), base,
+    base,
   };
   viewport.setPointerCapture(event.pointerId);
 }
@@ -1258,22 +1257,31 @@ function rectBetween(first, second) {
   };
 }
 
-function drawMarquee(clientX, clientY) {
+function drawMarquee(rect) {
   const bounds = viewport.getBoundingClientRect();
-  marquee.style.left = `${Math.min(interaction.startX, clientX) - bounds.left}px`;
-  marquee.style.top = `${Math.min(interaction.startY, clientY) - bounds.top}px`;
-  marquee.style.width = `${Math.abs(clientX - interaction.startX)}px`;
-  marquee.style.height = `${Math.abs(clientY - interaction.startY)}px`;
+  marquee.style.left = `${rect.x - bounds.left}px`;
+  marquee.style.top = `${rect.y - bounds.top}px`;
+  marquee.style.width = `${rect.width}px`;
+  marquee.style.height = `${rect.height}px`;
   marquee.hidden = false;
 }
 
 // Заблоковане в рамку не потрапляє: карта-підкладка лежить під усім, і без
 // цього правила кожна протяжка тягнула б за собою всю карту.
 function finishMarquee(finished) {
-  if (!finished.rect) return;
-  const caught = nodesInRect(layout, finished.rect, rectWithin)
-    .filter(({ node }) => !node.locked)
-    .map(({ node }) => node.id);
+  if (!finished.clientRect) return;
+  // Рамка й фактичні DOM-межі вузлів вимірюються в одних екранних
+  // координатах. Це важливо для глибоко вкладених вузлів і великого зуму:
+  // повторно обчислена геометрія моделі може не збігатися з намальованою.
+  const caught = [...scene.querySelectorAll(".node")].filter((element) => {
+    const node = findNode(layout, element.dataset.id);
+    if (!node || node.locked) return false;
+    const bounds = element.getBoundingClientRect();
+    return rectWithin(
+      { x: bounds.left, y: bounds.top, width: bounds.width, height: bounds.height },
+      finished.clientRect,
+    );
+  }).map((element) => element.dataset.id);
   setSelection(outermostIds(layout, [...finished.base, ...caught]));
   render();
 }
@@ -1291,9 +1299,12 @@ function onPointerMove(event) {
   }
   if (interaction.type === "marquee") {
     // Доки протяжка коротша за поріг, це ще клік: рамка не блимає на місці.
-    if (!interaction.rect && Math.abs(dx) < MARQUEE_THRESHOLD && Math.abs(dy) < MARQUEE_THRESHOLD) return;
-    interaction.rect = rectBetween(interaction.origin, insertPoint);
-    drawMarquee(event.clientX, event.clientY);
+    if (!interaction.clientRect && Math.abs(dx) < MARQUEE_THRESHOLD && Math.abs(dy) < MARQUEE_THRESHOLD) return;
+    interaction.clientRect = rectBetween(
+      { x: interaction.startX, y: interaction.startY },
+      { x: event.clientX, y: event.clientY },
+    );
+    drawMarquee(interaction.clientRect);
     return;
   }
   const worldDx = dx / view.scale;
@@ -1372,7 +1383,15 @@ async function endInteraction(event) {
   interaction = null;
   viewport.classList.remove("panning");
   marquee.hidden = true;
-  if (finished.type === "marquee") return finishMarquee(finished);
+  if (finished.type === "marquee") {
+    // pointerup може прийти після останнього pointermove, тому беремо точну
+    // кінцеву позицію відпускання, а не застарілий край намальованої рамки.
+    if (finished.clientRect) finished.clientRect = rectBetween(
+      { x: finished.startX, y: finished.startY },
+      { x: event.clientX, y: event.clientY },
+    );
+    return finishMarquee(finished);
+  }
   if (finished.type === "resize") return commitLiveCommand("Змінити розмір", finished.before, finished.beforeSelection);
   if (finished.type !== "move") return;
 
