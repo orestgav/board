@@ -158,6 +158,13 @@ export function nearestAncestor(layout, id, predicate) {
   return lineage(layout, id).find(predicate) ?? null;
 }
 
+// Контейнер тягне вміст за собою, тож із виділення прибираємо все, що лежить
+// усередині іншого виділеного вузла: інакше дитина зсунулася б двічі.
+export function outermostIds(layout, ids) {
+  const chosen = new Set(ids);
+  return [...chosen].filter((id) => !lineage(layout, id).slice(1).some((ancestor) => chosen.has(ancestor.id)));
+}
+
 // Сітка дочірніх карток усередині контейнера: спершу ширина за кількістю
 // колонок, далі висота із запасом на шапку. Шапка вужчає разом із висотою,
 // тому перший прохід бере найбільшу можливу (height = Infinity) — так вміст

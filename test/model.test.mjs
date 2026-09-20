@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { absoluteRect, containerGrid, deepestContainerAt, findEntry, nearestAncestor, nodesInRect, reparentNode, reorderNode } from "../public/model.js";
+import { absoluteRect, containerGrid, deepestContainerAt, findEntry, nearestAncestor, nodesInRect, outermostIds, reparentNode, reorderNode } from "../public/model.js";
+import { rectWithin } from "../public/view.js";
 
 const frame = (id, x, y, width = 400, height = 300, children = []) => ({ id, type: "frame", title: id, x, y, width, height, locked: false, children });
 
@@ -99,6 +100,28 @@ test("only nodes overlapping the rect are listed, with their depth", () => {
   const rows = nodesInRect(layout, { x: 900, y: 900, width: 300, height: 300 }, overlaps);
   assert.deepEqual(rows.map(({ node, depth }) => [node.id, depth]), [["near", 0], ["inside", 1]]);
   assert.deepEqual(rows[1].rect, absoluteRect(layout, "inside"));
+});
+
+test("a selection drops nodes that live inside another selected node", () => {
+  const layout = {
+    formatVersion: 1,
+    children: [frame("parent", 10, 10, 1000, 800, [frame("child", 10, 10, 200, 150)]), frame("other", 50, 50)],
+  };
+  assert.deepEqual(outermostIds(layout, ["child", "parent", "other"]), ["parent", "other"]);
+});
+
+test("a selection without nesting keeps the order it was collected in", () => {
+  const layout = { formatVersion: 1, children: [frame("a", 1, 1), frame("b", 2, 2)] };
+  assert.deepEqual(outermostIds(layout, ["b", "a", "b"]), ["b", "a"]);
+});
+
+test("the selection band takes whole nodes and leaves the container around them", () => {
+  const layout = {
+    formatVersion: 1,
+    children: [frame("map", 10, 10, 2000, 1600, [frame("card", 5, 5, 200, 150), frame("far", 90, 90, 200, 150)])],
+  };
+  const band = { x: 1050, y: 1050, width: 400, height: 300 };
+  assert.deepEqual(nodesInRect(layout, band, rectWithin).map(({ node }) => node.id), ["card"]);
 });
 
 test("a rect far from every node lists nothing", () => {

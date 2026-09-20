@@ -11,6 +11,7 @@ import {
   nearestAncestor,
   nearestPointParent,
   nodesInRect,
+  outermostIds,
   reparentNode,
   reorderNode,
 } from "./model.js";
@@ -21,7 +22,7 @@ import { renderMarkdown } from "./markdown.js";
 import { maxHitPoints, statblockMarkup } from "./statblock.js";
 import { mapSlugFromPath } from "./notes.js";
 import { canonicalYouTubeUrl, musicTitle, oEmbedUrl, playbackUrl } from "./music.js";
-import { centeredViewOnRect, locationHeaderHeight, maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, rebasedView, rectsOverlap, worldViewportRect, zoomedViewAt } from "./view.js";
+import { centeredViewOnRect, locationHeaderHeight, maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, rebasedView, rectWithin, rectsOverlap, worldViewportRect, zoomedViewAt } from "./view.js";
 
 const MIN_NODE_SIZE = Number.EPSILON;
 const MIN_ZOOM_VIEWPORT_COVERAGE = 0.7;
@@ -35,6 +36,8 @@ const FRAME_SIZE = { width: 360, height: 230 };
 // Картка музики — заввишки з саму шапку: назва треку й кнопка «плей».
 const MUSIC_CARD = { width: 320, height: 46 };
 const MUSIC_LOOKUP_DELAY = 350;
+// Коротша протяжка — це ще клік по порожньому полотну, а не рамка виділення.
+const MARQUEE_THRESHOLD = 3;
 const CONTAINER_GAP = 24;
 const CONTAINER_PADDING = 28;
 
@@ -70,6 +73,7 @@ const ENTITY_KINDS = {
 const viewport = document.querySelector("#viewport");
 const scene = document.querySelector("#scene");
 const grid = document.querySelector("#grid");
+const marquee = document.querySelector("#marquee");
 const workspace = document.querySelector(".workspace");
 const toggleLayersButton = document.querySelector("#toggle-layers");
 const canvasActions = document.querySelector(".canvas-actions");
@@ -105,7 +109,9 @@ const musicHint = document.querySelector("#music-hint");
 let storage;
 let layout;
 let revision;
-let selectedId = null;
+// Виділення — множина: рамкою беруться кілька вузлів одразу. Порядок
+// додавання зберігається, бо від нього залежить порядок z-операцій.
+let selectedIds = new Set();
 let saveTimer = null;
 let saving = false;
 let saveAgain = false;
@@ -169,6 +175,15 @@ function persistView() {
 
 function clamp(value, min, max) { return Math.min(max, Math.max(min, value)); }
 function layoutsEqual(first, second) { return JSON.stringify(first) === JSON.stringify(second); }
+function selectionIds() { return [...selectedIds]; }
+function isSelected(id) { return selectedIds.has(id); }
+function soleSelectedId() { return selectedIds.size === 1 ? selectedIds.values().next().value : null; }
+function setSelection(ids) { selectedIds = new Set(ids); }
+function selectedNodes() { return selectionIds().map((id) => findNode(layout, id)).filter(Boolean); }
+// Рухається, видаляється й переупорядковується лише зовнішній шар виділення:
+// вміст контейнера їде разом із ним, а окремо — поїхав би двічі.
+function selectedRoots() { return outermostIds(layout, selectionIds()).map((id) => findNode(layout, id)).filter(Boolean); }
+function plural(count, one, many) { return count > 1 ? many : one; }
 function nodeLabel(node) {
   if (node.type === "image") return node.image.split("/").at(-1);
   if (node.type === "entity") return entitiesBySlug.get(node.entity)?.name ?? `[[${node.entity}]]`;
@@ -270,8 +285,13 @@ function render() {
   if (constrainViewScale()) applyView();
 }
 
-function updateNodeGeometry(node) {
-  const element = [...scene.querySelectorAll(".node")].find((candidate) => candidate.dataset.id === node.id);
+function nodeElement(id) {
+  return [...scene.querySelectorAll(".node")].find((candidate) => candidate.dataset.id === id) ?? null;
+}
+
+// Елемент можна передати готовим: під час групового перетягування пошук по
+// сцені для кожного вузла на кожен кадр коштував би квадрата від їх кількості.
+function updateNodeGeometry(node, element = nodeElement(node.id)) {
   if (!element) return;
   updateNodePosition(element, node);
   element.style.width = `${node.width}px`;
@@ -298,7 +318,7 @@ function updateRootRenderPositions() {
 
 function renderNode(node, isRoot = false) {
   const element = document.createElement("article");
-  element.className = `node${node.id === selectedId ? " selected" : ""}${node.locked ? " locked" : ""}`;
+  element.className = `node${isSelected(node.id) ? " selected" : ""}${node.locked ? " locked" : ""}`;
   element.dataset.id = node.id;
   element.dataset.root = isRoot;
   updateNodePosition(element, node);
@@ -361,7 +381,8 @@ function renderNode(node, isRoot = false) {
       content.addEventListener("click", (event) => {
         event.stopPropagation();
         if (node.locked) return;
-        selectedId = node.id;
+        if (event.shiftKey) return toggleSelected(node.id);
+        setSelection([node.id]);
         editingNoteId = node.id;
         render();
       });
@@ -375,7 +396,7 @@ function renderNode(node, isRoot = false) {
       const missing = document.createElement("div");
       missing.className = "entity-missing";
       missing.textContent = `Не знайдено картку [[${node.entity}]]`;
-      missing.addEventListener("click", () => select(node.id));
+      missing.addEventListener("click", (event) => selectFrom(event, node.id));
       element.append(missing);
     } else if (kind?.variant === "statblock") {
       // Статблок: шапка, лічильник HP і «паперова» частина бестіарію під ними.
@@ -387,7 +408,7 @@ function renderNode(node, isRoot = false) {
       body.className = `statblock-body${maximum ? "" : " no-hp"}`;
       body.innerHTML = statblockMarkup(entity);
       body.addEventListener("pointerdown", (event) => event.stopPropagation());
-      body.addEventListener("click", (event) => { event.stopPropagation(); select(node.id); });
+      body.addEventListener("click", (event) => { event.stopPropagation(); selectFrom(event, node.id); });
       body.addEventListener("wheel", onStatblockWheel);
       body.addEventListener("scroll", () => statblockScrollByNode.set(node.id, body.scrollTop));
       const scrolled = statblockScrollByNode.get(node.id) ?? 0;
@@ -420,7 +441,7 @@ function renderNode(node, isRoot = false) {
       content.append(summary);
       content.addEventListener("click", (event) => {
         event.stopPropagation();
-        select(node.id);
+        selectFrom(event, node.id);
       });
       element.append(content);
     }
@@ -449,7 +470,8 @@ function renderNode(node, isRoot = false) {
   }
   element.append(...node.children.map((child) => renderNode(child)));
 
-  if (node.id === selectedId && !node.locked) {
+  // Маркери розміру — лише коли вибрано рівно один вузол: групового ресайзу нема.
+  if (node.id === soleSelectedId() && !node.locked) {
     for (const corner of ["nw", "ne", "sw", "se"]) {
       const handle = document.createElement("span");
       handle.className = `resize-handle ${corner}`;
@@ -536,7 +558,7 @@ function hpAmount(nodeId) {
 // запис, коли ДМ зупинився — так само, як під час перетягування вузла.
 function beginHitPointEdit(node) {
   if (hitPointEdit && hitPointEdit.nodeId !== node.id) commitHitPoints();
-  hitPointEdit ??= { nodeId: node.id, before: cloneLayout(layout), beforeSelection: selectedId, timer: null };
+  hitPointEdit ??= { nodeId: node.id, before: cloneLayout(layout), beforeSelection: selectionIds(), timer: null };
   clearTimeout(hitPointEdit.timer);
   hitPointEdit.timer = setTimeout(commitHitPoints, HP_COMMIT_DELAY);
 }
@@ -669,7 +691,7 @@ function visibleLayerRows() {
 // Панорамування перемальовує панель на кожен крок, тож однаковий вміст
 // не перезбирається: інакше губився б скрол і підсвітка під курсором.
 function layersSignature(rows) {
-  return JSON.stringify(rows.map(({ node, depth }) => [node.id, depth, nodeLabel(node), node.locked === true, node.id === selectedId]));
+  return JSON.stringify(rows.map(({ node, depth }) => [node.id, depth, nodeLabel(node), node.locked === true, isSelected(node.id)]));
 }
 
 let lastLayersSignature = null;
@@ -685,19 +707,19 @@ function renderLayers() {
   const rows = visibleLayerRows();
   const signature = layersSignature(rows);
   if (signature === lastLayersSignature) {
-    layerActions.hidden = !selectedId;
+    layerActions.hidden = !selectedIds.size;
     return;
   }
   lastLayersSignature = signature;
   if (!rows.length) {
     layerTree.innerHTML = '<div class="layer-empty">У полі зору немає вузлів. Зменште масштаб, щоб побачити решту.</div>';
-    layerActions.hidden = !selectedId;
+    layerActions.hidden = !selectedIds.size;
     return;
   }
   const fragment = document.createDocumentFragment();
   rows.forEach(({ node, depth }) => {
     const row = document.createElement("div");
-    row.className = `layer-row${node.id === selectedId ? " selected" : ""}${node.locked ? " locked" : ""}`;
+    row.className = `layer-row${isSelected(node.id) ? " selected" : ""}${node.locked ? " locked" : ""}`;
     row.style.setProperty("--depth", depth);
     row.dataset.id = node.id;
     row.innerHTML = '<span class="layer-title"></span><button class="layer-lock" type="button"></button>';
@@ -719,27 +741,39 @@ function renderLayers() {
     fragment.append(row);
   });
   layerTree.replaceChildren(fragment);
-  layerActions.hidden = !selectedId;
+  layerActions.hidden = !selectedIds.size;
 }
 
 function centerNode(id) {
   const rect = absoluteRect(layout, id);
   if (!rect) return;
-  selectedId = id;
+  setSelection([id]);
   view = centeredViewOnRect(view, rect, viewport.clientWidth, viewport.clientHeight);
   render();
   applyView();
 }
 
 function select(id) {
-  if (selectedId === id) return;
-  selectedId = id;
+  if (selectedIds.size === (id ? 1 : 0) && (!id || isSelected(id))) return;
+  setSelection(id ? [id] : []);
   render();
+}
+
+// Shift по вузлу додає його до виділення або прибирає звідти.
+function toggleSelected(id) {
+  if (!selectedIds.delete(id)) selectedIds.add(id);
+  render();
+}
+
+// Клік по тілу картки виділяє її так само, як клік по шапці, — разом із Shift.
+function selectFrom(event, id) {
+  if (event.shiftKey) toggleSelected(id);
+  else select(id);
 }
 
 function beginNoteEdit(node, key = null) {
   if (!node || node.type !== "note" || node.locked) return false;
-  selectedId = node.id;
+  setSelection([node.id]);
   editingNoteId = node.id;
   pendingNoteInput = key ? { id: node.id, key } : null;
   render();
@@ -753,9 +787,9 @@ function screenToWorld(clientX, clientY) {
 
 function executeCommand(label, mutate, metadata = {}) {
   const before = cloneLayout(layout);
-  const beforeSelection = selectedId;
+  const beforeSelection = selectionIds();
   if (mutate() === false || layoutsEqual(before, layout)) return false;
-  undoStack.push({ label, before, after: cloneLayout(layout), beforeSelection, afterSelection: selectedId, ...metadata });
+  undoStack.push({ label, before, after: cloneLayout(layout), beforeSelection, afterSelection: selectionIds(), ...metadata });
   redoStack = [];
   render();
   changed();
@@ -767,7 +801,7 @@ function commitLiveCommand(label, before, beforeSelection, metadata = {}) {
     render();
     return false;
   }
-  undoStack.push({ label, before, after: cloneLayout(layout), beforeSelection, afterSelection: selectedId, ...metadata });
+  undoStack.push({ label, before, after: cloneLayout(layout), beforeSelection, afterSelection: selectionIds(), ...metadata });
   redoStack = [];
   render();
   changed();
@@ -776,8 +810,7 @@ function commitLiveCommand(label, before, beforeSelection, metadata = {}) {
 
 async function applyHistory(command, direction) {
   const target = cloneLayout(direction === "undo" ? command.before : command.after);
-  if (command.noteLifecycle) {
-    const effect = command.noteLifecycle;
+  for (const effect of command.noteLifecycles ?? []) {
     const shouldExist = effect.kind === "create" ? direction === "redo" : direction === "undo";
     if (shouldExist) {
       const restored = await storage.restoreNote(effect.reference, effect.text);
@@ -788,28 +821,28 @@ async function applyHistory(command, direction) {
       notesByRef.delete(effect.reference);
     }
   }
-  if (command.noteMove) {
-    const current = findNode(layout, command.noteMove.nodeId);
-    const destination = direction === "undo" ? command.noteMove.beforeMap : command.noteMove.afterMap;
+  for (const noteMove of command.noteMoves ?? []) {
+    const current = findNode(layout, noteMove.nodeId);
+    const destination = direction === "undo" ? noteMove.beforeMap : noteMove.afterMap;
     if (!current || !destination) throw new Error("Не вдалося відновити контекст перенесеної нотатки");
     const previousReference = current.note;
     const moved = await storage.moveNote(previousReference, destination.slug, destination.name);
     notesByRef.delete(previousReference);
     notesByRef.set(moved.reference, moved);
-    const targetNode = findNode(target, command.noteMove.nodeId);
+    const targetNode = findNode(target, noteMove.nodeId);
     if (!targetNode) throw new Error("Не знайдено нотатку в історії команд");
     targetNode.note = moved.reference;
     const snapshot = direction === "undo" ? command.before : command.after;
-    findNode(snapshot, command.noteMove.nodeId).note = moved.reference;
-    updateNoteHistoryReference(command.noteMove.nodeId, moved.reference);
+    findNode(snapshot, noteMove.nodeId).note = moved.reference;
+    updateNoteHistoryReference(noteMove.nodeId, moved.reference);
   }
   layout = target;
-  selectedId = direction === "undo" ? command.beforeSelection : command.afterSelection;
+  setSelection(direction === "undo" ? command.beforeSelection : command.afterSelection);
 }
 
 function updateNoteHistoryReference(nodeId, reference) {
   for (const command of [...undoStack, ...redoStack]) {
-    if (command.noteLifecycle?.nodeId === nodeId) command.noteLifecycle.reference = reference;
+    for (const effect of command.noteLifecycles ?? []) if (effect.nodeId === nodeId) effect.reference = reference;
     const beforeNode = findNode(command.before, nodeId);
     const afterNode = findNode(command.after, nodeId);
     if (beforeNode?.type === "note") beforeNode.note = reference;
@@ -871,7 +904,7 @@ function addFrame() {
       width, height, locked: false, children: [],
     };
     layout.children.push(node);
-    selectedId = node.id;
+    setSelection([node.id]);
   });
 }
 
@@ -916,10 +949,10 @@ async function createNoteAt(point) {
         width: 320, height: 190, locked: false, children: [],
       };
       (parent ? parent.children : layout.children).push(node);
-      selectedId = id;
+      setSelection([id]);
       editingNoteId = id;
       newNoteIds.add(id);
-    }, { noteLifecycle: { kind: "create", nodeId: id, reference: note.reference, text: note.text } });
+    }, { noteLifecycles: [{ kind: "create", nodeId: id, reference: note.reference, text: note.text }] });
   } catch (error) {
     setStatus("Помилка створення нотатки", "error");
     showToast(error.message);
@@ -1050,7 +1083,7 @@ function addEntity(entity) {
   const node = kind?.members ? containerNode(entity, kind, point, rect) : entityNode(entity, point.x, point.y, rect);
   executeCommand(kind?.command ?? "Додати картку", () => {
     (parent ? parent.children : layout.children).push(node);
-    selectedId = node.id;
+    setSelection([node.id]);
   });
   entityPicker.close();
 }
@@ -1120,7 +1153,7 @@ function addMusic() {
   };
   executeCommand("Додати музику", () => {
     (parent ? parent.children : layout.children).push(node);
-    selectedId = node.id;
+    setSelection([node.id]);
   });
   musicDialog.close();
 }
@@ -1156,16 +1189,30 @@ function onNodePointerDown(event) {
   commitHitPoints();
   const node = findNode(layout, event.currentTarget.dataset.id);
   if (!node || node.locked) return;
-  select(node.id);
-  const entry = findEntry(layout, node.id);
-  const parentWidth = entry.parent?.width ?? WORLD_SIZE;
-  const parentHeight = entry.parent?.height ?? WORLD_SIZE;
+  if (event.shiftKey) return toggleSelected(node.id);
+  if (!isSelected(node.id)) select(node.id);
+  if (beginMove(event)) viewport.setPointerCapture(event.pointerId);
+}
+
+// Їде все виділення разом, тож кожен вузол памʼятає власний старт і розміри
+// свого батька: зсув у світових пікселях спільний, а у відсотки він
+// переводиться по-різному на кожному рівні вкладеності.
+function beginMove(event) {
+  const movers = selectedRoots().filter((node) => !node.locked).map((node) => {
+    const entry = findEntry(layout, node.id);
+    const parentWidth = entry.parent?.width ?? WORLD_SIZE;
+    const parentHeight = entry.parent?.height ?? WORLD_SIZE;
+    return {
+      node, parentWidth, parentHeight, element: nodeElement(node.id),
+      originX: node.x * parentWidth / 100, originY: node.y * parentHeight / 100,
+    };
+  });
+  if (!movers.length) return false;
   interaction = {
     type: "move", pointerId: event.pointerId, startX: event.clientX, startY: event.clientY,
-    originX: node.x * parentWidth / 100, originY: node.y * parentHeight / 100,
-    parentWidth, parentHeight, node, before: cloneLayout(layout), beforeSelection: selectedId,
+    movers, before: cloneLayout(layout), beforeSelection: selectionIds(),
   };
-  viewport.setPointerCapture(event.pointerId);
+  return true;
 }
 
 function onResizePointerDown(event) {
@@ -1180,7 +1227,7 @@ function onResizePointerDown(event) {
     originX: node.x * parentWidth / 100, originY: node.y * parentHeight / 100,
     originWidth: node.width, originHeight: node.height, parentWidth, parentHeight,
     corner: event.currentTarget.dataset.corner, aspect: node.type === "image" ? node.width / node.height : null,
-    node, before: cloneLayout(layout), beforeSelection: selectedId,
+    node, before: cloneLayout(layout), beforeSelection: selectionIds(),
   };
   viewport.setPointerCapture(event.pointerId);
 }
@@ -1189,6 +1236,46 @@ function beginPan(event) {
   interaction = { type: "pan", pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, originX: view.x, originY: view.y };
   viewport.classList.add("panning");
   viewport.setPointerCapture(event.pointerId);
+}
+
+// Рамка живе в екранних координатах, щоб не тягнутися разом із масштабом,
+// а вибирає за світовими — їх і памʼятаємо від початку протяжки.
+function beginMarquee(event) {
+  const base = event.shiftKey ? selectionIds() : [];
+  if (!base.length) select(null);
+  if (!layout) return;
+  interaction = {
+    type: "marquee", pointerId: event.pointerId, startX: event.clientX, startY: event.clientY,
+    origin: screenToWorld(event.clientX, event.clientY), base,
+  };
+  viewport.setPointerCapture(event.pointerId);
+}
+
+function rectBetween(first, second) {
+  return {
+    x: Math.min(first.x, second.x), y: Math.min(first.y, second.y),
+    width: Math.abs(first.x - second.x), height: Math.abs(first.y - second.y),
+  };
+}
+
+function drawMarquee(clientX, clientY) {
+  const bounds = viewport.getBoundingClientRect();
+  marquee.style.left = `${Math.min(interaction.startX, clientX) - bounds.left}px`;
+  marquee.style.top = `${Math.min(interaction.startY, clientY) - bounds.top}px`;
+  marquee.style.width = `${Math.abs(clientX - interaction.startX)}px`;
+  marquee.style.height = `${Math.abs(clientY - interaction.startY)}px`;
+  marquee.hidden = false;
+}
+
+// Заблоковане в рамку не потрапляє: карта-підкладка лежить під усім, і без
+// цього правила кожна протяжка тягнула б за собою всю карту.
+function finishMarquee(finished) {
+  if (!finished.rect) return;
+  const caught = nodesInRect(layout, finished.rect, rectWithin)
+    .filter(({ node }) => !node.locked)
+    .map(({ node }) => node.id);
+  setSelection(outermostIds(layout, [...finished.base, ...caught]));
+  render();
 }
 
 function onPointerMove(event) {
@@ -1202,33 +1289,81 @@ function onPointerMove(event) {
     applyView();
     return;
   }
+  if (interaction.type === "marquee") {
+    // Доки протяжка коротша за поріг, це ще клік: рамка не блимає на місці.
+    if (!interaction.rect && Math.abs(dx) < MARQUEE_THRESHOLD && Math.abs(dy) < MARQUEE_THRESHOLD) return;
+    interaction.rect = rectBetween(interaction.origin, insertPoint);
+    drawMarquee(event.clientX, event.clientY);
+    return;
+  }
   const worldDx = dx / view.scale;
   const worldDy = dy / view.scale;
   if (interaction.type === "move") {
     // Під час drag координати навмисне можуть виходити за 0..100.
     // Інакше центр дитини ніколи не покине батьківський контейнер,
     // і геометричне переприв'язування на drop не зможе її витягнути.
-    interaction.node.x = (interaction.originX + worldDx) / interaction.parentWidth * 100;
-    interaction.node.y = (interaction.originY + worldDy) / interaction.parentHeight * 100;
-  } else {
-    const west = interaction.corner.includes("w");
-    const north = interaction.corner.includes("n");
-    let width = Math.max(MIN_NODE_SIZE, interaction.originWidth + (west ? -worldDx : worldDx));
-    let height = Math.max(MIN_NODE_SIZE, interaction.originHeight + (north ? -worldDy : worldDy));
-    if (interaction.aspect) {
-      const widthChange = Math.abs(width / interaction.originWidth - 1);
-      const heightChange = Math.abs(height / interaction.originHeight - 1);
-      if (widthChange >= heightChange) height = width / interaction.aspect;
-      else width = height * interaction.aspect;
-      if (width < MIN_NODE_SIZE) { width = MIN_NODE_SIZE; height = width / interaction.aspect; }
-      if (height < MIN_NODE_SIZE) { height = MIN_NODE_SIZE; width = height * interaction.aspect; }
+    for (const mover of interaction.movers) {
+      mover.node.x = (mover.originX + worldDx) / mover.parentWidth * 100;
+      mover.node.y = (mover.originY + worldDy) / mover.parentHeight * 100;
+      updateNodeGeometry(mover.node, mover.element);
     }
-    interaction.node.width = width;
-    interaction.node.height = height;
-    if (west) interaction.node.x = (interaction.originX + interaction.originWidth - width) / interaction.parentWidth * 100;
-    if (north) interaction.node.y = (interaction.originY + interaction.originHeight - height) / interaction.parentHeight * 100;
+    return;
   }
+  const west = interaction.corner.includes("w");
+  const north = interaction.corner.includes("n");
+  let width = Math.max(MIN_NODE_SIZE, interaction.originWidth + (west ? -worldDx : worldDx));
+  let height = Math.max(MIN_NODE_SIZE, interaction.originHeight + (north ? -worldDy : worldDy));
+  if (interaction.aspect) {
+    const widthChange = Math.abs(width / interaction.originWidth - 1);
+    const heightChange = Math.abs(height / interaction.originHeight - 1);
+    if (widthChange >= heightChange) height = width / interaction.aspect;
+    else width = height * interaction.aspect;
+    if (width < MIN_NODE_SIZE) { width = MIN_NODE_SIZE; height = width / interaction.aspect; }
+    if (height < MIN_NODE_SIZE) { height = MIN_NODE_SIZE; width = height * interaction.aspect; }
+  }
+  interaction.node.width = width;
+  interaction.node.height = height;
+  if (west) interaction.node.x = (interaction.originX + interaction.originWidth - width) / interaction.parentWidth * 100;
+  if (north) interaction.node.y = (interaction.originY + interaction.originHeight - height) / interaction.parentHeight * 100;
   updateNodeGeometry(interaction.node);
+}
+
+// Нотатка лежить у файлі карти-предка, тож переїзд між картами — це
+// перейменування на диску. Якщо одне впало, вже перенесені вертаємо назад:
+// інакше файли й розкладка розійдуться.
+async function relocateNotes(pending) {
+  const done = [];
+  try {
+    for (const { node, before, after } of pending) {
+      const previousReference = node.note;
+      const moved = await storage.moveNote(previousReference, after.slug, after.name);
+      notesByRef.delete(previousReference);
+      notesByRef.set(moved.reference, moved);
+      node.note = moved.reference;
+      done.push({ nodeId: node.id, beforeMap: before, afterMap: after });
+    }
+  } catch (error) {
+    for (const move of done.reverse()) {
+      const node = findNode(layout, move.nodeId);
+      if (!node || !move.beforeMap) continue;
+      try {
+        const back = await storage.moveNote(node.note, move.beforeMap.slug, move.beforeMap.name);
+        notesByRef.delete(node.note);
+        notesByRef.set(back.reference, back);
+        node.note = back.reference;
+      } catch (rollbackError) {
+        console.warn(rollbackError);
+      }
+    }
+    throw error;
+  }
+  return done;
+}
+
+function cancelMove(finished) {
+  layout = finished.before;
+  setSelection(finished.beforeSelection);
+  render();
 }
 
 async function endInteraction(event) {
@@ -1236,98 +1371,118 @@ async function endInteraction(event) {
   const finished = interaction;
   interaction = null;
   viewport.classList.remove("panning");
-  if (finished.type === "move") {
-    const rect = absoluteRect(layout, finished.node.id);
+  marquee.hidden = true;
+  if (finished.type === "marquee") return finishMarquee(finished);
+  if (finished.type === "resize") return commitLiveCommand("Змінити розмір", finished.before, finished.beforeSelection);
+  if (finished.type !== "move") return;
+
+  const moved = finished.movers.map((mover) => mover.node).filter((node) => findEntry(layout, node.id));
+  for (const node of moved) {
+    const rect = absoluteRect(layout, node.id);
     const point = { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
-    const parent = deepestContainerAt(layout, point, finished.node.id);
-    reparentNode(layout, finished.node.id, parent?.id ?? null);
-    let noteMove = null;
-    if (finished.node.type === "note") {
-      const oldMap = noteMapContext(finished.before, finished.node.id);
-      const newMap = noteMapContext(layout, finished.node.id);
-      if (!newMap) {
-        layout = finished.before;
-        selectedId = finished.beforeSelection;
-        render();
-        return showToast("Нотатка має залишатися всередині карти");
-      }
-      if (oldMap?.slug !== newMap.slug) {
-        setStatus("Перенесення нотатки…", "dirty");
-        try {
-          const previousReference = finished.node.note;
-          const moved = await storage.moveNote(previousReference, newMap.slug, newMap.name);
-          notesByRef.delete(previousReference);
-          notesByRef.set(moved.reference, moved);
-          finished.node.note = moved.reference;
-          noteMove = {
-            nodeId: finished.node.id,
-            beforeMap: { slug: oldMap.slug, name: oldMap.name },
-            afterMap: { slug: newMap.slug, name: newMap.name },
-          };
-        } catch (error) {
-          layout = finished.before;
-          selectedId = finished.beforeSelection;
-          render();
-          setStatus("Помилка перенесення нотатки", "error");
-          return showToast(error.message);
-        }
-      }
-    }
-    commitLiveCommand("Перемістити вузол", finished.before, finished.beforeSelection, noteMove ? { noteMove } : {});
-  } else if (finished.type === "resize") {
-    commitLiveCommand("Змінити розмір", finished.before, finished.beforeSelection);
+    const parent = deepestContainerAt(layout, point, node.id);
+    reparentNode(layout, node.id, parent?.id ?? null);
   }
+  const relocations = [];
+  for (const node of moved) {
+    if (node.type !== "note") continue;
+    const before = noteMapContext(finished.before, node.id);
+    const after = noteMapContext(layout, node.id);
+    if (!after) {
+      cancelMove(finished);
+      return showToast("Нотатка має залишатися всередині карти");
+    }
+    if (before?.slug !== after.slug) {
+      relocations.push({ node, before: before && { slug: before.slug, name: before.name }, after: { slug: after.slug, name: after.name } });
+    }
+  }
+  let noteMoves = [];
+  if (relocations.length) {
+    setStatus(plural(relocations.length, "Перенесення нотатки…", `Перенесення нотаток (${relocations.length})…`), "dirty");
+    try {
+      noteMoves = await relocateNotes(relocations);
+    } catch (error) {
+      cancelMove(finished);
+      setStatus("Помилка перенесення нотатки", "error");
+      return showToast(error.message);
+    }
+  }
+  commitLiveCommand(plural(moved.length, "Перемістити вузол", "Перемістити вузли"), finished.before, finished.beforeSelection, noteMoves.length ? { noteMoves } : {});
 }
 
+// Лок застосовується до всього виділення: поки серед нього є хоч один
+// відкритий вузол, Ctrl+L замикає все, і тільки на повністю замкненому
+// виділенні відмикає назад.
 function toggleLock() {
-  const node = findNode(layout, selectedId);
-  if (!node) return;
-  executeCommand(node.locked ? "Розблокувати вузол" : "Заблокувати вузол", () => { node.locked = !node.locked; });
+  const nodes = selectedNodes();
+  if (!nodes.length) return;
+  const locking = nodes.some((node) => !node.locked);
+  const label = locking
+    ? plural(nodes.length, "Заблокувати вузол", "Заблокувати вузли")
+    : plural(nodes.length, "Розблокувати вузол", "Розблокувати вузли");
+  executeCommand(label, () => { for (const node of nodes) node.locked = locking; });
 }
 
 function changeZ(operation) {
-  if (!selectedId) return;
-  executeCommand("Змінити z-порядок", () => reorderNode(layout, selectedId, operation));
+  const ids = outermostIds(layout, selectionIds());
+  if (!ids.length) return;
+  executeCommand("Змінити z-порядок", () => ids.reduce((moved, id) => reorderNode(layout, id, operation) || moved, false));
 }
 
 function nudgeSelected(dx, dy) {
-  const node = findNode(layout, selectedId);
-  if (!node || node.locked) return;
-  const entry = findEntry(layout, node.id);
-  const parentWidth = entry.parent?.width ?? WORLD_SIZE;
-  const parentHeight = entry.parent?.height ?? WORLD_SIZE;
-  executeCommand("Посунути вузол", () => {
-    node.x += dx / parentWidth * 100;
-    node.y += dy / parentHeight * 100;
+  const nodes = selectedRoots().filter((node) => !node.locked);
+  if (!nodes.length) return;
+  executeCommand(plural(nodes.length, "Посунути вузол", "Посунути вузли"), () => {
+    for (const node of nodes) {
+      const entry = findEntry(layout, node.id);
+      node.x += dx / (entry.parent?.width ?? WORLD_SIZE) * 100;
+      node.y += dy / (entry.parent?.height ?? WORLD_SIZE) * 100;
+    }
   });
 }
 
+async function restoreNotes(lifecycles) {
+  for (const effect of lifecycles) {
+    try {
+      const restored = await storage.restoreNote(effect.reference, effect.text);
+      notesByRef.set(restored.reference, restored);
+    } catch (error) {
+      console.warn(error);
+    }
+  }
+}
+
 async function deleteSelected() {
-  const entry = findEntry(layout, selectedId);
-  if (!entry || entry.node.locked) return;
-  if (entry.node.type !== "note") {
-    executeCommand("Видалити вузол", () => {
-      entry.children.splice(entry.index, 1);
-      selectedId = null;
-    });
-    return;
+  const targets = selectedRoots().filter((node) => !node.locked);
+  if (!targets.length) return;
+  const notes = targets.filter((node) => node.type === "note");
+  const lifecycles = [];
+  if (notes.length) {
+    setStatus(plural(notes.length, "Видалення нотатки…", `Видалення нотаток (${notes.length})…`), "dirty");
+    for (const node of notes) {
+      try {
+        const note = await storage.deleteNote(node.note);
+        notesByRef.delete(node.note);
+        lifecycles.push({ kind: "delete", nodeId: node.id, reference: note.reference, text: note.text });
+      } catch (error) {
+        // Уже стерті файли повертаємо назад: інакше половина видалення
+        // залишиться на диску без жодного вузла на дошці.
+        await restoreNotes(lifecycles);
+        setStatus("Помилка видалення нотатки", "error");
+        return showToast(error.message);
+      }
+    }
   }
-  setStatus("Видалення нотатки…", "dirty");
-  try {
-    const note = await storage.deleteNote(entry.node.note);
-    notesByRef.delete(entry.node.note);
-    const nodeId = entry.node.id;
-    executeCommand("Видалити нотатку", () => {
-      const current = findEntry(layout, nodeId);
-      if (!current) return false;
-      current.children.splice(current.index, 1);
-      selectedId = null;
-    }, { noteLifecycle: { kind: "delete", nodeId, reference: note.reference, text: note.text } });
-    newNoteIds.delete(nodeId);
-  } catch (error) {
-    setStatus("Помилка видалення нотатки", "error");
-    showToast(error.message);
-  }
+  const ids = targets.map((node) => node.id);
+  const label = plural(ids.length, notes.length ? "Видалити нотатку" : "Видалити вузол", "Видалити вузли");
+  executeCommand(label, () => {
+    for (const id of ids) {
+      const entry = findEntry(layout, id);
+      if (entry) entry.children.splice(entry.index, 1);
+    }
+    setSelection([]);
+  }, lifecycles.length ? { noteLifecycles: lifecycles } : {});
+  for (const effect of lifecycles) newNoteIds.delete(effect.nodeId);
 }
 
 function canvasBlob(bitmap, quality, maxDimension = null) {
@@ -1374,6 +1529,7 @@ async function processDrop(kind) {
     const parentRect = parent ? absoluteRect(layout, parent.id) : { x: 0, y: 0, width: WORLD_SIZE, height: WORLD_SIZE };
     executeCommand("Додати зображення", () => {
       const destination = parent ? parent.children : layout.children;
+      const created = [];
       media.forEach((item, index) => {
         const maxWidth = kind === "map" ? 900 : 480;
         const scale = Math.min(1, maxWidth / item.width);
@@ -1387,8 +1543,9 @@ async function processDrop(kind) {
           width, height, locked: false, children: [],
         };
         destination.push(node);
-        selectedId = node.id;
+        created.push(node.id);
       });
+      setSelection(created);
     });
   } catch (error) {
     setStatus("Помилка імпорту", "error");
@@ -1488,7 +1645,7 @@ viewport.addEventListener("pointerdown", (event) => {
     if (event.altKey) {
       const node = deepestNodeAt(layout, screenToWorld(event.clientX, event.clientY), { includeLocked: true });
       select(node?.id ?? null);
-    } else select(null);
+    } else beginMarquee(event);
   }
 });
 viewport.addEventListener("pointermove", onPointerMove);
@@ -1533,7 +1690,7 @@ window.addEventListener("keydown", (event) => {
   }
   if (event.target.matches("input, textarea, [contenteditable=true]")) return;
   if (!layout) return;
-  const selectedNode = findNode(layout, selectedId);
+  const selectedNode = findNode(layout, soleSelectedId());
   const noteEditKey = event.key === "Enter"
     || event.key === "Backspace"
     || (event.key === "Delete" && !command)
@@ -1650,7 +1807,7 @@ async function loadBoard() {
   notesByRef = new Map(loadedNotes.map((note) => [note.reference, note]));
   layout = state.layout;
   revision = state.revision;
-  selectedId = null;
+  setSelection([]);
   undoStack = [];
   redoStack = [];
   document.querySelector("#campaign-name").textContent = state.campaign;

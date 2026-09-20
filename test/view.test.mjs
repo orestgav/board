@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { centeredViewOnRect, locationHeaderHeight, maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, rebasedView, zoomedViewAt , rectsOverlap, worldViewportRect } from "../public/view.js";
+import { centeredViewOnRect, locationHeaderHeight, maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, rebasedView, rectWithin, zoomedViewAt , rectsOverlap, worldViewportRect } from "../public/view.js";
+
+test("the selection band takes a node only when it fits inside whole", () => {
+  const band = { x: 0, y: 0, width: 100, height: 100 };
+  assert.equal(rectWithin({ x: 10, y: 10, width: 50, height: 50 }, band), true);
+  assert.equal(rectWithin({ x: 0, y: 0, width: 100, height: 100 }, band), true);
+  assert.equal(rectWithin({ x: 80, y: 10, width: 50, height: 50 }, band), false);
+  assert.equal(rectWithin({ x: -10, y: 10, width: 50, height: 50 }, band), false);
+});
 
 test("zoom math accepts arbitrary finite scales", () => {
   assert.equal(zoomedViewAt({ x: 0, y: 0, scale: 1 }, 0, 0, 10).scale, 10);

@@ -57,6 +57,8 @@ svg.icon { width: 20px; height: 20px; }
 .viewport.panning { cursor: grabbing; }
 .grid { position: absolute; inset: 0; pointer-events: none; background-color: #151412; background-image: radial-gradient(circle, rgba(206, 190, 168, .22) 1px, transparent 1.2px); }
 .scene { position: absolute; left: 0; top: 0; width: 10000px; height: 10000px; transform-origin: 0 0; }
+.marquee { position: absolute; z-index: 4; border: 1px solid var(--selection); border-radius: 2px; background: rgba(104, 167, 219, .14); pointer-events: none; }
+.marquee[hidden] { display: none; }
 .canvas-actions { position: absolute; z-index: 12; right: 14px; top: 50%; display: flex; flex-direction: column; gap: 9px; transform: translateY(-50%); }
 .canvas-actions button { display: grid; place-items: center; gap: 2px; width: 58px; min-height: 54px; padding: 6px 4px; border: 1px solid #514a42; border-radius: 10px; background: #292622; color: #cfc7bc; box-shadow: 0 8px 22px rgba(0,0,0,.32); cursor: pointer; font-size: 9px; }
 .canvas-actions button svg.icon { width: 22px; height: 22px; color: var(--gold-bright); }

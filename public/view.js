@@ -27,6 +27,14 @@ export function rectsOverlap(first, second) {
     && first.y <= second.y + second.height && second.y <= first.y + first.height;
 }
 
+// Рамка виділення бере лише те, що влізло в неї цілком: інакше протяжка
+// всередині локації чіпляла б саму локацію — і тягнула б увесь її вміст.
+export function rectWithin(inner, outer) {
+  return inner.x >= outer.x && inner.y >= outer.y
+    && inner.x + inner.width <= outer.x + outer.width
+    && inner.y + inner.height <= outer.y + outer.height;
+}
+
 export function centeredViewOnRect(view, rect, viewportWidth, viewportHeight) {
   return {
     x: viewportWidth / 2 - (rect.x + rect.width / 2) * view.scale,
