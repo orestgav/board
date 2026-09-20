@@ -12,7 +12,12 @@
   "frontmatter": "tools/frontmatter.mjs",
   "layout": "board/canvas.json",
   "notes": { "dir": "board/notes", "prefix": "map-", "type": "board" },
-  "media": { "dir": "_media", "format": "webp" },
+  "media": {
+    "dir": "board/media",
+    "entityDir": "_media",
+    "cacheDir": "board/cache",
+    "format": "webp"
+  },
   "entities": {
     "skipDirs": [".git", ".github", ".obsidian", "node_modules", "tools", "_templates"],
     "types": ["npc", "location", "faction", "item", "creature", "encounter", "world"],
@@ -128,7 +133,7 @@ node canvas.mjs --base ../crown
 
 ## Нотатки
 
-Нотатка мусить бути всередині карти з `_media/maps/`. Її текст зберігається
+Нотатка мусить бути всередині карти з `board/media/maps/`. Її текст зберігається
 не в розкладці, а блоком зі службовим якорем у
 `board/notes/map-<назва-карти>.md`. Внутрішні `[[посилання]]` залишаються
 звичайним Markdown і перевіряються інструментами кампанії. При перенесенні
@@ -139,10 +144,10 @@ node canvas.mjs --base ../crown
 
 PNG, JPEG або WebP можна кинути прямо на полотно. Для всього дропу канва один раз питає тип:
 
-- **карта** — `_media/maps/`, WebP q90;
-- **ілюстрація** — `_media/locations/`, WebP q82.
+- **карта** — `board/media/maps/`, WebP q90;
+- **ілюстрація** — `board/media/locations/`, WebP q82.
 
-PNG/JPEG конвертуються у браузері до запису на диск, а наявний WebP не перекодовується. Імена автоматично робляться унікальними по всій `_media/`. Мініатюри до 1200 px зберігаються в `.cache/board/`; при наближенні канва перемикається на повний файл. Resize зображень зберігає пропорції.
+PNG/JPEG конвертуються у браузері до запису на диск, а наявний WebP не перекодовується. Імена автоматично робляться унікальними в `board/media/`. Мініатюри до 1200 px зберігаються в `board/cache/`; при наближенні канва перемикається на повний файл. `_media/` лишається окремою бібліотекою зображень сутностей. Resize зображень зберігає пропорції.
 
 Зміни зберігаються автоматично. Якщо `canvas.json` тим часом змінив інший процес, редактор відмовиться його перезаписувати.
 
