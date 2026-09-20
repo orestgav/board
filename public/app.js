@@ -24,7 +24,7 @@ import { canonicalYouTubeUrl, musicTitle, oEmbedUrl, playbackUrl } from "./music
 import { centeredViewOnRect, locationHeaderHeight, maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, rebasedView, rectsOverlap, worldViewportRect, zoomedViewAt } from "./view.js";
 
 const MIN_NODE_SIZE = Number.EPSILON;
-const MIN_LARGEST_NODE_PIXELS = 32;
+const MIN_ZOOM_VIEWPORT_COVERAGE = 0.7;
 const MAX_ZOOM_VIEWPORT_PADDING = 32;
 const SAVE_DELAY = 450;
 const HP_COMMIT_DELAY = 500;
@@ -226,7 +226,7 @@ function updateImageSources() {
 function boardScaleLimits() {
   if (!layout) return { minimum: 0, maximum: Infinity };
   const rects = allAbsoluteRects(layout);
-  const minimum = minimumScaleForNodes(rects, MIN_LARGEST_NODE_PIXELS);
+  const minimum = minimumScaleForNodes(rects, viewport.clientWidth, viewport.clientHeight, MIN_ZOOM_VIEWPORT_COVERAGE);
   const maximum = maximumScaleForNodes(rects, viewport.clientWidth, viewport.clientHeight, MAX_ZOOM_VIEWPORT_PADDING);
   return { minimum, maximum: Math.max(minimum, maximum) };
 }

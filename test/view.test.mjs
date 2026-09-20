@@ -43,13 +43,14 @@ test("node visuals scale with the limiting node dimension", () => {
   assert.equal(nodeVisualScale({ type: "entity", width: 640, height: 190 }), 1);
 });
 
-test("minimum board scale keeps the largest node visible", () => {
+test("minimum board scale keeps the largest node at the given share of the viewport", () => {
   const rects = [
     { width: 320, height: 190 },
     { width: 2000, height: 1200 },
   ];
-  assert.equal(minimumScaleForNodes(rects, 32), 0.016);
-  assert.equal(minimumScaleForNodes([], 32), 0);
+  assert.equal(minimumScaleForNodes(rects, 1000, 800, 0.7), 700 / 2000);
+  assert.equal(minimumScaleForNodes([{ width: 1000, height: 2000 }], 1000, 800, 0.7), 560 / 2000);
+  assert.equal(minimumScaleForNodes([], 1000, 800, 0.7), 0);
 });
 
 test("maximum board scale fits the smallest node in the viewport", () => {

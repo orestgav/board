@@ -66,9 +66,17 @@ export function locationHeaderHeight(width, height) {
   return LOCATION_HEADER_UNITS * nodeVisualScale({ width, height }, "frame");
 }
 
-export function minimumScaleForNodes(rects, minimumVisiblePixels) {
-  const largestDimension = rects.reduce((largest, rect) => Math.max(largest, rect.width, rect.height), 0);
-  return largestDimension > 0 ? minimumVisiblePixels / largestDimension : 0;
+// Далі, ніж «найбільший вузол на 70% екрана», віддалятися нема куди: на цьому
+// масштабі загальна карта читається цілком, а дрібніше дошка перетворюється
+// на купку плям.
+export function minimumScaleForNodes(rects, viewportWidth, viewportHeight, coverage) {
+  if (!rects.length) return 0;
+  const availableWidth = Math.max(1, viewportWidth * coverage);
+  const availableHeight = Math.max(1, viewportHeight * coverage);
+  return rects.reduce((minimum, rect) => Math.min(
+    minimum,
+    Math.min(availableWidth / rect.width, availableHeight / rect.height),
+  ), Infinity);
 }
 
 export function maximumScaleForNodes(rects, viewportWidth, viewportHeight, padding) {
