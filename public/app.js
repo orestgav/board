@@ -1494,16 +1494,6 @@ viewport.addEventListener("pointerdown", (event) => {
 viewport.addEventListener("pointermove", onPointerMove);
 viewport.addEventListener("pointerup", endInteraction);
 viewport.addEventListener("pointercancel", endInteraction);
-viewport.addEventListener("dblclick", (event) => {
-  if (event.button !== 0 || !layout) return;
-  const element = event.target instanceof Element ? event.target.closest(".node") : null;
-  if (element) {
-    const node = findNode(layout, element.dataset.id);
-    if (!isMapNode(node)) return;
-  }
-  event.preventDefault();
-  createNoteAt(screenToWorld(event.clientX, event.clientY));
-});
 viewport.addEventListener("wheel", (event) => {
   event.preventDefault();
   const delta = event.deltaY || event.deltaX;
