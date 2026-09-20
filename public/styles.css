@@ -105,43 +105,52 @@ svg.icon { width: 20px; height: 20px; }
 .location-node > .node-header .node-title { font-size: 11.5em; }
 /* Статблок — палітра бестіарію. Розміри вузла в em його власного кегля, а там,
    де задано font-size, решта em рахується вже від нього (як у .entity-summary). */
-.statblock-node { border-color: #6e4a43; background: #221e1a; }
-.statblock-node > .node-header { border-bottom-color: rgba(217, 139, 124, .26); background: rgba(110, 74, 67, .3); }
-.statblock-node .node-glyph { color: #d98b7c; }
-.statblock-node .node-title { color: #f2e3da; }
-.statblock-hp { position: absolute; left: 0; right: 0; top: 38em; height: 54em; display: flex; align-items: center; gap: 7em; padding: 0 13em; border-bottom: 1em solid rgba(217, 139, 124, .2); background: rgba(0, 0, 0, .22); pointer-events: auto; }
+.statblock-node {
+  --stat-accent: #78c9c4;
+  --stat-accent-bright: #a5e4de;
+  --stat-border: #477981;
+  --stat-muted: #9bafb2;
+  border-color: var(--stat-border);
+  background: #162129;
+  box-shadow: 0 12em 28em rgba(0,0,0,.32), 0 0 0 1em rgba(120,201,196,.08);
+}
+.statblock-node.selected { border-color: var(--selection); box-shadow: 0 0 0 1em var(--selection), 0 12em 28em rgba(0,0,0,.32); }
+.statblock-node > .node-header { border-bottom-color: rgba(120, 201, 196, .27); background: #1d343d; }
+.statblock-node .node-glyph { color: var(--stat-accent); }
+.statblock-node .node-title { color: #eef7f5; }
+.statblock-hp { position: absolute; left: 0; right: 0; top: 38em; height: 54em; display: flex; align-items: center; gap: 7em; padding: 0 13em; border-bottom: 1em solid rgba(120, 201, 196, .22); background: #111a20; pointer-events: auto; }
 /* field-sizing підганяє поле під саме число, щоб підкреслення не тяглося далі. */
-.hp-current { field-sizing: content; min-width: 1.1em; max-width: 4em; padding: 0; border: 0; border-bottom: .07em dashed rgba(236, 228, 218, .26); outline: none; background: transparent; color: #f0e7dd; font: 700 30em/1.1 Georgia, serif; font-variant-numeric: tabular-nums; text-align: right; }
-.hp-current:focus { border-bottom-color: #d98b7c; }
+.hp-current { field-sizing: content; min-width: 1.1em; max-width: 4em; padding: 0; border: 0; border-bottom: .07em dashed rgba(220, 238, 237, .28); outline: none; background: transparent; color: #eef7f5; font: 700 30em/1.1 Georgia, serif; font-variant-numeric: tabular-nums; text-align: right; }
+.hp-current:focus { border-bottom-color: var(--stat-accent); }
 .statblock-hp.hurt .hp-current { color: #e0705f; }
-.hp-max { color: #a2948a; font-size: 13em; font-variant-numeric: tabular-nums; }
+.hp-max { color: var(--stat-muted); font-size: 13em; font-variant-numeric: tabular-nums; }
 .hp-controls { display: flex; align-items: center; gap: 6em; margin-left: auto; }
-.hp-amount { width: 2.9em; height: 2.1em; padding: 0 .25em; border: .08em solid #4a4039; border-radius: .4em; outline: none; background: #191512; color: #ece4da; font: 13em/1 inherit; font-variant-numeric: tabular-nums; text-align: center; }
-.hp-amount:focus { border-color: #d98b7c; }
+.hp-amount { width: 2.9em; height: 2.1em; padding: 0 .25em; border: .08em solid #40555c; border-radius: .4em; outline: none; background: #0d151a; color: #e8f2f1; font: 13em/1 inherit; font-variant-numeric: tabular-nums; text-align: center; }
+.hp-amount:focus { border-color: var(--stat-accent); }
 .hp-button { display: grid; place-items: center; width: 1.7em; height: 1.7em; padding: 0; border: .07em solid; border-radius: .38em; font-size: 16em; line-height: 1; cursor: pointer; }
 .hp-button.heal { border-color: #4d7a4b; background: rgba(77, 122, 75, .24); color: #8fd08c; }
 .hp-button.heal:hover { background: rgba(77, 122, 75, .44); color: #b6e8b2; }
 .hp-button.damage { border-color: #8f4a42; background: rgba(143, 74, 66, .24); color: #e79184; }
 .hp-button.damage:hover { background: rgba(143, 74, 66, .46); color: #ffb3a5; }
 .hp-button:active { transform: translateY(.06em); }
-.statblock-body { position: absolute; inset: 92em 0 0; overflow: auto; overscroll-behavior: contain; padding: 11em 14em 15em; border-radius: 0 0 9em 9em; color: #ece4da; pointer-events: auto; user-select: text; }
+.statblock-body { position: absolute; inset: 92em 0 0; overflow: auto; overscroll-behavior: contain; padding: 11em 14em 15em; border-radius: 0 0 9em 9em; color: #e4efee; pointer-events: auto; user-select: text; }
 .statblock-body.no-hp { top: 38em; }
-.statblock-body .sb-sub { margin: 0 0 .82em; color: #a2948a; font-size: 11em; }
+.statblock-body .sb-sub { margin: 0 0 .82em; color: var(--stat-muted); font-size: 11em; }
 .statblock-body .sb-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10em; }
 .statblock-body .sb-vitals p, .statblock-body .sb-init { margin: .33em 0; font-size: 12em; }
 .statblock-body .sb-init { white-space: nowrap; }
 .statblock-body .sb-abil { width: 100%; margin: 1.04em 0; border-collapse: collapse; font-size: 11.5em; font-variant-numeric: tabular-nums; text-align: center; }
 .statblock-body .sb-abil th, .statblock-body .sb-abil td { padding: .35em .3em; font-weight: 400; }
-.statblock-body .sb-abil thead tr, .statblock-body .sb-abil tr.sb-save { background: #2b2621; }
+.statblock-body .sb-abil thead tr, .statblock-body .sb-abil tr.sb-save { background: #20323a; }
 .statblock-body .sb-abil thead th, .statblock-body .sb-abil tbody th { font-weight: 700; }
 .statblock-body .sb-abil tbody th { width: 1%; padding-right: 1.2em; text-align: right; white-space: nowrap; }
 .statblock-body .sb-meta { margin: .73em 0 0; font-size: 11em; line-height: 1.5; }
-.statblock-body hr { margin: 12em 0 2em; border: 0; border-top: 2em solid #d98b7c; }
-.statblock-body h3 { margin: 1.12em 0 .48em; color: #d98b7c; font-size: 12.5em; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
+.statblock-body hr { margin: 12em 0 2em; border: 0; border-top: 2em solid var(--stat-accent); }
+.statblock-body h3 { margin: 1.12em 0 .48em; color: var(--stat-accent-bright); font-size: 12.5em; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
 .statblock-body p { margin: .58em 0; font-size: 12em; line-height: 1.45; }
 .statblock-body h3 ~ p strong { font-style: italic; }
-.statblock-body h3 ~ p em { color: #a2948a; }
-.statblock-body .md-link { color: #e6a18f; text-decoration-color: rgba(230, 161, 143, .45); }
+.statblock-body h3 ~ p em { color: var(--stat-muted); }
+.statblock-body .md-link { color: #8ddbd5; text-decoration-color: rgba(141, 219, 213, .45); }
 .node.locked > .statblock-body, .node.locked > .statblock-hp { pointer-events: none; }
 /* Музика — червонувата картка заввишки з саму шапку: назва треку й «плей». */
 .music-node { border-color: #8a4a44; background: rgba(48, 27, 25, .95); }
