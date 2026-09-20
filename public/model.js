@@ -118,6 +118,26 @@ export function allAbsoluteRects(layout) {
   return result;
 }
 
+// Обхід із прямокутниками напохваті: дочірні відлічуються від батьківського
+// прямокутника, тому дерево проходиться один раз, без absoluteRect на вузол.
+export function nodesInRect(layout, rect, overlaps) {
+  const result = [];
+  const collect = (children, area, depth) => {
+    children.forEach((node) => {
+      const nodeRect = {
+        x: area.x + node.x * area.width / 100,
+        y: area.y + node.y * area.height / 100,
+        width: node.width,
+        height: node.height,
+      };
+      if (overlaps(nodeRect, rect)) result.push({ node, depth, rect: nodeRect });
+      collect(node.children, nodeRect, depth + 1);
+    });
+  };
+  collect(layout.children, { x: 0, y: 0, width: WORLD_SIZE, height: WORLD_SIZE }, 0);
+  return result;
+}
+
 export function nearestPointParent(layout, point) {
   const parent = deepestNodeAt(layout, point, { includeLocked: true });
   const rect = parent ? absoluteRect(layout, parent.id) : { x: 0, y: 0, width: WORLD_SIZE, height: WORLD_SIZE };

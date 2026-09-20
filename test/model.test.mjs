@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { absoluteRect, containerGrid, deepestContainerAt, findEntry, nearestAncestor, reparentNode, reorderNode } from "../public/model.js";
+import { absoluteRect, containerGrid, deepestContainerAt, findEntry, nearestAncestor, nodesInRect, reparentNode, reorderNode } from "../public/model.js";
 
 const frame = (id, x, y, width = 400, height = 300, children = []) => ({ id, type: "frame", title: id, x, y, width, height, locked: false, children });
 
@@ -84,4 +84,26 @@ test("every container cell stays inside the container", () => {
       assert.ok(cell.y + 190 <= grid.height - 28 + 0.001, `висота для ${count}`);
     }
   }
+});
+
+test("only nodes overlapping the rect are listed, with their depth", () => {
+  const overlaps = (first, second) => first.x <= second.x + second.width && second.x <= first.x + first.width
+    && first.y <= second.y + second.height && second.y <= first.y + first.height;
+  const layout = {
+    formatVersion: 1,
+    children: [
+      frame("near", 10, 10, 500, 400, [frame("inside", 10, 10, 100, 80), frame("outside", 90, 90, 100, 80)]),
+      frame("far", 80, 80, 400, 300),
+    ],
+  };
+  const rows = nodesInRect(layout, { x: 900, y: 900, width: 300, height: 300 }, overlaps);
+  assert.deepEqual(rows.map(({ node, depth }) => [node.id, depth]), [["near", 0], ["inside", 1]]);
+  assert.deepEqual(rows[1].rect, absoluteRect(layout, "inside"));
+});
+
+test("a rect far from every node lists nothing", () => {
+  const overlaps = (first, second) => first.x < second.x + second.width && second.x < first.x + first.width
+    && first.y < second.y + second.height && second.y < first.y + first.height;
+  const layout = { formatVersion: 1, children: [frame("only", 10, 10, 400, 300)] };
+  assert.deepEqual(nodesInRect(layout, { x: 8000, y: 8000, width: 200, height: 200 }, overlaps), []);
 });

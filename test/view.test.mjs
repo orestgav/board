@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { centeredViewOnRect, frameHeaderHeight, maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, rebasedView, zoomedViewAt } from "../public/view.js";
+import { centeredViewOnRect, frameHeaderHeight, maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, rebasedView, zoomedViewAt , rectsOverlap, worldViewportRect } from "../public/view.js";
 
 test("zoom math accepts arbitrary finite scales", () => {
   assert.equal(zoomedViewAt({ x: 0, y: 0, scale: 1 }, 0, 0, 10).scale, 10);
@@ -66,4 +66,17 @@ test("a card drawn as a frame scales by the frame base size", () => {
   assert.equal(nodeVisualScale(node), Math.min(720 / 320, 460 / 190));
   assert.equal(nodeVisualScale(node, "frame"), 2);
   assert.equal(frameHeaderHeight(720, 460), 76);
+});
+
+test("the visible world rect mirrors screen-to-world conversion", () => {
+  const view = { x: -200, y: -100, scale: 2 };
+  assert.deepEqual(worldViewportRect(view, 800, 600), { x: 100, y: 50, width: 400, height: 300 });
+});
+
+test("rects that only touch at an edge still count as visible", () => {
+  const screen = { x: 0, y: 0, width: 100, height: 100 };
+  assert.equal(rectsOverlap({ x: 100, y: 50, width: 40, height: 40 }, screen), true);
+  assert.equal(rectsOverlap({ x: 101, y: 50, width: 40, height: 40 }, screen), false);
+  assert.equal(rectsOverlap({ x: -60, y: -60, width: 70, height: 70 }, screen), true);
+  assert.equal(rectsOverlap({ x: 10, y: 200, width: 10, height: 10 }, screen), false);
 });

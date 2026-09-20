@@ -10,6 +10,7 @@ import {
   findNode,
   nearestAncestor,
   nearestPointParent,
+  nodesInRect,
   reparentNode,
   reorderNode,
 } from "./model.js";
@@ -19,7 +20,7 @@ import { iconElement } from "./icons.js";
 import { renderMarkdown } from "./markdown.js";
 import { maxHitPoints, statblockMarkup } from "./statblock.js";
 import { mapSlugFromPath } from "./notes.js";
-import { centeredViewOnRect, frameHeaderHeight, maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, rebasedView, zoomedViewAt } from "./view.js";
+import { centeredViewOnRect, frameHeaderHeight, maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, rebasedView, rectsOverlap, worldViewportRect, zoomedViewAt } from "./view.js";
 
 const MIN_NODE_SIZE = Number.EPSILON;
 const MIN_LARGEST_NODE_PIXELS = 32;
@@ -134,6 +135,7 @@ function setLayersOpen(open, persist = true) {
   toggleLayersButton.setAttribute("aria-label", toggleLayersButton.title);
   toggleLayersButton.setAttribute("aria-expanded", String(open));
   if (persist) localStorage.setItem("crown-board.layers-open", String(open));
+  if (open) renderLayers();
 }
 
 setLayersOpen(layersOpen, false);
@@ -237,6 +239,7 @@ function applyView() {
   grid.style.backgroundSize = `${gridSize}px ${gridSize}px`;
   grid.style.backgroundPosition = `${view.x % gridSize}px ${view.y % gridSize}px`;
   persistView();
+  renderLayers();
   updateImageSources();
   document.querySelectorAll(".entity-node").forEach((element) => {
     const node = findNode(layout, element.dataset.id);
@@ -618,40 +621,64 @@ function layerIcon(node) {
     : node.type === "note" ? "sticky_note_2" : "crop_square";
 }
 
+// Список показує лише те, що зараз хоча б краєм видно на екрані.
+function visibleLayerRows() {
+  const screen = worldViewportRect(view, viewport.clientWidth, viewport.clientHeight);
+  return nodesInRect(layout, screen, rectsOverlap);
+}
+
+// Панорамування перемальовує панель на кожен крок, тож однаковий вміст
+// не перезбирається: інакше губився б скрол і підсвітка під курсором.
+function layersSignature(rows) {
+  return JSON.stringify(rows.map(({ node, depth }) => [node.id, depth, nodeLabel(node), node.locked === true, node.id === selectedId]));
+}
+
+let lastLayersSignature = null;
+
 function renderLayers() {
+  if (!layout) return;
   if (!layout.children.length) {
+    lastLayersSignature = null;
     layerTree.innerHTML = '<div class="layer-empty">Вузли з’являться тут після створення першої рамки.</div>';
     layerActions.hidden = true;
     return;
   }
+  const rows = visibleLayerRows();
+  const signature = layersSignature(rows);
+  if (signature === lastLayersSignature) {
+    layerActions.hidden = !selectedId;
+    return;
+  }
+  lastLayersSignature = signature;
+  if (!rows.length) {
+    layerTree.innerHTML = '<div class="layer-empty">У полі зору немає вузлів. Зменште масштаб, щоб побачити решту.</div>';
+    layerActions.hidden = !selectedId;
+    return;
+  }
   const fragment = document.createDocumentFragment();
-  const appendRows = (children, depth = 0) => {
-    children.forEach((node) => {
-      const row = document.createElement("div");
-      row.className = `layer-row${node.id === selectedId ? " selected" : ""}${node.locked ? " locked" : ""}`;
-      row.style.setProperty("--depth", depth);
-      row.dataset.id = node.id;
-      row.innerHTML = '<span class="layer-title"></span><button class="layer-lock" type="button"></button>';
-      row.prepend(iconElement(layerIcon(node), "layer-glyph"));
-      row.querySelector(".layer-title").textContent = nodeLabel(node);
-      const lock = row.querySelector(".layer-lock");
-      lock.append(iconElement(node.locked ? "lock" : "lock_open"));
-      lock.title = node.locked ? "Розблокувати" : "Заблокувати";
-      lock.setAttribute("aria-label", lock.title);
-      lock.addEventListener("click", (event) => {
-        event.stopPropagation();
-        select(node.id);
-        toggleLock();
-      });
-      row.addEventListener("click", () => select(node.id));
-      row.addEventListener("dblclick", (event) => {
-        if (!event.target.closest("button")) centerNode(node.id);
-      });
-      fragment.append(row);
-      appendRows(node.children, depth + 1);
+  rows.forEach(({ node, depth }) => {
+    const row = document.createElement("div");
+    row.className = `layer-row${node.id === selectedId ? " selected" : ""}${node.locked ? " locked" : ""}`;
+    row.style.setProperty("--depth", depth);
+    row.dataset.id = node.id;
+    row.innerHTML = '<span class="layer-title"></span><button class="layer-lock" type="button"></button>';
+    row.prepend(iconElement(layerIcon(node), "layer-glyph"));
+    row.querySelector(".layer-title").textContent = nodeLabel(node);
+    const lock = row.querySelector(".layer-lock");
+    lock.append(iconElement(node.locked ? "lock_filled" : "lock_open"));
+    lock.title = node.locked ? "Розблокувати" : "Заблокувати";
+    lock.setAttribute("aria-label", lock.title);
+    lock.addEventListener("click", (event) => {
+      event.stopPropagation();
+      select(node.id);
+      toggleLock();
     });
-  };
-  appendRows(layout.children);
+    row.addEventListener("click", () => select(node.id));
+    row.addEventListener("dblclick", (event) => {
+      if (!event.target.closest("button")) centerNode(node.id);
+    });
+    fragment.append(row);
+  });
   layerTree.replaceChildren(fragment);
   layerActions.hidden = !selectedId;
 }

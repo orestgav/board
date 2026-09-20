@@ -10,6 +10,23 @@ export function zoomedViewAt(view, localX, localY, factor) {
   };
 }
 
+// Те, що зараз видно на екрані, у світових координатах: зворотний бік
+// перетворення screenToWorld.
+export function worldViewportRect(view, viewportWidth, viewportHeight) {
+  return {
+    x: -view.x / view.scale,
+    y: -view.y / view.scale,
+    width: viewportWidth / view.scale,
+    height: viewportHeight / view.scale,
+  };
+}
+
+// Дотик краями рахується перетином: вузол на самій межі екрана видно.
+export function rectsOverlap(first, second) {
+  return first.x <= second.x + second.width && second.x <= first.x + first.width
+    && first.y <= second.y + second.height && second.y <= first.y + first.height;
+}
+
 export function centeredViewOnRect(view, rect, viewportWidth, viewportHeight) {
   return {
     x: viewportWidth / 2 - (rect.x + rect.width / 2) * view.scale,
