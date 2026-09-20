@@ -333,13 +333,17 @@ function renderNode(node, isRoot = false) {
     dragHandle.dataset.id = node.id;
     dragHandle.title = "Перетягнути нотатку";
     dragHandle.setAttribute("aria-label", "Перетягнути нотатку");
+    dragHandle.append(iconElement("pan_tool"));
     dragHandle.addEventListener("pointerdown", onNodePointerDown);
     element.append(dragHandle);
     const note = notesByRef.get(node.note);
     if (editingNoteId === node.id) {
       const indicator = document.createElement("span");
       indicator.className = "note-editing-indicator";
-      indicator.textContent = "Редагування";
+      indicator.title = "Нотатка редагується";
+      indicator.setAttribute("role", "img");
+      indicator.setAttribute("aria-label", "Нотатка редагується");
+      indicator.append(iconElement("edit"));
       const editor = document.createElement("textarea");
       editor.className = "note-editor";
       editor.value = note?.text ?? "";
@@ -359,6 +363,7 @@ function renderNode(node, isRoot = false) {
         if (editor.dataset.cancelled !== "true") finishNoteEdit(node, editor.value);
       }, { once: true });
       element.append(indicator, editor);
+      const updateCaret = attachNoteCaret(editor, element);
       const pendingKey = pendingNoteInput?.id === node.id ? pendingNoteInput.key : null;
       if (pendingNoteInput?.id === node.id) pendingNoteInput = null;
       requestAnimationFrame(() => {
@@ -372,6 +377,7 @@ function renderNode(node, isRoot = false) {
           position += pendingKey.length;
         }
         editor.setSelectionRange(position, position);
+        updateCaret();
       });
     } else {
       const content = document.createElement("div");
@@ -778,6 +784,42 @@ function beginNoteEdit(node, key = null) {
   pendingNoteInput = key ? { id: node.id, key } : null;
   render();
   return true;
+}
+
+// Нативна риска textarea має майже сталу піксельну ширину, тоді як текст
+// нотатки масштабується разом із карткою. Дзеркало знаходить позицію вводу,
+// а власна риска масштабує товщину разом із кеглем.
+function attachNoteCaret(editor, noteElement) {
+  const mirror = document.createElement("div");
+  mirror.className = "note-caret-mirror";
+  const marker = document.createElement("span");
+  marker.textContent = "\u200b";
+  const caret = document.createElement("span");
+  caret.className = "note-caret";
+  caret.hidden = true;
+  noteElement.append(mirror, caret);
+
+  const update = () => {
+    const position = editor.selectionStart;
+    const collapsed = position === editor.selectionEnd;
+    caret.hidden = document.activeElement !== editor || !collapsed;
+    if (caret.hidden) return;
+    mirror.style.width = `${editor.clientWidth}px`;
+    mirror.style.height = `${editor.clientHeight}px`;
+    mirror.replaceChildren(document.createTextNode(editor.value.slice(0, position)), marker);
+    const left = marker.offsetLeft - editor.scrollLeft;
+    const top = marker.offsetTop - editor.scrollTop;
+    const lineHeight = Number.parseFloat(getComputedStyle(editor).lineHeight);
+    caret.hidden = left < 0 || left > editor.clientWidth || top < 0 || top + lineHeight > editor.clientHeight;
+    caret.style.left = `${left}px`;
+    caret.style.top = `${top}px`;
+  };
+
+  for (const eventName of ["input", "select", "keyup", "click", "scroll", "focus", "blur"]) {
+    editor.addEventListener(eventName, update);
+  }
+  requestAnimationFrame(update);
+  return update;
 }
 
 function screenToWorld(clientX, clientY) {
