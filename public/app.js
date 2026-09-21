@@ -2142,12 +2142,15 @@ function setRouteMode(mode) {
   renderRoute();
 }
 
+// Хрестик на попапі — це «дорахував»: лінійка гасне разом із маршрутом,
+// інакше вона лишалася б увімкненою і далі забирала б лівий клік собі.
+function closeRouteTool() {
+  setRouteMode(null);
+  viewport.focus();
+}
+
 function toggleRouteTool() {
-  if (routeMode) {
-    setRouteMode(null);
-    viewport.focus();
-    return;
-  }
+  if (routeMode) return closeRouteTool();
   setRouteMode(routeScale ? "route" : "calibrate");
 }
 
@@ -2462,7 +2465,7 @@ document.querySelector("#add-music").addEventListener("click", () => {
 document.querySelector("#fit-all").addEventListener("click", fitAll);
 measureRouteButton.addEventListener("click", toggleRouteTool);
 routeRecalibrateButton.addEventListener("click", () => setRouteMode("calibrate"));
-document.querySelector("#route-close").addEventListener("click", clearRoute);
+document.querySelector("#route-close").addEventListener("click", closeRouteTool);
 addEntityButton.addEventListener("click", () => {
   insertPoint = defaultInsertPoint();
   openEntityPicker();
