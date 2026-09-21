@@ -32,6 +32,12 @@ test("layout validation accepts unbounded coordinates and tiny nodes", () => {
   assert.throws(() => validateLayout({ formatVersion: 1, children: [{ ...node, width: 0 }] }), /додатний розмір/);
 });
 
+test("layout validation accepts named scene nodes", () => {
+  const scene = { id: "scene-1", type: "scene", title: "Засідка", x: 5, y: 15, width: 300, height: 160, children: [] };
+  assert.equal(validateLayout({ formatVersion: 1, children: [scene] }).children[0].title, "Засідка");
+  assert.throws(() => validateLayout({ formatVersion: 1, children: [{ ...scene, title: null }] }), /title має бути рядком/);
+});
+
 test("layout validation accepts WebP image nodes and rejects unsafe paths", () => {
   const image = { id: "map", type: "image", image: "_media/maps/world.webp", x: 10, y: 20, width: 800, height: 500, children: [] };
   assert.equal(validateLayout({ formatVersion: 1, children: [image] }).children[0].type, "image");

@@ -67,12 +67,12 @@ export function validateLayout(layout) {
     if (typeof node.id !== "string" || !node.id) throw new Error("Кожен вузол мусить мати id");
     if (ids.has(node.id)) throw new Error(`Повторний id вузла: ${node.id}`);
     ids.add(node.id);
-    if (!["frame", "image", "entity", "note", "music"].includes(node.type)) throw new Error(`Непідтримуваний тип вузла: ${node.type}`);
+    if (!["frame", "scene", "image", "entity", "note", "music"].includes(node.type)) throw new Error(`Непідтримуваний тип вузла: ${node.type}`);
     for (const field of ["x", "y", "width", "height"]) {
       if (!Number.isFinite(node[field])) throw new Error(`${node.id}.${field} має бути числом`);
     }
     if (node.width <= 0 || node.height <= 0) throw new Error(`${node.id}: вузол має мати додатний розмір`);
-    if (node.type === "frame" && typeof node.title !== "string") throw new Error(`${node.id}.title має бути рядком`);
+    if (["frame", "scene"].includes(node.type) && typeof node.title !== "string") throw new Error(`${node.id}.title має бути рядком`);
     if (node.type === "image") {
       const imagePath = typeof node.image === "string" ? node.image.replaceAll("\\", "/") : "";
       if (!imagePath.toLowerCase().endsWith(".webp") || imagePath.startsWith("/") || imagePath.split("/").includes("..")) {

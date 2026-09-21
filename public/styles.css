@@ -89,7 +89,7 @@ svg.icon { width: 20px; height: 20px; }
 .node.locked > .entity-content, .node.locked > .entity-missing { pointer-events: none; }
 /* Заблоковане тіло не приймає звичайні дії, але сам вузол лишається ціллю
    правого кліку. Так contextmenu бачить верхню картку, а не елемент під нею. */
-.node.locked:is(.image-node, .entity-node, .npc-node, .location-node, .statblock-node, .note-node, .music-node) { pointer-events: auto; }
+.node.locked:is(.image-node, .entity-node, .npc-node, .location-node, .scene-node, .statblock-node, .note-node, .music-node) { pointer-events: auto; }
 /* Розміри кнопки — в частках її власного кегля (12em вузла), як у .entity-summary. */
 .node-details { flex: 0 0 auto; display: grid; place-items: center; width: 1.666667em; height: 1.666667em; padding: 0; border: 0; border-radius: 50%; background: transparent; color: #b3aa9c; font-size: 12em; cursor: pointer; pointer-events: auto; }
 .node-details svg.icon { width: 1.333333em; height: 1.333333em; }
@@ -105,6 +105,11 @@ svg.icon { width: 20px; height: 20px; }
 .location-node > .node-header { height: 26em; padding: 0 10em; background: rgba(78, 62, 39, .34); }
 .location-node > .node-header .node-glyph { width: 12em; height: 12em; }
 .location-node > .node-header .node-title { font-size: 11.5em; }
+.scene-node { border-color: #7089a4; background: rgba(28, 35, 42, .86); }
+.scene-node > .node-header { height: 32em; border-bottom-color: rgba(133, 169, 201, .3); background: rgba(51, 76, 98, .42); }
+.scene-node > .node-header .node-glyph { color: #94bedf; }
+.scene-node > .node-header .node-title { color: #e4eff7; }
+.scene-node > .node-body { color: #74899a; }
 /* Статблок — палітра бестіарію. Розміри вузла в em його власного кегля, а там,
    де задано font-size, решта em рахується вже від нього (як у .entity-summary). */
 .statblock-node {

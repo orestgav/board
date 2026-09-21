@@ -34,6 +34,7 @@ const ENTITY_CARD = { width: 320, height: 190 };
 const NPC_CARD = { width: 400, height: 210 };
 const STATBLOCK_CARD = { width: 440, height: 640 };
 const FRAME_SIZE = { width: 360, height: 230 };
+const SCENE_SIZE = { width: 300, height: 160 };
 // Картка музики — заввишки з саму шапку: назва треку й кнопка «плей».
 const MUSIC_CARD = { width: 320, height: 46 };
 const MUSIC_LOOKUP_DELAY = 350;
@@ -41,7 +42,7 @@ const MUSIC_LOOKUP_DELAY = 350;
 const MARQUEE_THRESHOLD = 3;
 const CONTAINER_GAP = 24;
 const CONTAINER_PADDING = 28;
-const CONTEXT_MENU_NODE_TYPES = new Set(["image", "entity", "note", "music"]);
+const CONTEXT_MENU_NODE_TYPES = new Set(["image", "entity", "note", "music", "scene"]);
 const CLIPBOARD_IMAGE_TYPES = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" };
 
 // Типи карток із власним виглядом і власною кнопкою на полотні. Решта типів
@@ -218,6 +219,16 @@ function entityKind(entity) {
 
 function nodeVariant(node) {
   return entityKind(nodeEntity(node))?.variant ?? node.type;
+}
+
+function isLocationNode(node) {
+  return entityKind(nodeEntity(node))?.variant === "frame";
+}
+
+function locationAtPoint(point, excludeId = null) {
+  const target = deepestContainerAt(layout, point, excludeId);
+  if (!target) return null;
+  return isLocationNode(target) ? target : nearestAncestor(layout, target.id, isLocationNode);
 }
 
 function plainSummary(source) {
@@ -481,6 +492,13 @@ function renderNode(node, isRoot = false) {
       });
       element.append(content);
     }
+  } else if (node.type === "scene") {
+    element.classList.add("scene-node");
+    element.append(nodeHeader(node, { icon: "crop_square" }));
+    const body = document.createElement("div");
+    body.className = "node-body";
+    body.textContent = node.children.length ? "" : "Сцена порожня";
+    element.append(body);
   } else if (node.type === "music") {
     element.classList.add("music-node");
     const header = nodeHeader(node, { icon: "music_note" });
@@ -980,6 +998,40 @@ function addFrame() {
   });
 }
 
+function addScene(location, point) {
+  if (!isLocationNode(location) || location.locked) return;
+  const rect = absoluteRect(layout, location.id);
+  const horizontalInset = Math.min(16, location.width * .1);
+  const header = locationHeaderHeight(location.width, location.height);
+  const verticalInset = Math.min(16, Math.max(0, location.height - header) * .1);
+  const width = Math.max(MIN_NODE_SIZE, Math.min(SCENE_SIZE.width, location.width - horizontalInset * 2));
+  const height = Math.max(MIN_NODE_SIZE, Math.min(SCENE_SIZE.height, location.height - header - verticalInset * 2));
+  const wantedX = (point?.x ?? rect.x + rect.width / 2) - rect.x - width / 2;
+  const wantedY = (point?.y ?? rect.y + rect.height / 2) - rect.y - height / 2;
+  const left = clamp(wantedX, horizontalInset, Math.max(horizontalInset, location.width - width - horizontalInset));
+  const top = clamp(wantedY, header + verticalInset, Math.max(header + verticalInset, location.height - height - verticalInset));
+  const titles = new Set(location.children.filter((child) => child.type === "scene").map((child) => child.title));
+  let number = 1;
+  while (titles.has(`Сцена ${number}`)) number += 1;
+  const sceneNode = {
+    id: crypto.randomUUID(), type: "scene", title: `Сцена ${number}`,
+    x: left / location.width * 100,
+    y: top / location.height * 100,
+    width, height, locked: false, children: [],
+  };
+  executeCommand("Додати сцену", () => {
+    location.children.push(sceneNode);
+    setSelection([sceneNode.id]);
+  });
+}
+
+function renameScene(node) {
+  if (node.type !== "scene" || node.locked) return;
+  const title = window.prompt("Нова назва сцени", node.title)?.trim();
+  if (!title || title === node.title) return;
+  executeCommand("Змінити назву сцени", () => { node.title = title; });
+}
+
 function countNodes() {
   let count = 0;
   const visit = (children) => children.forEach((node) => { count += 1; visit(node.children); });
@@ -1368,12 +1420,20 @@ function trimContextMenuRules() {
 function openContextMenu(node, clientX, clientY) {
   contextMenuNodeId = node?.id ?? null;
   contextMenuPoint = { clientX, clientY, world: screenToWorld(clientX, clientY) };
-  for (const action of ["copy", "lock", "details", "delete"]) contextMenuItem(action).hidden = !node;
+  for (const action of ["copy", "lock", "delete"]) contextMenuItem(action).hidden = !node;
+  contextMenuItem("add-scene").hidden = !isLocationNode(node);
+  contextMenuItem("rename").hidden = node?.type !== "scene";
+  contextMenuItem("details").hidden = !node || node.type === "scene";
   if (node) {
     const lockButton = contextMenuItem("lock");
     lockButton.querySelector(".context-menu-icon").replaceChildren(iconElement(node.locked ? "lock_open" : "lock_filled"));
     lockButton.querySelector(".context-menu-label").replaceChildren(node.locked ? "Розблокувати" : "Заблокувати", shortcutHint("Ctrl+L"));
     contextMenuItem("details").disabled = node.type === "entity" && !nodeEntity(node);
+    for (const action of ["add-scene", "rename"]) {
+      const button = contextMenuItem(action);
+      button.disabled = node.locked;
+      button.title = node.locked ? "Спочатку розблокуйте елемент" : "";
+    }
     const deleteButton = contextMenuItem("delete");
     deleteButton.disabled = node.locked;
     deleteButton.title = node.locked ? "Спочатку розблокуйте елемент" : "";
@@ -1621,10 +1681,17 @@ async function endInteraction(event) {
   if (finished.type !== "move") return;
 
   const moved = finished.movers.map((mover) => mover.node).filter((node) => findEntry(layout, node.id));
-  for (const node of moved) {
+  const placements = moved.map((node) => {
     const rect = absoluteRect(layout, node.id);
     const point = { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
-    const parent = deepestContainerAt(layout, point, node.id);
+    const parent = node.type === "scene" ? locationAtPoint(point, node.id) : deepestContainerAt(layout, point, node.id);
+    return { node, parent };
+  });
+  if (placements.some(({ node, parent }) => node.type === "scene" && !parent)) {
+    cancelMove(finished);
+    return showToast("Сцена має залишатися всередині локації");
+  }
+  for (const { node, parent } of placements) {
     reparentNode(layout, node.id, parent?.id ?? null);
   }
   const relocations = [];
@@ -1789,7 +1856,12 @@ async function pasteFromMenu(spot) {
 
 async function pasteNodes(payload, point) {
   if (!payload) return showToast("У буфері немає нічого, що можна покласти на полотно");
-  const { parent, rect } = nearestPointParent(layout, point);
+  let { parent, rect } = nearestPointParent(layout, point);
+  if (payload.items.some(({ node }) => node.type === "scene")) {
+    parent = locationAtPoint(point);
+    if (!parent) return showToast("Сцену можна вставити лише всередині локації");
+    rect = absoluteRect(layout, parent.id);
+  }
   let nodes = placedItems(payload, point, rect);
   const targets = noteTargets(nodes, mapContext(layout, parent?.id ?? null), (node) => isMapNode(node) ? mapDescriptor(node) : null);
   const orphans = new Set(targets.filter((target) => !target.map).map((target) => target.node));
@@ -2187,7 +2259,9 @@ nodeContextMenu.addEventListener("click", async (event) => {
   if (action === "paste") return pasteFromMenu(spot);
   if (!node) return;
   setSelection([node.id]);
-  if (action === "lock") toggleLock();
+  if (action === "add-scene") addScene(node, spot?.world);
+  else if (action === "rename") renameScene(node);
+  else if (action === "lock") toggleLock();
   else if (action === "copy") copySelection();
   else if (action === "delete") await deleteSelected();
   else if (action === "details") showNodeDetails(node);
