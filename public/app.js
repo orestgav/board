@@ -22,7 +22,7 @@ import { iconElement } from "./icons.js";
 import { renderMarkdown } from "./markdown.js";
 import { maxHitPoints, statblockMarkup } from "./statblock.js";
 import { mapSlugFromPath } from "./notes.js";
-import { fittingRatio, summaryBoxKey, summaryFontSize } from "./summary-fit.js";
+import { NOTE_FONT_EM, SUMMARY_FONT_EM, fitBoxKey, fittedFontSize, fittingRatio, noteGutter } from "./text-fit.js";
 import { canonicalYouTubeUrl, musicTitle, oEmbedUrl, playbackUrl } from "./music.js";
 import { centeredViewOnRect, locationBorderScreenWidth, locationHeaderHeight, maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, rebasedView, rectWithin, rectsOverlap, worldViewportRect, zoomedViewAt } from "./view.js";
 import { CALIBRATION_MILES, milesLabel, parseScale, plural as pluralForm, routeMiles, scaleFromCalibration, travelEstimates } from "./travel.js";
@@ -40,7 +40,7 @@ const SCENE_SIZE = { width: 300, height: 160 };
 // Картка музики — заввишки з саму шапку: назва треку й кнопка «плей».
 const MUSIC_CARD = { width: 320, height: 46 };
 const MUSIC_LOOKUP_DELAY = 350;
-const SUMMARY_CACHE_LIMIT = 400;
+const TEXT_FIT_CACHE_LIMIT = 400;
 // Коротша протяжка — це ще клік по порожньому полотну, а не рамка виділення.
 const MARQUEE_THRESHOLD = 3;
 const CONTAINER_GAP = 24;
@@ -155,7 +155,7 @@ let entitiesBySlug = new Map();
 let notesByRef = new Map();
 let boardConfig = null;
 let editingNoteId = null;
-const summaryRatioByBox = new Map();
+const textRatioByBox = new Map();
 // Перемальовка вузла не має губити те, що ДМ уже набрав або догортав на
 // статблоці: розкладці ці дрібниці не належать, тож тримаємо їх тут.
 const hpAmountByNode = new Map();
@@ -343,7 +343,7 @@ function applyView() {
   });
   // Картка, що саме розгорнулася з дальнього зуму, показує підпис уперше —
   // до цієї миті його прямокутник не мав висоти й кегль не підбирався.
-  fitSummaries();
+  fitNodeTexts();
   updateLocationBorders();
   // Маршрут живе у світових координатах, а малюється в екранних, тож після
   // кожного зсуву й зуму його доводиться перекладати наново.
@@ -374,52 +374,88 @@ function render() {
   undoButton.disabled = undoStack.length === 0;
   redoButton.disabled = redoStack.length === 0;
   if (constrainViewScale()) applyView();
-  // Кегль підписів підбирається по вже вставлених у сцену картках: раніше
-  // міряти нічого, бо прямокутник тексту ще не має висоти.
-  fitSummaries();
+  // Кегль підписів і нотаток підбирається по вже вставлених у сцену картках:
+  // раніше міряти нічого, бо прямокутник тексту ще не має висоти.
+  fitNodeTexts();
 }
 
 function nodeElement(id) {
   return [...scene.querySelectorAll(".node")].find((candidate) => candidate.dataset.id === id) ?? null;
 }
 
-function fitSummaries(root = scene) {
+function fitNodeTexts(root = scene) {
   root.querySelectorAll(".entity-summary").forEach((summary) => fitSummary(summary));
+  root.querySelectorAll(".note-content, .note-editor").forEach((note) => fitNote(note));
 }
 
 function fitSummary(summary) {
-  const card = summary.closest(".node");
+  fitBoxText(summary, {
+    kind: "summary",
+    length: summary.textContent.length,
+    apply: (ratio) => applyFontRatio(summary, SUMMARY_FONT_EM, ratio),
+  });
+}
+
+// Нотатка підбирає кегль так само, як підпис картки, але з двома відмінностями.
+// Перша: у режимі редагування той самий кегль має дістати й дзеркало каретки,
+// інакше каретка стане не там, де курсор. Друга: поле під ручку перетягування
+// задане в em самого тексту, тож дрібнішому кеглю його повертаємо до тієї ж
+// ширини — інакше текст поліз би під ручку.
+function fitNote(note) {
+  const mirror = note.parentElement?.querySelector(":scope > .note-caret-mirror");
+  const text = note.tagName === "TEXTAREA" ? note.value : note.textContent;
+  fitBoxText(note, {
+    kind: "note",
+    length: text.length,
+    apply: (ratio) => {
+      applyNoteRatio(note, ratio);
+      if (mirror) applyNoteRatio(mirror, ratio);
+    },
+  });
+}
+
+// Спільне для підпису й нотатки: прямокутник той самий на будь-якому зумі, тож
+// підібрану частку кегля кешуємо за його пропорціями в em.
+function fitBoxText(element, { kind, length, apply }) {
+  const card = element.closest(".node");
   // Кегль вузла — це nodeVisualScale, а не зум: сцена масштабується трансформом,
   // тож те, що ми міряємо, від наближення не залежить.
   const fontSize = Number.parseFloat(card?.style.fontSize);
   if (!fontSize) return;
-  const key = summaryBoxKey(
+  const key = fitBoxKey(
+    kind,
     Number.parseFloat(card.style.width),
     Number.parseFloat(card.style.height),
     fontSize,
-    summary.textContent.length,
+    length,
   );
-  const cached = summaryRatioByBox.get(key);
-  if (cached !== undefined) return applySummaryRatio(summary, cached);
-  applySummaryRatio(summary, 1);
+  const cached = textRatioByBox.get(key);
+  if (cached !== undefined) return apply(cached);
+  apply(1);
   // Прямокутник без висоти — картка згорнута на дальньому зумі: міряти нічого.
-  if (!summary.clientHeight) return;
+  if (!element.clientHeight) return;
   const ratio = fittingRatio((candidate) => {
-    applySummaryRatio(summary, candidate);
-    return summary.scrollHeight <= summary.clientHeight + 1;
+    apply(candidate);
+    return element.scrollHeight <= element.clientHeight + 1;
   });
-  applySummaryRatio(summary, ratio);
+  apply(ratio);
   // Кеш росте лише від нових пропорцій картки — за протяжку кутом їх стільки,
   // скільки кадрів, тож переповнений просто скидаємо.
-  if (summaryRatioByBox.size >= SUMMARY_CACHE_LIMIT) summaryRatioByBox.clear();
-  summaryRatioByBox.set(key, ratio);
+  if (textRatioByBox.size >= TEXT_FIT_CACHE_LIMIT) textRatioByBox.clear();
+  textRatioByBox.set(key, ratio);
 }
 
-function applySummaryRatio(summary, ratio) {
+function applyFontRatio(element, base, ratio) {
   // Однакове значення не переписуємо: інакше кожен кадр протяжки скидав би
   // розкладку картки задарма.
-  const value = summaryFontSize(ratio);
-  if (summary.style.fontSize !== value) summary.style.fontSize = value;
+  const value = fittedFontSize(base, ratio);
+  if (element.style.fontSize !== value) element.style.fontSize = value;
+}
+
+function applyNoteRatio(element, ratio) {
+  applyFontRatio(element, NOTE_FONT_EM, ratio);
+  const gutter = noteGutter(ratio);
+  if (element.style.paddingRight !== gutter) element.style.paddingRight = gutter;
 }
 
 // Елемент можна передати готовим: під час групового перетягування пошук по
@@ -430,9 +466,11 @@ function updateNodeGeometry(node, element = nodeElement(node.id)) {
   element.style.width = `${node.width}px`;
   element.style.height = `${node.height}px`;
   element.style.fontSize = `${nodeVisualScale(node, nodeVariant(node))}px`;
-  // Протяжка кутом міняє пропорції картки, а з ними й місце під підпис.
+  // Протяжка кутом міняє пропорції картки, а з ними й місце під текст.
   const summary = element.querySelector(":scope > .entity-content > .entity-summary");
   if (summary) fitSummary(summary);
+  const note = element.querySelector(":scope > .note-content, :scope > .note-editor");
+  if (note) fitNote(note);
 }
 
 function updateNodePosition(element, node) {
@@ -499,6 +537,9 @@ function renderNode(node, isRoot = false) {
         if (editor.dataset.cancelled !== "true") finishNoteEdit(node, editor.value);
       }, { once: true });
       element.append(indicator, editor);
+      // Кегль перебираємо перед тим, як каретка порахує своє місце: її слухач
+      // "input" навішується нижче, тож працює вже з новим кеглем.
+      editor.addEventListener("input", () => fitNote(editor));
       const updateCaret = attachNoteCaret(editor, element);
       const pendingKey = pendingNoteInput?.id === node.id ? pendingNoteInput.key : null;
       if (pendingNoteInput?.id === node.id) pendingNoteInput = null;
@@ -512,6 +553,9 @@ function renderNode(node, isRoot = false) {
           editor.setRangeText(pendingKey, position, position, "end");
           position += pendingKey.length;
         }
+        // Перша натиснута клавіша вставляється без події "input", тож кегль
+        // перебираємо тут самі.
+        if (pendingKey) fitNote(editor);
         editor.setSelectionRange(position, position);
         updateCaret();
       });
@@ -959,6 +1003,9 @@ function attachNoteCaret(editor, noteElement) {
     caret.hidden = left < 0 || left > editor.clientWidth || top < 0 || top + lineHeight > editor.clientHeight;
     caret.style.left = `${left}px`;
     caret.style.top = `${top}px`;
+    // Кегль нотатки підбирається під її розмір, тож висоту каретки беремо не
+    // зі стилів, а з рядка, який вона показує.
+    caret.style.height = `${lineHeight}px`;
   };
 
   for (const eventName of ["input", "select", "keyup", "click", "scroll", "focus", "blur"]) {
