@@ -77,10 +77,10 @@ test("a card drawn as a frame scales by the frame base size", () => {
   assert.equal(locationHeaderHeight(720, 460), 52);
 });
 
-test("a location border is bold from afar and disappears near full screen", () => {
+test("a location border is bold from afar and disappears at half screen", () => {
   assert.equal(locationBorderScreenWidth(80, 60, 1, 1000, 800), 8);
-  assert.equal(locationBorderScreenWidth(850, 680, 1, 1000, 800), 0);
-  const middle = locationBorderScreenWidth(500, 400, 1, 1000, 800);
+  assert.equal(locationBorderScreenWidth(500, 400, 1, 1000, 800), 0);
+  const middle = locationBorderScreenWidth(300, 240, 1, 1000, 800);
   assert.ok(middle > 0 && middle < 8);
 });
 

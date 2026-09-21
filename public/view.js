@@ -80,7 +80,7 @@ export function locationBorderScreenWidth(width, height, scale, viewportWidth, v
   if (viewportWidth <= 0 || viewportHeight <= 0 || scale <= 0) return 0;
   const coverage = Math.max(width * scale / viewportWidth, height * scale / viewportHeight);
   const fullWidthCoverage = 0.08;
-  const hiddenCoverage = 0.85;
+  const hiddenCoverage = 0.5;
   const maximumWidth = 8;
   if (coverage <= fullWidthCoverage) return maximumWidth;
   if (coverage >= hiddenCoverage) return 0;
