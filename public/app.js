@@ -1137,9 +1137,11 @@ function openEntityPicker(type = null) {
   requestAnimationFrame(() => entitySearch.focus());
 }
 
+// Спільний список «Картка» показує лише те, під що немає власної кнопки:
+// локації, NPC та істот ДМ бере кнопками «Локація», «NPC» і «Статблок».
 function filteredEntities() {
   return entities
-    .filter((entity) => (!pickerType || entity.type === pickerType) && matchesEntity(entity, entitySearch.value))
+    .filter((entity) => (pickerType ? entity.type === pickerType : !ENTITY_KINDS[entity.type]) && matchesEntity(entity, entitySearch.value))
     .slice(0, 100);
 }
 
