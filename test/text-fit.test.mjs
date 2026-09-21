@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { NOTE_FONT_EM, SUMMARY_FONT_EM, TEXT_MIN_RATIO, fitBoxKey, fittedFontSize, fittingRatio, noteGutter } from "../public/text-fit.js";
+import { NOTE_FONT_EM, SUMMARY_FONT_EM, TEXT_MIN_RATIO, fitBoxKey, fittedFontSize, fittingRatio, notePadding, textShape } from "../public/text-fit.js";
 
 // Замість браузера — модель: текст влазить, поки кегль не більший за межу.
 function fitsUpTo(limit, calls = []) {
@@ -23,6 +23,24 @@ test("довгий текст зменшується до найбільшого
   assert.equal(ratio > 0.7 - 1 / 64, true);
 });
 
+test("нотатка росте, поки текст влазить у картку", () => {
+  const ratio = fittingRatio(fitsUpTo(3), { maxRatio: 8 });
+  assert.equal(ratio <= 3, true);
+  // Проміжок [2; 4] за шість кроків звужується до 1/32.
+  assert.equal(ratio > 3 - 1 / 32, true);
+});
+
+test("рости вище за межу картки нема куди", () => {
+  // Текст влазить і більшим, але вище стелі один рядок уже не поміщається.
+  assert.equal(fittingRatio(fitsUpTo(10), { maxRatio: 4 }), 4);
+});
+
+test("зростання шукають подвоєнням, а не перебором до стелі", () => {
+  const calls = [];
+  fittingRatio(fitsUpTo(2.5, calls), { maxRatio: 64 });
+  assert.deepEqual(calls.slice(0, 3), [1, 2, 4]);
+});
+
 test("нижче за межу читабельності не спускаємось", () => {
   assert.equal(fittingRatio(() => false), TEXT_MIN_RATIO);
   assert.equal(fittingRatio(fitsUpTo(0.1)), TEXT_MIN_RATIO);
@@ -41,21 +59,34 @@ test("базовий кегль лишається за стилями, змен
   assert.equal(fittedFontSize(NOTE_FONT_EM, 0.5), "6.500em");
 });
 
-// Ручка перетягування не зменшується разом із текстом, тож і поле під неї — ні.
-test("поле під ручку лишається тієї самої ширини попри дрібніший кегль", () => {
-  assert.equal(noteGutter(1), "");
-  assert.equal(noteGutter(0.5), "6.769em");
+// Ручка перетягування не міняє розміру разом із текстом, тож і поля — ні.
+test("поля нотатки лишаються ті самі за будь-якого кегля", () => {
+  assert.equal(notePadding(1), "");
+  assert.equal(notePadding(0.5), "2.154em 6.769em 2.154em 2.154em");
+  assert.equal(notePadding(2), "0.538em 1.692em 0.538em 0.538em");
+});
+
+test("обриси тексту — це його довжина й найдовше слово", () => {
+  assert.equal(textShape("ключ у трактирника"), "18.11");
+  // Тексти однакової довжини, але з різним найдовшим словом, не рівня одне
+  // одному: широке слово спиняє зростання раніше.
+  assert.notEqual(textShape("ключ у трактирника"), textShape("трактирниковіключ."));
+  assert.equal(textShape(""), "0.0");
+});
+
+test("переноси рядків рахуються як пробіли", () => {
+  assert.equal(textShape("ключ\nу трактирника"), textShape("ключ у трактирника"));
 });
 
 // Головна причина, чому підібране значення можна кешувати й переносити.
 test("той самий прямокутник у em дає той самий ключ на будь-якому зумі", () => {
-  assert.equal(fitBoxKey("summary", 400, 210, 1, 300), fitBoxKey("summary", 1200, 630, 3, 300));
-  assert.equal(fitBoxKey("summary", 400, 210, 1, 300), "summary:400x210:300");
+  assert.equal(fitBoxKey("summary", 400, 210, 1, "300.9"), fitBoxKey("summary", 1200, 630, 3, "300.9"));
+  assert.equal(fitBoxKey("summary", 400, 210, 1, "300.9"), "summary:400x210:300.9");
 });
 
-test("інші пропорції картки, інша довжина тексту або інший його рід — інший ключ", () => {
-  assert.notEqual(fitBoxKey("summary", 400, 210, 1, 300), fitBoxKey("summary", 400, 300, 1, 300));
-  assert.notEqual(fitBoxKey("summary", 400, 210, 1, 300), fitBoxKey("summary", 400, 210, 1, 301));
+test("інші пропорції картки, інші обриси тексту або інший його рід — інший ключ", () => {
+  assert.notEqual(fitBoxKey("summary", 400, 210, 1, "300.9"), fitBoxKey("summary", 400, 300, 1, "300.9"));
+  assert.notEqual(fitBoxKey("summary", 400, 210, 1, "300.9"), fitBoxKey("summary", 400, 210, 1, "301.9"));
   // Підпис і нотатка міряються в різних полях, тож частку між ними не переносимо.
-  assert.notEqual(fitBoxKey("summary", 400, 210, 1, 300), fitBoxKey("note", 400, 210, 1, 300));
+  assert.notEqual(fitBoxKey("summary", 400, 210, 1, "300.9"), fitBoxKey("note", 400, 210, 1, "300.9"));
 });
