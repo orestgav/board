@@ -40,6 +40,7 @@ const MUSIC_LOOKUP_DELAY = 350;
 const MARQUEE_THRESHOLD = 3;
 const CONTAINER_GAP = 24;
 const CONTAINER_PADDING = 28;
+const CONTEXT_MENU_NODE_TYPES = new Set(["image", "entity", "note", "music"]);
 
 // Типи карток із власним виглядом і власною кнопкою на полотні. Решта типів
 // поки малюється спільною карткою й додається кнопкою «Картка».
@@ -1261,6 +1262,47 @@ function showImageDetails(node) {
   entityDetailsContent.parentElement.scrollTop = 0;
 }
 
+function showNoteDetails(node) {
+  const note = notesByRef.get(node.note);
+  entityDetailsContent.replaceChildren();
+  const title = document.createElement("h1");
+  title.textContent = nodeLabel(node);
+  const meta = document.createElement("div");
+  meta.className = "entity-details-meta";
+  meta.textContent = "Нотатка";
+  const path = document.createElement("div");
+  path.className = "entity-details-path";
+  path.textContent = node.note;
+  const body = document.createElement("div");
+  body.className = "entity-details-markdown";
+  body.innerHTML = note ? renderMarkdown(note.text) : "<p>Текст нотатки не знайдено.</p>";
+  entityDetailsContent.append(title, meta, path, body);
+  if (!entityDetails.open) entityDetails.showModal();
+  entityDetailsContent.parentElement.scrollTop = 0;
+}
+
+function showMusicDetails(node) {
+  entityDetailsContent.replaceChildren();
+  const title = document.createElement("h1");
+  title.textContent = nodeLabel(node);
+  const meta = document.createElement("div");
+  meta.className = "entity-details-meta";
+  meta.textContent = "Музика · YouTube";
+  const path = document.createElement("div");
+  path.className = "entity-details-path";
+  path.textContent = node.url;
+  const body = document.createElement("div");
+  body.className = "entity-details-markdown";
+  const link = document.createElement("a");
+  link.href = playbackUrl(node.url) ?? node.url;
+  link.target = "_blank";
+  link.textContent = "Відкрити трек із початку";
+  body.append(link);
+  entityDetailsContent.append(title, meta, path, body);
+  if (!entityDetails.open) entityDetails.showModal();
+  entityDetailsContent.parentElement.scrollTop = 0;
+}
+
 function closeContextMenu() {
   nodeContextMenu.hidden = true;
   contextMenuNodeId = null;
@@ -1286,6 +1328,8 @@ function openContextMenu(node, clientX, clientY) {
 
 function showNodeDetails(node) {
   if (node.type === "image") showImageDetails(node);
+  else if (node.type === "note") showNoteDetails(node);
+  else if (node.type === "music") showMusicDetails(node);
   else {
     const entity = nodeEntity(node);
     if (entity) showEntityDetails(entity);
@@ -1770,7 +1814,10 @@ viewport.addEventListener("pointerdown", (event) => {
   if (event.button === 1 || (event.button === 0 && spacePressed)) {
     event.preventDefault();
     beginPan(event);
-  } else if (event.button === 0 && (event.target === viewport || event.target === grid || event.target === scene)) {
+  // Заблоковані картки самі ловлять pointer-події заради контекстного меню.
+  // Лівий клік по їхньому тілу водночас має поводитися як клік по полотну,
+  // інакше велика заблокована карта перекриває запуск рамки виділення.
+  } else if (event.button === 0 && (event.target === viewport || event.target === grid || event.target === scene || event.target.matches?.(".node.locked"))) {
     if (event.altKey) {
       const node = deepestNodeAt(layout, screenToWorld(event.clientX, event.clientY), { includeLocked: true });
       select(node?.id ?? null);
@@ -1784,7 +1831,7 @@ viewport.addEventListener("contextmenu", (event) => {
   // вибрати прямокутник позаду того, по якому насправді натиснули.
   const nodeElement = event.target.closest(".node");
   const node = nodeElement ? findNode(layout, nodeElement.dataset.id) : null;
-  if (!node || (node.type !== "image" && node.type !== "entity")) return closeContextMenu();
+  if (!node || !CONTEXT_MENU_NODE_TYPES.has(node.type)) return closeContextMenu();
   event.preventDefault();
   event.stopPropagation();
   commitHitPoints();
