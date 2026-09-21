@@ -22,6 +22,7 @@ import { iconElement } from "./icons.js";
 import { renderMarkdown } from "./markdown.js";
 import { maxHitPoints, statblockMarkup } from "./statblock.js";
 import { mapSlugFromPath } from "./notes.js";
+import { fittingRatio, summaryBoxKey, summaryFontSize } from "./summary-fit.js";
 import { canonicalYouTubeUrl, musicTitle, oEmbedUrl, playbackUrl } from "./music.js";
 import { centeredViewOnRect, locationBorderScreenWidth, locationHeaderHeight, maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, rebasedView, rectWithin, rectsOverlap, worldViewportRect, zoomedViewAt } from "./view.js";
 
@@ -38,6 +39,7 @@ const SCENE_SIZE = { width: 300, height: 160 };
 // Картка музики — заввишки з саму шапку: назва треку й кнопка «плей».
 const MUSIC_CARD = { width: 320, height: 46 };
 const MUSIC_LOOKUP_DELAY = 350;
+const SUMMARY_CACHE_LIMIT = 400;
 // Коротша протяжка — це ще клік по порожньому полотну, а не рамка виділення.
 const MARQUEE_THRESHOLD = 3;
 const CONTAINER_GAP = 24;
@@ -74,9 +76,13 @@ const ENTITY_KINDS = {
   },
 };
 
-// Типи без власного вигляду: спільна картка, але своя іконка в шапці. Колір їм
-// дає CSS за data-entity-type вузла.
-const ENTITY_TYPE_ICONS = { item: "inventory_2", faction: "flag" };
+// Типи без власної кнопки, але з упізнаваною карткою: своя іконка в шапці,
+// розмір як у NPC і палітра, яку CSS дає за data-entity-type вузла. Такі
+// картки, як і NPC, не згортаються на дальньому зумі.
+const ENTITY_CARD_TYPES = {
+  item: { icon: "inventory_2", size: NPC_CARD },
+  faction: { icon: "flag", size: NPC_CARD },
+};
 
 const viewport = document.querySelector("#viewport");
 const scene = document.querySelector("#scene");
@@ -139,6 +145,7 @@ let entitiesBySlug = new Map();
 let notesByRef = new Map();
 let boardConfig = null;
 let editingNoteId = null;
+const summaryRatioByBox = new Map();
 // Перемальовка вузла не має губити те, що ДМ уже набрав або догортав на
 // статблоці: розкладці ці дрібниці не належать, тож тримаємо їх тут.
 const hpAmountByNode = new Map();
@@ -227,9 +234,14 @@ function entityKind(entity) {
   return ENTITY_KINDS[entity?.type] ?? null;
 }
 
-// Тип із власним виглядом бере глиф зі свого опису, решта — з ENTITY_TYPE_ICONS.
+// Тип із власним виглядом бере глиф зі свого опису, решта — з ENTITY_CARD_TYPES.
 function entityIcon(entity) {
-  return entityKind(entity)?.icon ?? ENTITY_TYPE_ICONS[entity?.type] ?? "description";
+  return entityKind(entity)?.icon ?? ENTITY_CARD_TYPES[entity?.type]?.icon ?? "description";
+}
+
+// Згортання на дальньому зумі: картка з власним виглядом лишається цілою.
+function isFarCollapsed(node) {
+  return !ENTITY_CARD_TYPES[nodeEntity(node)?.type] && node.width * view.scale < 180;
 }
 
 function nodeVariant(node) {
@@ -310,8 +322,11 @@ function applyView() {
   updateImageSources();
   document.querySelectorAll(".entity-node").forEach((element) => {
     const node = findNode(layout, element.dataset.id);
-    if (node) element.classList.toggle("entity-far", node.width * view.scale < 180);
+    if (node) element.classList.toggle("entity-far", isFarCollapsed(node));
   });
+  // Картка, що саме розгорнулася з дальнього зуму, показує підпис уперше —
+  // до цієї миті його прямокутник не мав висоти й кегль не підбирався.
+  fitSummaries();
   updateLocationBorders();
 }
 
@@ -339,10 +354,52 @@ function render() {
   undoButton.disabled = undoStack.length === 0;
   redoButton.disabled = redoStack.length === 0;
   if (constrainViewScale()) applyView();
+  // Кегль підписів підбирається по вже вставлених у сцену картках: раніше
+  // міряти нічого, бо прямокутник тексту ще не має висоти.
+  fitSummaries();
 }
 
 function nodeElement(id) {
   return [...scene.querySelectorAll(".node")].find((candidate) => candidate.dataset.id === id) ?? null;
+}
+
+function fitSummaries(root = scene) {
+  root.querySelectorAll(".entity-summary").forEach((summary) => fitSummary(summary));
+}
+
+function fitSummary(summary) {
+  const card = summary.closest(".node");
+  // Кегль вузла — це nodeVisualScale, а не зум: сцена масштабується трансформом,
+  // тож те, що ми міряємо, від наближення не залежить.
+  const fontSize = Number.parseFloat(card?.style.fontSize);
+  if (!fontSize) return;
+  const key = summaryBoxKey(
+    Number.parseFloat(card.style.width),
+    Number.parseFloat(card.style.height),
+    fontSize,
+    summary.textContent.length,
+  );
+  const cached = summaryRatioByBox.get(key);
+  if (cached !== undefined) return applySummaryRatio(summary, cached);
+  applySummaryRatio(summary, 1);
+  // Прямокутник без висоти — картка згорнута на дальньому зумі: міряти нічого.
+  if (!summary.clientHeight) return;
+  const ratio = fittingRatio((candidate) => {
+    applySummaryRatio(summary, candidate);
+    return summary.scrollHeight <= summary.clientHeight + 1;
+  });
+  applySummaryRatio(summary, ratio);
+  // Кеш росте лише від нових пропорцій картки — за протяжку кутом їх стільки,
+  // скільки кадрів, тож переповнений просто скидаємо.
+  if (summaryRatioByBox.size >= SUMMARY_CACHE_LIMIT) summaryRatioByBox.clear();
+  summaryRatioByBox.set(key, ratio);
+}
+
+function applySummaryRatio(summary, ratio) {
+  // Однакове значення не переписуємо: інакше кожен кадр протяжки скидав би
+  // розкладку картки задарма.
+  const value = summaryFontSize(ratio);
+  if (summary.style.fontSize !== value) summary.style.fontSize = value;
 }
 
 // Елемент можна передати готовим: під час групового перетягування пошук по
@@ -353,6 +410,9 @@ function updateNodeGeometry(node, element = nodeElement(node.id)) {
   element.style.width = `${node.width}px`;
   element.style.height = `${node.height}px`;
   element.style.fontSize = `${nodeVisualScale(node, nodeVariant(node))}px`;
+  // Протяжка кутом міняє пропорції картки, а з ними й місце під підпис.
+  const summary = element.querySelector(":scope > .entity-content > .entity-summary");
+  if (summary) fitSummary(summary);
 }
 
 function updateNodePosition(element, node) {
@@ -487,7 +547,7 @@ function renderNode(node, isRoot = false) {
       // Тип на самій картці: за ним CSS дає айтему й фракції свою палітру.
       // Незнайомий тип лишається на загальній.
       if (!npc && entity.type) element.dataset.entityType = entity.type;
-      if (!npc) element.classList.toggle("entity-far", node.width * view.scale < 180);
+      if (!npc) element.classList.toggle("entity-far", isFarCollapsed(node));
       element.append(nodeHeader(node, { icon: entityIcon(entity), entity, badge: npc ? "" : entity.type }));
 
       const content = document.createElement("div");
@@ -1200,7 +1260,7 @@ function renderEntityResults() {
   entityResults.querySelector(".active")?.scrollIntoView({ block: "nearest" });
 }
 
-function entityNode(entity, left, top, rect, size = entityKind(entity)?.size ?? ENTITY_CARD) {
+function entityNode(entity, left, top, rect, size = entityKind(entity)?.size ?? ENTITY_CARD_TYPES[entity?.type]?.size ?? ENTITY_CARD) {
   const node = {
     id: crypto.randomUUID(), type: "entity", entity: entity.slug,
     x: (left - rect.x) / rect.width * 100,
