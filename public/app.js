@@ -109,6 +109,8 @@ const nodeContextMenu = document.querySelector("#node-context-menu");
 const sceneRenameDialog = document.querySelector("#scene-rename-dialog");
 const sceneRenameForm = document.querySelector("#scene-rename-form");
 const sceneNameInput = document.querySelector("#scene-name");
+const renameDialogTitle = document.querySelector("#rename-dialog-title");
+const renameDialogHint = document.querySelector("#rename-dialog-hint");
 const musicDialog = document.querySelector("#music-dialog");
 const musicUrlInput = document.querySelector("#music-url");
 const musicTitleInput = document.querySelector("#music-title");
@@ -146,7 +148,7 @@ let pickerType = null;
 let insertPoint = null;
 let contextMenuNodeId = null;
 let contextMenuPoint = null;
-let renamingSceneId = null;
+let renamingNodeId = null;
 let rightPointerGesture = null;
 // Власна копія поруч із системним буфером: читати системний дозволено не
 // завжди (контекстне меню без дозволу на clipboard-read), а вставляти щось
@@ -1003,7 +1005,7 @@ function addFrame() {
 }
 
 function addScene(location, point) {
-  if (!isLocationNode(location) || location.locked) return;
+  if (!isLocationNode(location)) return;
   const rect = absoluteRect(layout, location.id);
   const horizontalInset = Math.min(16, location.width * .1);
   const header = locationHeaderHeight(location.width, location.height);
@@ -1029,10 +1031,16 @@ function addScene(location, point) {
   });
 }
 
-function renameScene(node) {
-  if (node.type !== "scene" || node.locked) return;
-  renamingSceneId = node.id;
-  sceneNameInput.value = node.title;
+function renameNode(node) {
+  if (!["scene", "music"].includes(node.type) || node.locked) return;
+  const scene = node.type === "scene";
+  renamingNodeId = node.id;
+  renameDialogTitle.textContent = scene ? "Назва сцени" : "Назва музики";
+  renameDialogHint.textContent = scene
+    ? "Назва відображатиметься в шапці сцени та списку шарів."
+    : "Назва відображатиметься в шапці музичної картки та списку шарів.";
+  sceneNameInput.placeholder = scene ? "Наприклад, Засідка біля брами" : "Наприклад, Тема таверни";
+  sceneNameInput.value = scene ? node.title : musicTitle(node.title, node.url);
   sceneNameInput.setCustomValidity("");
   sceneRenameDialog.showModal();
   requestAnimationFrame(() => {
@@ -1431,18 +1439,19 @@ function openContextMenu(node, clientX, clientY) {
   contextMenuPoint = { clientX, clientY, world: screenToWorld(clientX, clientY) };
   for (const action of ["copy", "lock", "delete"]) contextMenuItem(action).hidden = !node;
   contextMenuItem("add-scene").hidden = !isLocationNode(node);
-  contextMenuItem("rename").hidden = node?.type !== "scene";
+  contextMenuItem("rename").hidden = !["scene", "music"].includes(node?.type);
   contextMenuItem("details").hidden = !node || node.type === "scene";
   if (node) {
     const lockButton = contextMenuItem("lock");
     lockButton.querySelector(".context-menu-icon").replaceChildren(iconElement(node.locked ? "lock_open" : "lock_filled"));
     lockButton.querySelector(".context-menu-label").replaceChildren(node.locked ? "Розблокувати" : "Заблокувати", shortcutHint("Ctrl+L"));
     contextMenuItem("details").disabled = node.type === "entity" && !nodeEntity(node);
-    for (const action of ["add-scene", "rename"]) {
-      const button = contextMenuItem(action);
-      button.disabled = node.locked;
-      button.title = node.locked ? "Спочатку розблокуйте елемент" : "";
-    }
+    const addSceneButton = contextMenuItem("add-scene");
+    addSceneButton.disabled = false;
+    addSceneButton.title = "";
+    const renameButton = contextMenuItem("rename");
+    renameButton.disabled = node.locked;
+    renameButton.title = node.locked ? "Спочатку розблокуйте елемент" : "";
     const deleteButton = contextMenuItem("delete");
     deleteButton.disabled = node.locked;
     deleteButton.title = node.locked ? "Спочатку розблокуйте елемент" : "";
@@ -2267,18 +2276,22 @@ document.querySelector("#scene-rename-cancel").addEventListener("click", closeSc
 sceneRenameDialog.addEventListener("click", (event) => {
   if (event.target === sceneRenameDialog) closeSceneRenameDialog();
 });
-sceneRenameDialog.addEventListener("close", () => { renamingSceneId = null; });
+sceneRenameDialog.addEventListener("close", () => { renamingNodeId = null; });
 sceneNameInput.addEventListener("input", () => sceneNameInput.setCustomValidity(""));
 sceneRenameForm.addEventListener("submit", (event) => {
   event.preventDefault();
-  const node = findNode(layout, renamingSceneId);
-  if (!node || node.type !== "scene" || node.locked) return closeSceneRenameDialog();
+  const node = findNode(layout, renamingNodeId);
+  if (!node || !["scene", "music"].includes(node.type) || node.locked) return closeSceneRenameDialog();
   const title = sceneNameInput.value.trim();
   if (!title) {
     sceneNameInput.setCustomValidity("Вкажіть назву сцени");
     return sceneNameInput.reportValidity();
   }
-  if (title !== node.title) executeCommand("Змінити назву сцени", () => { node.title = title; });
+  const currentTitle = node.type === "scene" ? node.title : musicTitle(node.title, node.url);
+  if (title !== currentTitle) {
+    const label = node.type === "scene" ? "Змінити назву сцени" : "Змінити назву музики";
+    executeCommand(label, () => { node.title = title; });
+  }
   closeSceneRenameDialog();
 });
 nodeContextMenu.addEventListener("click", async (event) => {
@@ -2291,7 +2304,7 @@ nodeContextMenu.addEventListener("click", async (event) => {
   if (!node) return;
   setSelection([node.id]);
   if (action === "add-scene") addScene(node, spot?.world);
-  else if (action === "rename") renameScene(node);
+  else if (action === "rename") renameNode(node);
   else if (action === "lock") toggleLock();
   else if (action === "copy") copySelection();
   else if (action === "delete") await deleteSelected();
