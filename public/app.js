@@ -74,6 +74,10 @@ const ENTITY_KINDS = {
   },
 };
 
+// Типи без власного вигляду: спільна картка, але своя іконка в шапці. Колір їм
+// дає CSS за data-entity-type вузла.
+const ENTITY_TYPE_ICONS = { item: "inventory_2", faction: "flag" };
+
 const viewport = document.querySelector("#viewport");
 const scene = document.querySelector("#scene");
 const grid = document.querySelector("#grid");
@@ -221,6 +225,11 @@ function nodeEntity(node) {
 
 function entityKind(entity) {
   return ENTITY_KINDS[entity?.type] ?? null;
+}
+
+// Тип із власним виглядом бере глиф зі свого опису, решта — з ENTITY_TYPE_ICONS.
+function entityIcon(entity) {
+  return entityKind(entity)?.icon ?? ENTITY_TYPE_ICONS[entity?.type] ?? "description";
 }
 
 function nodeVariant(node) {
@@ -475,8 +484,11 @@ function renderNode(node, isRoot = false) {
       // NPC не згортається на дальньому зумі: арт і текст видно завжди.
       const npc = kind?.variant === "npc";
       element.classList.add(npc ? "npc-node" : "entity-node");
+      // Тип на самій картці: за ним CSS дає айтему й фракції свою палітру.
+      // Незнайомий тип лишається на загальній.
+      if (!npc && entity.type) element.dataset.entityType = entity.type;
       if (!npc) element.classList.toggle("entity-far", node.width * view.scale < 180);
-      element.append(nodeHeader(node, { icon: kind?.icon ?? "description", entity, badge: npc ? "" : entity.type }));
+      element.append(nodeHeader(node, { icon: entityIcon(entity), entity, badge: npc ? "" : entity.type }));
 
       const content = document.createElement("div");
       content.className = `entity-content${entity.portrait ? "" : " no-portrait"}`;
@@ -736,8 +748,8 @@ function onStatblockWheel(event) {
 }
 
 function layerIcon(node) {
-  const kind = entityKind(nodeEntity(node));
-  if (kind) return kind.icon;
+  const entity = nodeEntity(node);
+  if (entity) return entityIcon(entity);
   return node.type === "image" ? "image" : node.type === "entity" ? "description"
     : node.type === "note" ? "sticky_note_2" : node.type === "music" ? "music_note" : "crop_square";
 }

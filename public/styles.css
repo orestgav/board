@@ -85,6 +85,22 @@ svg.icon { width: 20px; height: 20px; }
 .entity-node.entity-far .entity-summary { display: none; }
 .entity-node.entity-far .entity-content { grid-template-columns: 1fr; }
 .entity-node.entity-far .entity-portrait { border: 0; opacity: .78; }
+/* Айтем — мідь, фракція — вино: обидві палітри стоять окремо від зеленого NPC,
+   бузкової локації, бірюзового статблоку й темно-червоної музики. */
+/* :where() тримає вагу правила такою ж, як у .npc-node, — інакше колір рамки
+   типу переважив би .node.selected і виділення стало б невидимим. */
+.entity-node:where([data-entity-type="item"]) { border-color: #b8783a; background: rgba(41, 30, 22, .95); }
+.entity-node:where([data-entity-type="item"]) > .node-header { border-bottom-color: rgba(214, 149, 88, .26); background: rgba(146, 88, 35, .28); }
+.entity-node:where([data-entity-type="item"]) .node-glyph { color: #efb279; }
+.entity-node:where([data-entity-type="item"]) .entity-type { color: #c89a72; }
+.entity-node:where([data-entity-type="item"]) .entity-portrait { border-right-color: rgba(214, 149, 88, .2); }
+.entity-node:where([data-entity-type="item"]) .entity-summary { color: #d8c8b6; }
+.entity-node:where([data-entity-type="faction"]) { border-color: #a45b86; background: rgba(40, 26, 35, .95); }
+.entity-node:where([data-entity-type="faction"]) > .node-header { border-bottom-color: rgba(212, 142, 184, .26); background: rgba(134, 60, 105, .3); }
+.entity-node:where([data-entity-type="faction"]) .node-glyph { color: #e6a6cd; }
+.entity-node:where([data-entity-type="faction"]) .entity-type { color: #c48fae; }
+.entity-node:where([data-entity-type="faction"]) .entity-portrait { border-right-color: rgba(212, 142, 184, .2); }
+.entity-node:where([data-entity-type="faction"]) .entity-summary { color: #d9c6d2; }
 .entity-missing { padding: 1.333333em; color: #e08b7d; font-size: 12em; pointer-events: auto; }
 .node.locked > .entity-content, .node.locked > .entity-missing { pointer-events: none; }
 /* Заблоковане тіло не приймає звичайні дії, але сам вузол лишається ціллю
