@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { centeredViewOnRect, locationHeaderHeight, maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, rebasedView, rectWithin, zoomedViewAt , rectsOverlap, worldViewportRect } from "../public/view.js";
+import { centeredViewOnRect, locationBorderScreenWidth, locationHeaderHeight, maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, rebasedView, rectWithin, zoomedViewAt , rectsOverlap, worldViewportRect } from "../public/view.js";
 
 test("the selection band takes a node only when it fits inside whole", () => {
   const band = { x: 0, y: 0, width: 100, height: 100 };
@@ -75,6 +75,13 @@ test("a card drawn as a frame scales by the frame base size", () => {
   assert.equal(nodeVisualScale(node), Math.min(720 / 320, 460 / 190));
   assert.equal(nodeVisualScale(node, "frame"), 2);
   assert.equal(locationHeaderHeight(720, 460), 52);
+});
+
+test("a location border is bold from afar and disappears near full screen", () => {
+  assert.equal(locationBorderScreenWidth(80, 60, 1, 1000, 800), 8);
+  assert.equal(locationBorderScreenWidth(850, 680, 1, 1000, 800), 0);
+  const middle = locationBorderScreenWidth(500, 400, 1, 1000, 800);
+  assert.ok(middle > 0 && middle < 8);
 });
 
 test("the visible world rect mirrors screen-to-world conversion", () => {

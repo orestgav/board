@@ -100,7 +100,7 @@ svg.icon { width: 20px; height: 20px; }
 .npc-node .entity-content { grid-template-columns: 150em 1fr; }
 .npc-node .entity-portrait { padding: 0 7em; border-right-color: rgba(122, 162, 128, .22); object-fit: contain; }
 .npc-node .entity-summary { color: #ccd8cd; }
-.location-node { border-color: #7c6a4d; background: rgba(33, 30, 25, .93); }
+.location-node { border-color: var(--gold-bright); background: rgba(33, 30, 25, .93); }
 /* Шапка локації нижча за рамкову — висота збігається з locationHeaderHeight. */
 .location-node > .node-header { height: 26em; padding: 0 10em; background: rgba(78, 62, 39, .34); }
 .location-node > .node-header .node-glyph { width: 12em; height: 12em; }

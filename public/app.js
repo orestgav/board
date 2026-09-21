@@ -22,7 +22,7 @@ import { renderMarkdown } from "./markdown.js";
 import { maxHitPoints, statblockMarkup } from "./statblock.js";
 import { mapSlugFromPath } from "./notes.js";
 import { canonicalYouTubeUrl, musicTitle, oEmbedUrl, playbackUrl } from "./music.js";
-import { centeredViewOnRect, locationHeaderHeight, maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, rebasedView, rectWithin, rectsOverlap, worldViewportRect, zoomedViewAt } from "./view.js";
+import { centeredViewOnRect, locationBorderScreenWidth, locationHeaderHeight, maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, rebasedView, rectWithin, rectsOverlap, worldViewportRect, zoomedViewAt } from "./view.js";
 
 const MIN_NODE_SIZE = Number.EPSILON;
 const MIN_ZOOM_VIEWPORT_COVERAGE = 0.7;
@@ -278,10 +278,28 @@ function applyView() {
     const node = findNode(layout, element.dataset.id);
     if (node) element.classList.toggle("entity-far", node.width * view.scale < 180);
   });
+  updateLocationBorders();
+}
+
+function updateLocationBorders() {
+  document.querySelectorAll(".location-node").forEach((element) => {
+    const node = findNode(layout, element.dataset.id);
+    if (!node) return;
+    const screenWidth = locationBorderScreenWidth(
+      node.width,
+      node.height,
+      view.scale,
+      viewport.clientWidth,
+      viewport.clientHeight,
+    );
+    // Сцена масштабується цілком, тому переводимо екранні пікселі в локальні.
+    element.style.borderWidth = `${screenWidth / view.scale}px`;
+  });
 }
 
 function render() {
   scene.replaceChildren(...layout.children.map((node) => renderNode(node, true)));
+  updateLocationBorders();
   renderLayers();
   emptyState.hidden = layout.children.length !== 0;
   undoButton.disabled = undoStack.length === 0;

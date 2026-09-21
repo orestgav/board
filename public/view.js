@@ -74,6 +74,19 @@ export function locationHeaderHeight(width, height) {
   return LOCATION_HEADER_UNITS * nodeVisualScale({ width, height }, "frame");
 }
 
+// Локація лишається помітною на загальному плані без зміни геометрії картки.
+// Рамка вимірюється в екранних пікселях і зникає, коли картка заповнює екран.
+export function locationBorderScreenWidth(width, height, scale, viewportWidth, viewportHeight) {
+  if (viewportWidth <= 0 || viewportHeight <= 0 || scale <= 0) return 0;
+  const coverage = Math.max(width * scale / viewportWidth, height * scale / viewportHeight);
+  const fullWidthCoverage = 0.08;
+  const hiddenCoverage = 0.85;
+  const maximumWidth = 8;
+  if (coverage <= fullWidthCoverage) return maximumWidth;
+  if (coverage >= hiddenCoverage) return 0;
+  return maximumWidth * (hiddenCoverage - coverage) / (hiddenCoverage - fullWidthCoverage);
+}
+
 // Далі, ніж «найбільший вузол на 70% екрана», віддалятися нема куди: на цьому
 // масштабі загальна карта читається цілком, а дрібніше дошка перетворюється
 // на купку плям.
