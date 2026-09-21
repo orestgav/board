@@ -80,14 +80,17 @@ svg.icon { width: 20px; height: 20px; }
 .entity-type { margin-left: auto; color: #9c8c77; font-size: 9em; letter-spacing: .08em; text-transform: uppercase; }
 .entity-content { position: absolute; inset: 38em 0 0; overflow: hidden; border-radius: 0 0 9em 9em; display: grid; grid-template-columns: minmax(72em, 34%) 1fr; min-height: 0; pointer-events: auto; }
 /* Портрет вписується цілим — картка його не ріже (орієнтир — NPC). */
-.entity-portrait { width: 100%; height: 100%; min-height: 0; padding: 0 7em; object-fit: contain; border-right: 1em solid rgba(145,132,115,.2); }
+.entity-portrait { width: 100%; height: 100%; min-height: 0; padding: 0 7em; object-fit: contain; }
 /* Кегль підпису підбирає JS (fitSummary) — тут лишається базовий, з якого він
    починає. Довге нерозривне слово переносимо: інакше висота вліземе, а слово
    вилізе боком, і зменшувати кегль було б марно. */
 .entity-summary { overflow: hidden; margin: 0; padding: 1.083333em; color: #c5bdb3; font-size: 12em; line-height: 1.45; white-space: pre-line; overflow-wrap: break-word; }
+/* Від портрета текст відступає вдвічі менше, ніж від решти країв: розділювача
+   між ними немає, тож зайва щілина тільки розриває картку. */
+.entity-content:not(.no-portrait) .entity-summary { padding-left: .541667em; }
 .entity-node.entity-far .entity-summary { display: none; }
 .entity-node.entity-far .entity-content { grid-template-columns: 1fr; }
-.entity-node.entity-far .entity-portrait { border: 0; opacity: .78; }
+.entity-node.entity-far .entity-portrait { opacity: .78; }
 /* Айтем — мідь, фракція — вино: обидві палітри стоять окремо від зеленого NPC,
    бузкової локації, бірюзового статблоку й темно-червоної музики. */
 /* :where() тримає вагу правила такою ж, як у .npc-node, — інакше колір рамки
@@ -96,13 +99,11 @@ svg.icon { width: 20px; height: 20px; }
 .entity-node:where([data-entity-type="item"]) > .node-header { border-bottom-color: rgba(214, 149, 88, .26); background: rgba(146, 88, 35, .28); }
 .entity-node:where([data-entity-type="item"]) .node-glyph { color: #efb279; }
 .entity-node:where([data-entity-type="item"]) .entity-type { color: #c89a72; }
-.entity-node:where([data-entity-type="item"]) .entity-portrait { border-right-color: rgba(214, 149, 88, .2); }
 .entity-node:where([data-entity-type="item"]) .entity-summary { color: #d8c8b6; }
 .entity-node:where([data-entity-type="faction"]) { border-color: #a45b86; background: rgba(40, 26, 35, .95); }
 .entity-node:where([data-entity-type="faction"]) > .node-header { border-bottom-color: rgba(212, 142, 184, .26); background: rgba(134, 60, 105, .3); }
 .entity-node:where([data-entity-type="faction"]) .node-glyph { color: #e6a6cd; }
 .entity-node:where([data-entity-type="faction"]) .entity-type { color: #c48fae; }
-.entity-node:where([data-entity-type="faction"]) .entity-portrait { border-right-color: rgba(212, 142, 184, .2); }
 .entity-node:where([data-entity-type="faction"]) .entity-summary { color: #d9c6d2; }
 /* NPC, айтем і фракція діляться карткою однаково: 38% від ширини під портрет —
    рівно та частка, яку на картці NPC займали фіксовані 150em. */
@@ -123,7 +124,6 @@ svg.icon { width: 20px; height: 20px; }
 .npc-node { border-color: #506d54; background: rgba(26, 35, 29, .95); }
 .npc-node > .node-header { border-bottom-color: rgba(122, 162, 128, .24); background: rgba(62, 98, 68, .3); }
 .npc-node .node-glyph { color: #9ed3a6; }
-.npc-node .entity-portrait { border-right-color: rgba(122, 162, 128, .22); }
 .npc-node .entity-summary { color: #ccd8cd; }
 .location-node { border-color: #a884c6; background: rgba(33, 30, 25, .93); }
 /* Шапка локації нижча за рамкову — висота збігається з locationHeaderHeight. */
