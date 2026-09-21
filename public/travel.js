@@ -21,9 +21,13 @@ export const TRAVEL_MODES = [
   // звичайному; це вибір дошки, а не рядок таблиці.
   { id: "mount", label: "Верхи", milesPerHour: 4, milesPerDay: 30, hoursPerDay: 8, note: "галоп ×2, але не довше години" },
   { id: "wagon", label: "Возом", milesPerHour: 3, milesPerDay: 24, hoursPerDay: 8, note: "темп обирається як пішки" },
-  { id: "sailing-ship", label: "Вітрильник", milesPerHour: 2, milesPerDay: 48, hoursPerDay: 24, note: "" },
-  { id: "longship", label: "Довгий човен", milesPerHour: 3, milesPerDay: 72, hoursPerDay: 24, note: "" },
-  { id: "galley", label: "Галера", milesPerHour: 4, milesPerDay: 96, hoursPerDay: 24, note: "" },
+  // Партія ходить власним кораблем, тож решта суден лежить прихованою: числа
+  // на місці, і повернути рядок — це зняти `hidden`.
+  { id: "sailing-ship", label: "Вітрильник", milesPerHour: 2, milesPerDay: 48, hoursPerDay: 24, note: "", hidden: true },
+  { id: "longship", label: "Довгий човен", milesPerHour: 3, milesPerDay: 72, hoursPerDay: 24, note: "", hidden: true },
+  // «Росінант» — корвет, найшвидший у гавані Кардоси; власних статів картка
+  // корабля не дає, тому він іде за галерою — найпрудкішим судном таблиці.
+  { id: "rosinant", label: "Росінант", milesPerHour: 4, milesPerDay: 96, hoursPerDay: 24, note: "швидкість галери" },
 ];
 
 // Українська форма числа: 1 день, 2 дні, 5 днів; 11–14 завжди «днів».
@@ -99,5 +103,5 @@ export function milesLabel(miles) {
 }
 
 export function travelEstimates(miles, modes = TRAVEL_MODES) {
-  return modes.map((mode) => ({ ...mode, duration: formatTravelTime(miles, mode) }));
+  return modes.filter((mode) => !mode.hidden).map((mode) => ({ ...mode, duration: formatTravelTime(miles, mode) }));
 }
