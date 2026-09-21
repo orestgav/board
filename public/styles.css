@@ -299,7 +299,10 @@ svg.icon { width: 20px; height: 20px; }
 .context-menu button.danger { color: #e79184; }
 .context-menu button.danger:hover:not(:disabled), .context-menu button.danger:focus-visible { background: rgba(180,87,75,.17); color: #ffb3a5; }
 .context-menu svg.icon { width: 18px; height: 18px; }
+.context-menu button > span:last-child { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
+.context-menu kbd { font: inherit; font-size: 11px; color: #8f8578; white-space: nowrap; }
 .context-menu hr { margin: 5px 4px; border: 0; border-top: 1px solid #3d3832; }
+.context-menu hr[hidden] { display: none; }
 
 @media (max-width: 760px) {
   .hud { top: 10px; }

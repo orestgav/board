@@ -16,6 +16,7 @@ import {
   reorderNode,
 } from "./model.js";
 import { createStorage } from "./storage.js";
+import { clipboardPayload, noteTargets, parseClipboard, placedItems, withoutNodes } from "./clipboard.js";
 import { matchesEntity } from "./entities.js";
 import { iconElement } from "./icons.js";
 import { renderMarkdown } from "./markdown.js";
@@ -41,6 +42,7 @@ const MARQUEE_THRESHOLD = 3;
 const CONTAINER_GAP = 24;
 const CONTAINER_PADDING = 28;
 const CONTEXT_MENU_NODE_TYPES = new Set(["image", "entity", "note", "music"]);
+const CLIPBOARD_IMAGE_TYPES = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" };
 
 // Типи карток із власним виглядом і власною кнопкою на полотні. Решта типів
 // поки малюється спільною карткою й додається кнопкою «Картка».
@@ -139,7 +141,13 @@ let pickerSelection = 0;
 let pickerType = null;
 let insertPoint = null;
 let contextMenuNodeId = null;
+let contextMenuPoint = null;
 let rightPointerGesture = null;
+// Власна копія поруч із системним буфером: читати системний дозволено не
+// завжди (контекстне меню без дозволу на clipboard-read), а вставляти щось
+// одразу після свого ж «копіювати» треба без запитань.
+let internalClipboard = null;
+let pointerClient = null;
 // Назву ютуб віддає асинхронно, тож рахуємо запити: у поле потрапляє лише
 // відповідь на останній лінк, а вручну вписана назва не затирається.
 let musicLookup = 0;
@@ -983,11 +991,14 @@ function isMapNode(node) {
   return node?.type === "image" && node.image.startsWith(`${boardConfig?.media?.dir}/maps/`);
 }
 
+function mapDescriptor(node) {
+  const fileName = node.image.split("/").at(-1);
+  return { node, slug: mapSlugFromPath(node.image), name: fileName.replace(/\.[^.]+$/, "") };
+}
+
 function mapContext(tree, startId) {
   const map = nearestAncestor(tree, startId, isMapNode);
-  if (!map) return null;
-  const fileName = map.image.split("/").at(-1);
-  return { node: map, slug: mapSlugFromPath(map.image), name: fileName.replace(/\.[^.]+$/, "") };
+  return map ? mapDescriptor(map) : null;
 }
 
 function noteMapContext(tree, noteId) {
@@ -1325,18 +1336,49 @@ function showMusicDetails(node) {
 function closeContextMenu() {
   nodeContextMenu.hidden = true;
   contextMenuNodeId = null;
+  contextMenuPoint = null;
 }
 
+function shortcutHint(keys) {
+  const hint = document.createElement("kbd");
+  hint.textContent = keys;
+  return hint;
+}
+
+function contextMenuItem(action) {
+  return nodeContextMenu.querySelector(`[data-context-action="${action}"]`);
+}
+
+// Розділювач має сенс лише між двома видимими командами: на порожньому
+// полотні від меню лишається сама «Вставити».
+function trimContextMenuRules() {
+  let visibleAbove = false;
+  let rule = null;
+  for (const item of nodeContextMenu.children) {
+    if (item.tagName === "HR") { item.hidden = true; rule = item; continue; }
+    if (item.hidden) continue;
+    if (visibleAbove && rule) rule.hidden = false;
+    visibleAbove = true;
+    rule = null;
+  }
+}
+
+// Без вузла (клік по порожньому полотну чи по рамці) меню зводиться до
+// вставки: решта команд нема до чого застосувати.
 function openContextMenu(node, clientX, clientY) {
-  contextMenuNodeId = node.id;
-  const lockButton = nodeContextMenu.querySelector('[data-context-action="lock"]');
-  lockButton.querySelector(".context-menu-icon").replaceChildren(iconElement(node.locked ? "lock_open" : "lock_filled"));
-  lockButton.querySelector(".context-menu-label").textContent = node.locked ? "Розблокувати" : "Заблокувати";
-  const detailsButton = nodeContextMenu.querySelector('[data-context-action="details"]');
-  detailsButton.disabled = node.type === "entity" && !nodeEntity(node);
-  const deleteButton = nodeContextMenu.querySelector('[data-context-action="delete"]');
-  deleteButton.disabled = node.locked;
-  deleteButton.title = node.locked ? "Спочатку розблокуйте елемент" : "";
+  contextMenuNodeId = node?.id ?? null;
+  contextMenuPoint = { clientX, clientY, world: screenToWorld(clientX, clientY) };
+  for (const action of ["copy", "lock", "details", "delete"]) contextMenuItem(action).hidden = !node;
+  if (node) {
+    const lockButton = contextMenuItem("lock");
+    lockButton.querySelector(".context-menu-icon").replaceChildren(iconElement(node.locked ? "lock_open" : "lock_filled"));
+    lockButton.querySelector(".context-menu-label").replaceChildren(node.locked ? "Розблокувати" : "Заблокувати", shortcutHint("Ctrl+L"));
+    contextMenuItem("details").disabled = node.type === "entity" && !nodeEntity(node);
+    const deleteButton = contextMenuItem("delete");
+    deleteButton.disabled = node.locked;
+    deleteButton.title = node.locked ? "Спочатку розблокуйте елемент" : "";
+  }
+  trimContextMenuRules();
   nodeContextMenu.hidden = false;
   nodeContextMenu.style.left = `${clientX}px`;
   nodeContextMenu.style.top = `${clientY}px`;
@@ -1463,6 +1505,7 @@ function finishMarquee(finished) {
 }
 
 function onPointerMove(event) {
+  pointerClient = { x: event.clientX, y: event.clientY };
   insertPoint = screenToWorld(event.clientX, event.clientY);
   if (!interaction || event.pointerId !== interaction.pointerId) return;
   const dx = event.clientX - interaction.startX;
@@ -1686,6 +1729,108 @@ async function deleteSelected() {
   for (const effect of lifecycles) newNoteIds.delete(effect.nodeId);
 }
 
+// Вставка кладе копію під курсор. Коли курсора над полотном не було
+// (натиснули з клавіатури після діалогу), беремо середину екрана.
+function cursorSpot() {
+  const bounds = viewport.getBoundingClientRect();
+  const inside = pointerClient
+    && pointerClient.x >= bounds.left && pointerClient.x <= bounds.right
+    && pointerClient.y >= bounds.top && pointerClient.y <= bounds.bottom;
+  const clientX = inside ? pointerClient.x : bounds.left + bounds.width / 2;
+  const clientY = inside ? pointerClient.y : bounds.top + bounds.height / 2;
+  return { clientX, clientY, world: screenToWorld(clientX, clientY) };
+}
+
+function copySelection(clipboardData = null) {
+  const roots = selectedRoots();
+  if (!roots.length) return false;
+  const payload = clipboardPayload(
+    roots.map((node) => ({ node, rect: absoluteRect(layout, node.id) })),
+    (reference) => notesByRef.get(reference)?.text,
+  );
+  internalClipboard = payload;
+  const text = JSON.stringify(payload);
+  if (clipboardData) clipboardData.setData("text/plain", text);
+  else navigator.clipboard?.writeText(text).catch((error) => console.warn(error));
+  return true;
+}
+
+function supportedImages(files) {
+  return [...(files ?? [])].filter((file) => /^image\/(png|jpeg|webp)$/i.test(file.type) || /\.(png|jpe?g|webp)$/i.test(file.name));
+}
+
+// Скріншот у буфері приходить голим блобом — імʼя вигадуємо самі, далі його
+// однаково зробить унікальним сховище.
+async function clipboardImages() {
+  if (!navigator.clipboard?.read) return [];
+  const files = [];
+  for (const item of await navigator.clipboard.read()) {
+    const type = item.types.find((candidate) => CLIPBOARD_IMAGE_TYPES[candidate]);
+    if (type) files.push(new File([await item.getType(type)], `clipboard.${CLIPBOARD_IMAGE_TYPES[type]}`, { type }));
+  }
+  return files;
+}
+
+// Контекстне меню читає системний буфер саме: події paste тут немає. Браузер
+// може не дати дозволу — тоді лишається власна копія.
+async function pasteFromMenu(spot) {
+  if (!layout) return;
+  let images = [];
+  let text = "";
+  try {
+    images = await clipboardImages();
+    if (!images.length) text = await navigator.clipboard.readText();
+  } catch (error) {
+    console.warn(error);
+  }
+  if (images.length) return openDropChoice(images, spot.clientX, spot.clientY);
+  await pasteNodes(parseClipboard(text) ?? internalClipboard, spot.world);
+}
+
+async function pasteNodes(payload, point) {
+  if (!payload) return showToast("У буфері немає нічого, що можна покласти на полотно");
+  const { parent, rect } = nearestPointParent(layout, point);
+  let nodes = placedItems(payload, point, rect);
+  const targets = noteTargets(nodes, mapContext(layout, parent?.id ?? null), (node) => isMapNode(node) ? mapDescriptor(node) : null);
+  const orphans = new Set(targets.filter((target) => !target.map).map((target) => target.node));
+  if (orphans.size) {
+    nodes = withoutNodes(nodes, orphans);
+    showToast(plural(orphans.size, "Нотатку можна вставити лише всередині карти", "Нотатки можна вставити лише всередині карти"));
+    if (!nodes.length) return;
+  }
+  // Копія нотатки — це нова нотатка у файлі своєї карти: два вузли на одне
+  // посилання зламали б і перенесення, і видалення.
+  const copies = targets.filter((target) => target.map);
+  const lifecycles = [];
+  if (copies.length) setStatus(plural(copies.length, "Створення нотатки…", `Створення нотаток (${copies.length})…`), "dirty");
+  for (const { node, map } of copies) {
+    try {
+      const note = await storage.createNote(map.slug, map.name, payload.notes[node.note] ?? notesByRef.get(node.note)?.text ?? "");
+      notesByRef.set(note.reference, note);
+      node.note = note.reference;
+      lifecycles.push({ kind: "create", nodeId: node.id, reference: note.reference, text: note.text });
+    } catch (error) {
+      // Те, що вже лягло у файл, прибираємо: без вузлів на дошці ці нотатки
+      // лишилися б сміттям у markdown.
+      for (const effect of lifecycles) {
+        try {
+          await storage.deleteNote(effect.reference);
+          notesByRef.delete(effect.reference);
+        } catch (cleanupError) {
+          console.warn(cleanupError);
+        }
+      }
+      setStatus("Помилка створення нотатки", "error");
+      return showToast(error.message);
+    }
+  }
+  executeCommand(plural(nodes.length, "Вставити вузол", "Вставити вузли"), () => {
+    const destination = parent ? parent.children : layout.children;
+    for (const node of nodes) destination.push(node);
+    setSelection(nodes.map((node) => node.id));
+  }, lifecycles.length ? { noteLifecycles: lifecycles } : {});
+}
+
 function canvasBlob(bitmap, quality, maxDimension = null) {
   const scale = maxDimension ? Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height)) : 1;
   const canvas = document.createElement("canvas");
@@ -1754,13 +1899,13 @@ async function processDrop(kind) {
   }
 }
 
-function openDropChoice(files, event) {
-  pendingDrop = { files, point: screenToWorld(event.clientX, event.clientY) };
+function openDropChoice(files, clientX, clientY) {
+  pendingDrop = { files, point: screenToWorld(clientX, clientY) };
   dropChoiceTitle.textContent = files.length === 1 ? "Що це за зображення?" : `Що це за зображення (${files.length})?`;
   dropChoice.hidden = false;
   const width = 390;
-  dropChoice.style.left = `${clamp(event.clientX + 12, 12, innerWidth - width - 12)}px`;
-  dropChoice.style.top = `${clamp(event.clientY + 12, 76, innerHeight - 150)}px`;
+  dropChoice.style.left = `${clamp(clientX + 12, 12, innerWidth - width - 12)}px`;
+  dropChoice.style.top = `${clamp(clientY + 12, 76, innerHeight - 150)}px`;
 }
 
 function zoomAt(clientX, clientY, factor) {
@@ -1867,7 +2012,7 @@ viewport.addEventListener("pointerdown", (event) => {
   beginPan(event, { waitForDrag: true, gesture: rightPointerGesture });
 }, { capture: true });
 viewport.addEventListener("contextmenu", (event) => {
-  if (!layout) return;
+  if (!layout || event.target.closest(".hud, .canvas-actions, .connection-screen, .empty-state")) return;
   if (rightPointerGesture?.dragged) {
     event.preventDefault();
     rightPointerGesture = null;
@@ -1880,10 +2025,10 @@ viewport.addEventListener("contextmenu", (event) => {
   const nodeId = rightPointerGesture?.nodeId ?? nodeElement?.dataset.id;
   const node = nodeId ? findNode(layout, nodeId) : null;
   rightPointerGesture = null;
-  if (!node || !CONTEXT_MENU_NODE_TYPES.has(node.type)) return closeContextMenu();
   event.preventDefault();
   event.stopPropagation();
   commitHitPoints();
+  if (!node || !CONTEXT_MENU_NODE_TYPES.has(node.type)) return openContextMenu(null, event.clientX, event.clientY);
   select(node.id);
   openContextMenu(node, event.clientX, event.clientY);
 });
@@ -1914,9 +2059,33 @@ viewport.addEventListener("drop", (event) => {
   event.preventDefault();
   dropOverlay.hidden = true;
   if (!layout) return;
-  const files = [...event.dataTransfer.files].filter((file) => /^image\/(png|jpeg|webp)$/i.test(file.type) || /\.(png|jpe?g|webp)$/i.test(file.name));
+  const files = supportedImages(event.dataTransfer.files);
   if (!files.length) return showToast("У дропі немає підтримуваних зображень");
-  openDropChoice(files, event);
+  openDropChoice(files, event.clientX, event.clientY);
+});
+
+document.addEventListener("copy", (event) => {
+  if (!layout || entityPicker.open || entityDetails.open || musicDialog.open) return;
+  if (event.target.matches?.("input, textarea, [contenteditable=true]")) return;
+  // Виділений текст статблока чи нотатки копіюється як текст — картки
+  // забирає лише «порожній» Ctrl+C.
+  if (!document.getSelection()?.isCollapsed) return;
+  if (copySelection(event.clipboardData)) event.preventDefault();
+});
+
+document.addEventListener("paste", (event) => {
+  if (!layout || entityPicker.open || entityDetails.open || musicDialog.open) return;
+  if (event.target.matches?.("input, textarea, [contenteditable=true]")) return;
+  const images = supportedImages(event.clipboardData?.files);
+  const text = event.clipboardData?.getData("text/plain") ?? "";
+  // Власна копія — запасний варіант лише для порожнього буфера: коли там
+  // лежить чужий текст, вставляти замість нього старі картки не можна.
+  const payload = parseClipboard(text) ?? (images.length || text.trim() ? null : internalClipboard);
+  if (!images.length && !payload) return;
+  event.preventDefault();
+  const spot = cursorSpot();
+  if (images.length) openDropChoice(images, spot.clientX, spot.clientY);
+  else pasteNodes(payload, spot.world);
 });
 
 window.addEventListener("keydown", (event) => {
@@ -2013,17 +2182,20 @@ nodeContextMenu.addEventListener("click", async (event) => {
   const action = event.target.closest("[data-context-action]")?.dataset.contextAction;
   if (!action || event.target.closest("button")?.disabled) return;
   const node = findNode(layout, contextMenuNodeId);
+  const spot = contextMenuPoint;
   closeContextMenu();
+  if (action === "paste") return pasteFromMenu(spot);
   if (!node) return;
   setSelection([node.id]);
   if (action === "lock") toggleLock();
+  else if (action === "copy") copySelection();
   else if (action === "delete") await deleteSelected();
   else if (action === "details") showNodeDetails(node);
 });
 nodeContextMenu.addEventListener("keydown", (event) => {
   if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
   event.preventDefault();
-  const buttons = [...nodeContextMenu.querySelectorAll("button:not(:disabled)")];
+  const buttons = [...nodeContextMenu.querySelectorAll("button:not(:disabled):not([hidden])")];
   const index = buttons.indexOf(document.activeElement);
   const direction = event.key === "ArrowDown" ? 1 : -1;
   buttons[(index + direction + buttons.length) % buttons.length]?.focus();
