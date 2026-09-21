@@ -22,6 +22,7 @@ import { iconElement } from "./icons.js";
 import { renderMarkdown } from "./markdown.js";
 import { maxHitPoints, statblockMarkup } from "./statblock.js";
 import { mapSlugFromPath } from "./notes.js";
+import { noteMarkup, toggleBold } from "./note-format.js";
 import { NOTE_FONT_EM, SUMMARY_FONT_EM, fitBoxKey, fittedFontSize, fittingRatio, notePadding, textShape } from "./text-fit.js";
 import { canonicalYouTubeUrl, musicTitle, oEmbedUrl, playbackUrl } from "./music.js";
 import { centeredViewOnRect, locationBorderScreenWidth, locationHeaderHeight, maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, rebasedView, rectWithin, rectsOverlap, worldViewportRect, zoomedViewAt } from "./view.js";
@@ -557,6 +558,7 @@ function renderNode(node, isRoot = false) {
       // "input" навішується нижче, тож працює вже з новим кеглем.
       editor.addEventListener("input", () => fitNote(editor));
       const updateCaret = attachNoteCaret(editor, element);
+      element.append(boldButton(editor, updateCaret));
       const pendingKey = pendingNoteInput?.id === node.id ? pendingNoteInput.key : null;
       if (pendingNoteInput?.id === node.id) pendingNoteInput = null;
       requestAnimationFrame(() => {
@@ -578,7 +580,9 @@ function renderNode(node, isRoot = false) {
     } else {
       const content = document.createElement("div");
       content.className = "note-content";
-      content.textContent = note?.text || `Не знайдено ${node.note}`;
+      // Зірочки жирного в показаній нотатці ні до чого: їх видно лише в полі,
+      // де їх і ставить кнопка.
+      content.innerHTML = noteMarkup(note?.text || `Не знайдено ${node.note}`);
       content.addEventListener("pointerdown", (event) => event.stopPropagation());
       content.addEventListener("click", (event) => {
         event.stopPropagation();
@@ -990,6 +994,31 @@ function beginNoteEdit(node, key = null) {
   pendingNoteInput = key ? { id: node.id, key } : null;
   render();
   return true;
+}
+
+// Кнопка під ручкою перетягування: робить вибране жирним, а вже жирне —
+// звичайним. Фокус їй віддавати не можна — втрата фокуса завершує редагування,
+// тож натиск гасимо ще на pointerdown, а працюємо вже по кліку.
+function boldButton(editor, updateCaret) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "note-bold";
+  button.title = "Жирний";
+  button.setAttribute("aria-label", "Зробити вибране жирним");
+  button.append(iconElement("format_bold"));
+  button.addEventListener("pointerdown", (event) => { event.preventDefault(); event.stopPropagation(); });
+  button.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const change = toggleBold(editor.value, editor.selectionStart, editor.selectionEnd);
+    // Заміною, а не переписаним полем: так Ctrl+Z скасовує саме натиск кнопки.
+    editor.setRangeText(change.text, change.start, change.end, "preserve");
+    editor.setSelectionRange(change.selectionStart, change.selectionEnd);
+    // Текст змінився не набором, тож події "input" не буде: кегль і каретку
+    // доводиться перепитати самим.
+    fitNote(editor);
+    updateCaret();
+  });
+  return button;
 }
 
 // Нативна риска textarea має майже сталу піксельну ширину, тоді як текст

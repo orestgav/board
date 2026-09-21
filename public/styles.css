@@ -198,11 +198,15 @@ svg.icon { width: 20px; height: 20px; }
 .node.locked > .node-header > .node-play { pointer-events: auto; }
 .note-node { border-color: #c9ad61; background: #f2e5ae; box-shadow: 0 12em 28em rgba(0,0,0,.24), inset 0 0 28em rgba(153, 112, 31, .08); }
 .note-node.editing { border-color: #f3b83f; box-shadow: 0 0 0 3em rgba(243,184,63,.42), 0 12em 28em rgba(0,0,0,.28); }
-.note-drag-handle, .note-editing-indicator { position: absolute; z-index: 3; right: 8em; display: grid; place-items: center; width: 20em; height: 20em; border: 1em solid rgba(91, 69, 25, .38); border-radius: 4em; background: #d2ad52; color: rgba(69, 50, 14, .82); box-shadow: 0 2em 5em rgba(77, 55, 16, .24); pointer-events: none; }
+.note-drag-handle, .note-editing-indicator, .note-bold { position: absolute; z-index: 3; right: 8em; display: grid; place-items: center; width: 20em; height: 20em; border: 1em solid rgba(91, 69, 25, .38); border-radius: 4em; background: #d2ad52; color: rgba(69, 50, 14, .82); box-shadow: 0 2em 5em rgba(77, 55, 16, .24); pointer-events: none; }
 .note-drag-handle { top: 8em; cursor: grab; pointer-events: auto; }
-.note-drag-handle svg, .note-editing-indicator svg { width: 14em; height: 14em; }
+.note-drag-handle svg, .note-editing-indicator svg, .note-bold svg { width: 14em; height: 14em; }
 .note-drag-handle:active { cursor: grabbing; }
-.note-editing-indicator { top: 32em; background: rgba(86,61,18,.86); color: #fff4d2; }
+.note-bold { top: 32em; padding: 0; font: inherit; cursor: pointer; pointer-events: auto; }
+.note-bold:hover { background: #e0bd63; }
+.note-bold:active { background: #c29c41; }
+/* Під кнопкою «жирний», бо та в нотатці потрібна під рукою, а позначка — ні. */
+.note-editing-indicator { top: 56em; background: rgba(86,61,18,.86); color: #fff4d2; }
 /* Слова не рвуться всередині себе (у textarea це доводиться вимикати явно):
    довге вилазить убік, і саме на цьому спиняється підбір кегля вгору. */
 .note-content, .note-editor { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 1.076923em 3.384615em 1.076923em 1.076923em; overflow: auto; border: 0; outline: none; background: transparent; color: #30291c; font: 13em/1.48 ui-sans-serif, system-ui, sans-serif; white-space: pre-wrap; overflow-wrap: normal; }
