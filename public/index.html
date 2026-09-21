@@ -26,6 +26,7 @@
         <div id="grid" class="grid"></div>
         <div id="scene" class="scene"></div>
         <div id="marquee" class="marquee" hidden></div>
+        <svg id="route-overlay" class="route-overlay" aria-hidden="true" focusable="false" hidden></svg>
         <div class="hud hud-left">
           <button id="toggle-layers" class="hud-button icon" type="button" aria-expanded="false" aria-label="Відкрити шари" title="Відкрити шари"></button>
           <button id="change-campaign" class="hud-button campaign" type="button" data-icon="folder_open" title="Обрати іншу локальну папку"><span id="campaign-name">Завантаження…</span></button>
@@ -48,6 +49,9 @@
           <button id="add-music" type="button" data-icon="music_note" title="Додати трек із YouTube">Музика</button>
           <button id="add-entity" type="button" data-icon="description" title="Додати картку з репозиторію (Ctrl+K)">Картка</button>
           <button id="add-frame" type="button" data-icon="crop_square" title="Створити рамку (F)">Рамка</button>
+          <div class="canvas-tools" role="group" aria-label="Інструменти">
+            <button id="measure-route" type="button" data-icon="route" aria-pressed="false" title="Прокласти маршрут і порахувати дорогу">Відстань</button>
+          </div>
         </div>
         <div id="empty-state" class="empty-state" hidden>
           <span class="empty-icon" data-icon="crop_square"></span>
@@ -141,6 +145,24 @@
       <button type="button" role="menuitem" class="danger" data-context-action="delete" data-icon="delete">
         <span>Видалити <kbd>Delete</kbd></span>
       </button>
+    </div>
+    <div id="route-hint" class="route-hint" role="status" hidden>
+      <span id="route-hint-text"></span>
+      <button id="route-recalibrate" type="button" data-icon="straighten" hidden>Перекалібрувати</button>
+    </div>
+    <div id="route-popup" class="route-popup" hidden>
+      <div class="route-popup-head">
+        <strong id="route-total"></strong>
+        <button id="route-close" type="button" data-icon="close" aria-label="Закрити й стерти маршрут" title="Закрити й стерти маршрут"></button>
+      </div>
+      <span id="route-legs" class="route-legs"></span>
+      <table class="route-table">
+        <thead>
+          <tr><th scope="col">Як</th><th scope="col">Миль/день</th><th scope="col">Дорога</th></tr>
+        </thead>
+        <tbody id="route-rows"></tbody>
+      </table>
+      <small>День — 8 годин переходу, кораблі йдуть цілодобово. Важкопрохідна місцевість забирає вдвічі більше.</small>
     </div>
     <div id="drop-choice" class="drop-choice" hidden>
       <strong id="drop-choice-title">Що це за зображення?</strong>

@@ -25,6 +25,7 @@ import { mapSlugFromPath } from "./notes.js";
 import { fittingRatio, summaryBoxKey, summaryFontSize } from "./summary-fit.js";
 import { canonicalYouTubeUrl, musicTitle, oEmbedUrl, playbackUrl } from "./music.js";
 import { centeredViewOnRect, locationBorderScreenWidth, locationHeaderHeight, maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, rebasedView, rectWithin, rectsOverlap, worldViewportRect, zoomedViewAt } from "./view.js";
+import { CALIBRATION_MILES, milesLabel, parseScale, plural as pluralForm, routeMiles, scaleFromCalibration, travelEstimates } from "./travel.js";
 
 const MIN_NODE_SIZE = Number.EPSILON;
 const MIN_ZOOM_VIEWPORT_COVERAGE = 0.7;
@@ -125,6 +126,15 @@ const musicDialog = document.querySelector("#music-dialog");
 const musicUrlInput = document.querySelector("#music-url");
 const musicTitleInput = document.querySelector("#music-title");
 const musicHint = document.querySelector("#music-hint");
+const measureRouteButton = document.querySelector("#measure-route");
+const routeOverlay = document.querySelector("#route-overlay");
+const routeHint = document.querySelector("#route-hint");
+const routeHintText = document.querySelector("#route-hint-text");
+const routeRecalibrateButton = document.querySelector("#route-recalibrate");
+const routePopup = document.querySelector("#route-popup");
+const routeTotal = document.querySelector("#route-total");
+const routeLegs = document.querySelector("#route-legs");
+const routeRows = document.querySelector("#route-rows");
 
 let storage;
 let layout;
@@ -172,6 +182,13 @@ let musicLookup = 0;
 let musicLookupTimer = null;
 let musicTitleEdited = false;
 let renderOrigin = { x: 0, y: 0 };
+// Масштаб карти переживає перезавантаження, сам маршрут — ні: він потрібен
+// рівно на ту розмову, у якій його проклали.
+const ROUTE_SCALE_KEY = "crown-board.route-scale";
+let routeScale = parseScale(localStorage.getItem(ROUTE_SCALE_KEY));
+let routeMode = null;
+let routePoints = [];
+let routePointer = null;
 let layersOpen = localStorage.getItem("crown-board.layers-open") === "true";
 const storedView = localStorage.getItem("crown-board.viewport");
 let view = loadView();
@@ -328,6 +345,9 @@ function applyView() {
   // до цієї миті його прямокутник не мав висоти й кегль не підбирався.
   fitSummaries();
   updateLocationBorders();
+  // Маршрут живе у світових координатах, а малюється в екранних, тож після
+  // кожного зсуву й зуму його доводиться перекладати наново.
+  renderRoute();
 }
 
 function updateLocationBorders() {
@@ -2110,6 +2130,114 @@ function fitAll() {
   applyView();
 }
 
+// Полотно живе у власних одиницях, тому масштаб карти доводиться показати
+// самому: два кліки по відрізку, довжина якого відома з карти, і далі будь-яка
+// ламана переводиться в милі.
+function setRouteMode(mode) {
+  routeMode = mode;
+  routePoints = [];
+  routePointer = null;
+  measureRouteButton.setAttribute("aria-pressed", String(Boolean(mode)));
+  viewport.classList.toggle("measuring", Boolean(mode));
+  renderRoute();
+}
+
+function toggleRouteTool() {
+  if (routeMode) {
+    setRouteMode(null);
+    viewport.focus();
+    return;
+  }
+  setRouteMode(routeScale ? "route" : "calibrate");
+}
+
+function clearRoute() {
+  routePoints = [];
+  routePointer = null;
+  renderRoute();
+  viewport.focus();
+}
+
+function addRoutePoint(point) {
+  routePoints.push(point);
+  if (routeMode !== "calibrate" || routePoints.length < 2) return renderRoute();
+  const scale = scaleFromCalibration(routePoints[0], routePoints[1]);
+  if (!scale) {
+    routePoints = [];
+    renderRoute();
+    return showToast("Точки збіглися — постав другу далі від першої");
+  }
+  routeScale = scale;
+  localStorage.setItem(ROUTE_SCALE_KEY, String(scale));
+  setRouteMode("route");
+  showToast("Масштаб запамʼятано. Тепер клацай точки маршруту.");
+}
+
+function worldToLocal(point) {
+  return { x: point.x * view.scale + view.x, y: point.y * view.scale + view.y };
+}
+
+function routeDots(spots) {
+  return spots.map((spot, index) => {
+    const last = index === spots.length - 1;
+    return `<circle class="route-dot${last ? " last" : ""}" cx="${spot.x.toFixed(1)}" cy="${spot.y.toFixed(1)}" r="${last ? 5.5 : 4.5}"/>`;
+  }).join("");
+}
+
+function renderRoute() {
+  // Кожен кадр панорамування проходить тут, тому вимкнена лінійка має
+  // коштувати одну перевірку, а не перемальовування порожнього шару.
+  if (!routeMode && routeOverlay.hasAttribute("hidden") && routeHint.hidden && routePopup.hidden) return;
+  const spots = routePoints.map(worldToLocal);
+  const line = spots.map((spot) => `${spot.x.toFixed(1)},${spot.y.toFixed(1)}`).join(" ");
+  // Незакінчене калібрування малюється пунктиром: видно, що це ще не маршрут.
+  const draft = routeMode === "calibrate" ? " draft" : "";
+  // `hidden` у SVG — лише властивість HTMLElement, тому шар ховається самим
+  // атрибутом: присвоєння `.hidden` тут нічого б не змінило.
+  routeOverlay.toggleAttribute("hidden", spots.length === 0);
+  routeOverlay.innerHTML = spots.length < 2
+    ? routeDots(spots)
+    : `<polyline class="route-line-casing" points="${line}"/><polyline class="route-line${draft}" points="${line}"/>${routeDots(spots)}`;
+  renderRouteHint();
+  renderRoutePopup(spots);
+}
+
+function renderRouteHint() {
+  routeHint.hidden = !routeMode;
+  routeRecalibrateButton.hidden = routeMode !== "route";
+  if (!routeMode) return;
+  routeHintText.textContent = routeMode === "calibrate"
+    ? (routePoints.length
+      ? `Тепер друга точка — та, до якої від першої ${CALIBRATION_MILES} миль.`
+      : `Калібрування: клацни на карті дві точки, між якими ${CALIBRATION_MILES} миль.`)
+    : "Клацай точки маршруту. Esc — стерти прокладене, ще раз Esc — вийти.";
+}
+
+function renderRoutePopup(spots) {
+  const miles = routeMode === "route" && routePoints.length > 1 ? routeMiles(routePoints, routeScale) : null;
+  routePopup.hidden = miles === null;
+  if (miles === null) return;
+  routeTotal.textContent = milesLabel(miles);
+  const legs = routePoints.length - 1;
+  routeLegs.textContent = `${routePoints.length} ${pluralForm(routePoints.length, "точка", "точки", "точок")} · ${legs} ${pluralForm(legs, "відрізок", "відрізки", "відрізків")}`;
+  routeRows.innerHTML = travelEstimates(miles).map((row) => `<tr>
+    <td>${row.label}${row.note ? `<small>${row.note}</small>` : ""}</td>
+    <td>${row.milesPerDay}</td>
+    <td>${row.duration}</td>
+  </tr>`).join("");
+  placeRoutePopup(spots.at(-1));
+}
+
+// Попап тримається останньої точки, але не вилазить за екран: інакше на краю
+// карти половина таблиці опинялася б за вікном.
+function placeRoutePopup(spot) {
+  const bounds = viewport.getBoundingClientRect();
+  const size = routePopup.getBoundingClientRect();
+  const margin = 12;
+  routePopup.style.left = `${clamp(bounds.left + spot.x + 18, margin, window.innerWidth - size.width - margin)}px`;
+  routePopup.style.top = `${clamp(bounds.top + spot.y + 18, margin, window.innerHeight - size.height - margin)}px`;
+}
+
 function setStatus(text, state = "") {
   status.textContent = text;
   status.dataset.state = state;
@@ -2145,6 +2273,27 @@ function showToast(message) {
   toast.textContent = message;
   toast.hidden = false;
 }
+
+// Лінійка забирає лівий клік собі ще на перехопленні: під курсором майже
+// завжди лежить карта, тож інакше клік діставався б картці, а не маршруту.
+// Панорамування правою кнопкою й пробілом лишається недоторканим.
+viewport.addEventListener("pointerdown", (event) => {
+  if (!routeMode || event.button !== 0 || spacePressed) return;
+  if (event.target.closest?.(".hud, .canvas-actions, .connection-screen, .empty-state")) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  viewport.focus();
+  routePointer = { id: event.pointerId, clientX: event.clientX, clientY: event.clientY };
+}, { capture: true });
+viewport.addEventListener("pointerup", (event) => {
+  if (!routePointer || routePointer.id !== event.pointerId) return;
+  const { clientX, clientY } = routePointer;
+  routePointer = null;
+  // Дрож руки не має ставити точку далі, ніж її поставили.
+  if (Math.abs(event.clientX - clientX) > MARQUEE_THRESHOLD || Math.abs(event.clientY - clientY) > MARQUEE_THRESHOLD) return;
+  addRoutePoint(screenToWorld(clientX, clientY));
+}, { capture: true });
+viewport.addEventListener("pointercancel", () => { routePointer = null; }, { capture: true });
 
 viewport.addEventListener("pointerdown", (event) => {
   viewport.focus();
@@ -2259,6 +2408,12 @@ window.addEventListener("keydown", (event) => {
     viewport.focus();
     return;
   }
+  if (routeMode && event.key === "Escape" && !event.target.matches?.("input, textarea, [contenteditable=true]")) {
+    event.preventDefault();
+    if (routePoints.length) clearRoute();
+    else setRouteMode(null);
+    return;
+  }
   if (entityDetails.open || musicDialog.open || sceneRenameDialog.open) return;
   const command = event.ctrlKey || event.metaKey;
   if (command && event.key.toLowerCase() === "k") {
@@ -2305,6 +2460,9 @@ document.querySelector("#add-music").addEventListener("click", () => {
   openMusicDialog();
 });
 document.querySelector("#fit-all").addEventListener("click", fitAll);
+measureRouteButton.addEventListener("click", toggleRouteTool);
+routeRecalibrateButton.addEventListener("click", () => setRouteMode("calibrate"));
+document.querySelector("#route-close").addEventListener("click", clearRoute);
 addEntityButton.addEventListener("click", () => {
   insertPoint = defaultInsertPoint();
   openEntityPicker();
