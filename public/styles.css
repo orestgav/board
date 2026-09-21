@@ -87,6 +87,9 @@ svg.icon { width: 20px; height: 20px; }
 .entity-node.entity-far .entity-portrait { border: 0; opacity: .78; }
 .entity-missing { padding: 1.333333em; color: #e08b7d; font-size: 12em; pointer-events: auto; }
 .node.locked > .entity-content, .node.locked > .entity-missing { pointer-events: none; }
+/* Заблоковане тіло не приймає звичайні дії, але сам вузол лишається ціллю
+   правого кліку. Так contextmenu бачить верхню картку, а не елемент під нею. */
+.node.locked:is(.image-node, .entity-node, .npc-node, .location-node, .statblock-node) { pointer-events: auto; }
 /* Розміри кнопки — в частках її власного кегля (12em вузла), як у .entity-summary. */
 .node-details { flex: 0 0 auto; display: grid; place-items: center; width: 1.666667em; height: 1.666667em; padding: 0; border: 0; border-radius: 50%; background: transparent; color: #b3aa9c; font-size: 12em; cursor: pointer; pointer-events: auto; }
 .node-details svg.icon { width: 1.333333em; height: 1.333333em; }

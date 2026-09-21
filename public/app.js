@@ -1779,7 +1779,11 @@ viewport.addEventListener("pointerdown", (event) => {
 });
 viewport.addEventListener("contextmenu", (event) => {
   if (!layout) return;
-  const node = deepestNodeAt(layout, screenToWorld(event.clientX, event.clientY), { includeLocked: true });
+  // Браузер уже врахував реальний порядок малювання і перекриття вузлів.
+  // Геометричний пошук тут помилявся на вкладених/перекритих картках і міг
+  // вибрати прямокутник позаду того, по якому насправді натиснули.
+  const nodeElement = event.target.closest(".node");
+  const node = nodeElement ? findNode(layout, nodeElement.dataset.id) : null;
   if (!node || (node.type !== "image" && node.type !== "entity")) return closeContextMenu();
   event.preventDefault();
   event.stopPropagation();
