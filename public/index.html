@@ -93,6 +93,21 @@
         </div>
       </div>
     </dialog>
+    <dialog id="scene-rename-dialog" class="entity-picker music-dialog scene-rename-dialog">
+      <form id="scene-rename-form" method="dialog" class="music-panel">
+        <div class="entity-picker-heading">
+          <strong>Назва сцени</strong>
+          <button id="scene-rename-close" type="button" data-icon="close" aria-label="Закрити" title="Закрити"></button>
+        </div>
+        <label for="scene-name">Нова назва</label>
+        <input id="scene-name" type="text" autocomplete="off" maxlength="120" required placeholder="Наприклад, Засідка біля брами" />
+        <small class="scene-rename-hint">Назва відображатиметься в шапці сцени та списку шарів.</small>
+        <div class="music-actions">
+          <button value="cancel" type="button" class="quiet" id="scene-rename-cancel">Скасувати</button>
+          <button type="submit">Зберегти</button>
+        </div>
+      </form>
+    </dialog>
     <dialog id="entity-details" class="entity-details">
       <div class="entity-details-panel">
         <button id="close-entity-details" class="entity-details-close" type="button" data-icon="close" aria-label="Закрити" title="Закрити"></button>

@@ -105,11 +105,8 @@ svg.icon { width: 20px; height: 20px; }
 .location-node > .node-header { height: 26em; padding: 0 10em; background: rgba(78, 62, 39, .34); }
 .location-node > .node-header .node-glyph { width: 12em; height: 12em; }
 .location-node > .node-header .node-title { font-size: 11.5em; }
-.scene-node { border-color: #7089a4; background: rgba(28, 35, 42, .86); }
-.scene-node > .node-header { height: 32em; border-bottom-color: rgba(133, 169, 201, .3); background: rgba(51, 76, 98, .42); }
-.scene-node > .node-header .node-glyph { color: #94bedf; }
-.scene-node > .node-header .node-title { color: #e4eff7; }
-.scene-node > .node-body { color: #74899a; }
+.scene-node { border-color: #cfb58c; background: rgba(33, 30, 25, .93); }
+.scene-node > .node-header { height: 32em; background: rgba(78, 62, 39, .34); }
 /* Статблок — палітра бестіарію. Розміри вузла в em його власного кегля, а там,
    де задано font-size, решта em рахується вже від нього (як у .entity-summary). */
 .statblock-node {
@@ -253,6 +250,11 @@ svg.icon { width: 20px; height: 20px; }
 .music-actions button:hover { border-color: #c2705f; background: #3d2a24; }
 .music-actions button.quiet { border-color: #4a443d; background: #272320; color: var(--muted); }
 .music-actions button.quiet:hover { border-color: #6a625a; color: var(--text); }
+.scene-rename-dialog .music-panel { gap: 8px; }
+.scene-rename-dialog .music-panel input:focus { border-color: #b89ad0; box-shadow: 0 0 0 3px rgba(168, 132, 198, .14); }
+.scene-rename-dialog .music-actions button:not(.quiet) { border-color: #9271ad; background: #392e40; color: #eadcf5; }
+.scene-rename-dialog .music-actions button:not(.quiet):hover { border-color: #c6a9dd; background: #493653; }
+.scene-rename-hint { min-height: 30px; color: var(--muted); font-size: 11px; line-height: 1.35; }
 .entity-details { width: min(760px, calc(100vw - 28px)); max-height: calc(100vh - 44px); padding: 0; overflow: hidden; border: 1px solid #655943; border-radius: 12px; background: #201d1a; color: var(--text); box-shadow: 0 24px 80px rgba(0,0,0,.65); }
 .entity-details::backdrop { background: rgba(8, 8, 7, .72); backdrop-filter: blur(3px); }
 .entity-details-panel { max-height: calc(100vh - 44px); overflow: auto; overscroll-behavior: contain; }

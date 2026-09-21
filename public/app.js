@@ -106,6 +106,9 @@ const pickerTitle = document.querySelector("#entity-picker-title");
 const entityDetails = document.querySelector("#entity-details");
 const entityDetailsContent = document.querySelector("#entity-details-content");
 const nodeContextMenu = document.querySelector("#node-context-menu");
+const sceneRenameDialog = document.querySelector("#scene-rename-dialog");
+const sceneRenameForm = document.querySelector("#scene-rename-form");
+const sceneNameInput = document.querySelector("#scene-name");
 const musicDialog = document.querySelector("#music-dialog");
 const musicUrlInput = document.querySelector("#music-url");
 const musicTitleInput = document.querySelector("#music-title");
@@ -143,6 +146,7 @@ let pickerType = null;
 let insertPoint = null;
 let contextMenuNodeId = null;
 let contextMenuPoint = null;
+let renamingSceneId = null;
 let rightPointerGesture = null;
 // Власна копія поруч із системним буфером: читати системний дозволено не
 // завжди (контекстне меню без дозволу на clipboard-read), а вставляти щось
@@ -494,7 +498,7 @@ function renderNode(node, isRoot = false) {
     }
   } else if (node.type === "scene") {
     element.classList.add("scene-node");
-    element.append(nodeHeader(node, { icon: "crop_square" }));
+    element.append(nodeHeader(node));
     const body = document.createElement("div");
     body.className = "node-body";
     body.textContent = node.children.length ? "" : "Сцена порожня";
@@ -546,7 +550,7 @@ function nodeHeader(node, { icon, entity = null, badge = "" } = {}) {
     + (badge ? '<span class="entity-type"></span>' : "");
   header.querySelector(".node-title").textContent = nodeLabel(node);
   if (badge) header.querySelector(".entity-type").textContent = badge;
-  header.prepend(iconElement(icon, "node-glyph"));
+  if (icon) header.prepend(iconElement(icon, "node-glyph"));
   if (node.locked) header.append(iconElement("lock", "node-lock-indicator"));
   header.addEventListener("pointerdown", onNodePointerDown);
   if (entity) header.append(detailsButton(node, entity));
@@ -1027,9 +1031,14 @@ function addScene(location, point) {
 
 function renameScene(node) {
   if (node.type !== "scene" || node.locked) return;
-  const title = window.prompt("Нова назва сцени", node.title)?.trim();
-  if (!title || title === node.title) return;
-  executeCommand("Змінити назву сцени", () => { node.title = title; });
+  renamingSceneId = node.id;
+  sceneNameInput.value = node.title;
+  sceneNameInput.setCustomValidity("");
+  sceneRenameDialog.showModal();
+  requestAnimationFrame(() => {
+    sceneNameInput.focus();
+    sceneNameInput.select();
+  });
 }
 
 function countNodes() {
@@ -2137,7 +2146,7 @@ viewport.addEventListener("drop", (event) => {
 });
 
 document.addEventListener("copy", (event) => {
-  if (!layout || entityPicker.open || entityDetails.open || musicDialog.open) return;
+  if (!layout || entityPicker.open || entityDetails.open || musicDialog.open || sceneRenameDialog.open) return;
   if (event.target.matches?.("input, textarea, [contenteditable=true]")) return;
   // Виділений текст статблока чи нотатки копіюється як текст — картки
   // забирає лише «порожній» Ctrl+C.
@@ -2146,7 +2155,7 @@ document.addEventListener("copy", (event) => {
 });
 
 document.addEventListener("paste", (event) => {
-  if (!layout || entityPicker.open || entityDetails.open || musicDialog.open) return;
+  if (!layout || entityPicker.open || entityDetails.open || musicDialog.open || sceneRenameDialog.open) return;
   if (event.target.matches?.("input, textarea, [contenteditable=true]")) return;
   const images = supportedImages(event.clipboardData?.files);
   const text = event.clipboardData?.getData("text/plain") ?? "";
@@ -2167,7 +2176,7 @@ window.addEventListener("keydown", (event) => {
     viewport.focus();
     return;
   }
-  if (entityDetails.open || musicDialog.open) return;
+  if (entityDetails.open || musicDialog.open || sceneRenameDialog.open) return;
   const command = event.ctrlKey || event.metaKey;
   if (command && event.key.toLowerCase() === "k") {
     event.preventDefault();
@@ -2249,6 +2258,28 @@ toast.addEventListener("click", () => { toast.hidden = true; });
 document.querySelector("#close-entity-details").addEventListener("click", () => entityDetails.close());
 entityDetails.addEventListener("click", (event) => {
   if (event.target === entityDetails) entityDetails.close();
+});
+function closeSceneRenameDialog() {
+  if (sceneRenameDialog.open) sceneRenameDialog.close();
+}
+document.querySelector("#scene-rename-close").addEventListener("click", closeSceneRenameDialog);
+document.querySelector("#scene-rename-cancel").addEventListener("click", closeSceneRenameDialog);
+sceneRenameDialog.addEventListener("click", (event) => {
+  if (event.target === sceneRenameDialog) closeSceneRenameDialog();
+});
+sceneRenameDialog.addEventListener("close", () => { renamingSceneId = null; });
+sceneNameInput.addEventListener("input", () => sceneNameInput.setCustomValidity(""));
+sceneRenameForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const node = findNode(layout, renamingSceneId);
+  if (!node || node.type !== "scene" || node.locked) return closeSceneRenameDialog();
+  const title = sceneNameInput.value.trim();
+  if (!title) {
+    sceneNameInput.setCustomValidity("Вкажіть назву сцени");
+    return sceneNameInput.reportValidity();
+  }
+  if (title !== node.title) executeCommand("Змінити назву сцени", () => { node.title = title; });
+  closeSceneRenameDialog();
 });
 nodeContextMenu.addEventListener("click", async (event) => {
   const action = event.target.closest("[data-context-action]")?.dataset.contextAction;
