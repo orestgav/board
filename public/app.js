@@ -139,6 +139,7 @@ let pickerSelection = 0;
 let pickerType = null;
 let insertPoint = null;
 let contextMenuNodeId = null;
+let rightPointerGesture = null;
 // Назву ютуб віддає асинхронно, тож рахуємо запити: у поле потрапляє лише
 // відповідь на останній лінк, а вручну вписана назва не затирається.
 let musicLookup = 0;
@@ -1385,8 +1386,11 @@ function onResizePointerDown(event) {
   viewport.setPointerCapture(event.pointerId);
 }
 
-function beginPan(event) {
-  interaction = { type: "pan", pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, originX: view.x, originY: view.y };
+function beginPan(event, { waitForDrag = false, gesture = null } = {}) {
+  interaction = {
+    type: "pan", pointerId: event.pointerId, startX: event.clientX, startY: event.clientY,
+    originX: view.x, originY: view.y, waitForDrag, dragged: !waitForDrag, gesture,
+  };
   viewport.classList.add("panning");
   viewport.setPointerCapture(event.pointerId);
 }
@@ -1446,6 +1450,12 @@ function onPointerMove(event) {
   const dx = event.clientX - interaction.startX;
   const dy = event.clientY - interaction.startY;
   if (interaction.type === "pan") {
+    if (interaction.waitForDrag && !interaction.dragged) {
+      if (Math.abs(dx) < MARQUEE_THRESHOLD && Math.abs(dy) < MARQUEE_THRESHOLD) return;
+      interaction.dragged = true;
+      if (interaction.gesture) interaction.gesture.dragged = true;
+      closeContextMenu();
+    }
     view.x = interaction.originX + dx;
     view.y = interaction.originY + dy;
     applyView();
@@ -1824,13 +1834,34 @@ viewport.addEventListener("pointerdown", (event) => {
     } else beginMarquee(event);
   }
 });
+// Capture потрібен, бо тіла нотаток і статблоків зупиняють pointerdown для
+// власного редагування. Правий drag має починатися поверх будь-якого вузла.
+viewport.addEventListener("pointerdown", (event) => {
+  if (event.button !== 2 || event.target.closest?.(".hud, .canvas-actions, .connection-screen, .empty-state")) return;
+  viewport.focus();
+  closeContextMenu();
+  const nodeElement = event.target.closest?.(".node");
+  rightPointerGesture = {
+    pointerId: event.pointerId,
+    nodeId: nodeElement?.dataset.id ?? null,
+    dragged: false,
+  };
+  beginPan(event, { waitForDrag: true, gesture: rightPointerGesture });
+}, { capture: true });
 viewport.addEventListener("contextmenu", (event) => {
   if (!layout) return;
+  if (rightPointerGesture?.dragged) {
+    event.preventDefault();
+    rightPointerGesture = null;
+    return closeContextMenu();
+  }
   // Браузер уже врахував реальний порядок малювання і перекриття вузлів.
   // Геометричний пошук тут помилявся на вкладених/перекритих картках і міг
   // вибрати прямокутник позаду того, по якому насправді натиснули.
   const nodeElement = event.target.closest(".node");
-  const node = nodeElement ? findNode(layout, nodeElement.dataset.id) : null;
+  const nodeId = rightPointerGesture?.nodeId ?? nodeElement?.dataset.id;
+  const node = nodeId ? findNode(layout, nodeId) : null;
+  rightPointerGesture = null;
   if (!node || !CONTEXT_MENU_NODE_TYPES.has(node.type)) return closeContextMenu();
   event.preventDefault();
   event.stopPropagation();
