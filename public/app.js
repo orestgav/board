@@ -815,17 +815,9 @@ function hitPointTracker(node, entity, maximum, creatures, index) {
   const amountKey = `${node.id}:${index}`;
 
   const tracker = document.createElement("div");
-  tracker.className = `statblock-hp${several ? " several" : ""}`;
+  tracker.className = "statblock-hp";
   tracker.dataset.creature = String(index);
   tracker.addEventListener("pointerdown", (event) => event.stopPropagation());
-
-  if (several) {
-    const name = document.createElement("span");
-    name.className = "hp-name";
-    name.textContent = label;
-    name.title = label;
-    tracker.append(name);
-  }
 
   const current = document.createElement("input");
   current.className = "hp-current";
@@ -902,7 +894,16 @@ function hitPointTracker(node, entity, maximum, creatures, index) {
   const controls = document.createElement("div");
   controls.className = "hp-controls";
   controls.append(amount, damage, heal);
-  tracker.append(current, total, controls);
+  tracker.append(current, total);
+  // Підпис стає між числом і кнопками — там, де на одинокому рядку порожньо.
+  if (several) {
+    const name = document.createElement("span");
+    name.className = "hp-name";
+    name.textContent = label;
+    name.title = label;
+    tracker.append(name);
+  }
+  tracker.append(controls);
   tracker.classList.toggle("hurt", hurt(currentHitPoints(node, index, maximum), maximum));
   return tracker;
 }

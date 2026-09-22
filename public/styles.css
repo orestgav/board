@@ -156,11 +156,9 @@ svg.icon { width: 20px; height: 20px; }
 .statblock-node .node-title { color: #eef7f5; }
 .statblock-node > .node-header, .statblock-node > .statblock-hp { flex: 0 0 auto; }
 .statblock-hp { height: 54em; display: flex; align-items: center; gap: 7em; padding: 0 13em; border-bottom: 1em solid rgba(120, 201, 196, .22); background: #111a20; pointer-events: auto; }
-/* Кілька однакових істот на одній картці: рядки тіснішають, а число стає
-   вужчим і фіксованим, щоб «/ max» і кнопки стояли в колонку. */
-.statblock-hp.several { height: 44em; gap: 6em; }
-.hp-name { flex: 1 1 auto; min-width: 0; overflow: hidden; color: #cfe3e1; font-size: 12em; text-overflow: ellipsis; white-space: nowrap; }
-.statblock-hp.several .hp-current { field-sizing: fixed; width: 2.6em; font-size: 21em; }
+/* Кілька однакових істот на одній картці: рядок той самий, що й одинокий, а
+   підпис істоти просто займає порожнє місце між числом і кнопками. */
+.hp-name { flex: 1 1 auto; min-width: 0; overflow: hidden; color: #cfe3e1; font-size: 12em; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
 /* field-sizing підганяє поле під саме число, щоб підкреслення не тяглося далі. */
 .hp-current { field-sizing: content; min-width: 1.1em; max-width: 4em; padding: 0; border: 0; border-bottom: .07em dashed rgba(220, 238, 237, .28); outline: none; background: transparent; color: #eef7f5; font-family: inherit; font-size: 30em; font-weight: 700; line-height: 1.1; font-variant-numeric: lining-nums tabular-nums; text-align: right; }
 .hp-current:focus { border-bottom-color: var(--stat-accent); }
@@ -172,7 +170,7 @@ svg.icon { width: 20px; height: 20px; }
 .hp-button { display: grid; place-items: center; width: 1.7em; height: 1.7em; padding: 0; border: .07em solid; border-radius: .38em; font-size: 16em; line-height: 1; cursor: pointer; }
 .hp-button.heal { border-color: #4d7a4b; background: rgba(77, 122, 75, .24); color: #8fd08c; }
 .hp-button.heal:hover { background: rgba(77, 122, 75, .44); color: #b6e8b2; }
-.hp-button.damage { border-color: #8f4a42; background: rgba(143, 74, 66, .24); color: #e79184; }
+.hp-button.damage { width: 3.4em; border-color: #8f4a42; background: rgba(143, 74, 66, .24); color: #e79184; }
 .hp-button.damage:hover { background: rgba(143, 74, 66, .46); color: #ffb3a5; }
 .hp-button:active { transform: translateY(.06em); }
 .statblock-body { position: relative; flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 11em 14em 15em; border-radius: 0 0 9em 9em; color: #e4efee; pointer-events: auto; user-select: text; }
