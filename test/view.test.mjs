@@ -84,6 +84,13 @@ test("a location border is bold from afar and disappears at half screen", () => 
   assert.ok(middle > 0 && middle < 8);
 });
 
+test("a location border thins back to a hair on the world map", () => {
+  assert.equal(locationBorderScreenWidth(20, 15, 1, 1000, 800), 1);
+  assert.equal(locationBorderScreenWidth(4, 3, 1, 1000, 800), 1);
+  const between = locationBorderScreenWidth(40, 30, 1, 1000, 800);
+  assert.ok(between > 1 && between < 8);
+});
+
 test("the visible world rect mirrors screen-to-world conversion", () => {
   const view = { x: -200, y: -100, scale: 2 };
   assert.deepEqual(worldViewportRect(view, 800, 600), { x: 100, y: 50, width: 400, height: 300 });
