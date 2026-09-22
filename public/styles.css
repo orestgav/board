@@ -190,7 +190,7 @@ svg.icon { width: 20px; height: 20px; }
 .statblock-body h3 ~ p strong { font-style: italic; }
 .statblock-body h3 ~ p em { color: var(--stat-muted); }
 .statblock-body .md-link { color: #8ddbd5; text-decoration-color: rgba(141, 219, 213, .45); }
-.node.locked > .statblock-body, .node.locked > .statblock-hp { pointer-events: none; }
+.node.locked > .statblock-body { pointer-events: none; }
 /* Музика — червонувата картка заввишки з саму шапку: назва треку й «плей». */
 .music-node { border-color: #8a4a44; background: rgba(48, 27, 25, .95); }
 .music-node > .node-header { height: 100%; border-bottom: 0; border-radius: 9em; background: rgba(138, 74, 68, .32); }

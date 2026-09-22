@@ -830,7 +830,7 @@ function hitPointTracker(node, entity, maximum, creatures, index) {
   current.addEventListener("wheel", (event) => {
     event.preventDefault();
     event.stopPropagation();
-    if (!event.deltaY || node.locked) return;
+    if (!event.deltaY) return;
     const step = (event.shiftKey ? 10 : 1) * (event.deltaY < 0 ? 1 : -1);
     const next = Math.min(currentHitPoints(node, index, maximum) + step, maximum);
     setHitPoints(node, index, next);
@@ -877,7 +877,6 @@ function hitPointTracker(node, entity, maximum, creatures, index) {
   }, { passive: false });
 
   const applyAmount = (sign, commandLabel) => {
-    if (node.locked) return;
     const delta = sign * hpAmount(amountKey);
     if (!delta) return;
     commitHitPoints();
@@ -1299,7 +1298,7 @@ function removeCreature(node, index) {
 
 function renameCreature(node, index) {
   const creatures = contextMenuCreatures(node);
-  if (!creatures || creatures.length < 2 || !creatures[index] || node.locked) return;
+  if (!creatures || creatures.length < 2 || !creatures[index]) return;
   renamingNodeId = null;
   renamingCreature = { nodeId: node.id, index };
   renameDialogTitle.textContent = "Назва істоти";
@@ -1732,10 +1731,12 @@ function openContextMenu(node, clientX, clientY) {
     lockButton.querySelector(".context-menu-icon").replaceChildren(iconElement(node.locked ? "lock_open" : "lock_filled"));
     lockButton.querySelector(".context-menu-label").replaceChildren(node.locked ? "Розблокувати" : "Заблокувати", shortcutHint("Ctrl+L"));
     contextMenuItem("details").disabled = node.type === "entity" && !nodeEntity(node);
-    const addSceneButton = contextMenuItem("add-scene");
-    addSceneButton.disabled = false;
-    addSceneButton.title = "";
-    for (const action of ["rename", "add-creature", "rename-creature", "remove-creature"]) {
+    for (const action of ["add-scene", "rename-creature"]) {
+      const button = contextMenuItem(action);
+      button.disabled = false;
+      button.title = "";
+    }
+    for (const action of ["rename", "add-creature", "remove-creature"]) {
       const button = contextMenuItem(action);
       button.disabled = node.locked;
       button.title = node.locked ? "Спочатку розблокуйте елемент" : "";
@@ -2736,7 +2737,7 @@ function submitCreatureName() {
   const { nodeId, index } = renamingCreature;
   const node = findNode(layout, nodeId);
   const creatures = node ? contextMenuCreatures(node) : null;
-  if (!creatures || !creatures[index] || node.locked) return closeSceneRenameDialog();
+  if (!creatures || !creatures[index]) return closeSceneRenameDialog();
   const name = sceneNameInput.value.trim();
   if (!name) {
     sceneNameInput.setCustomValidity("Вкажіть назву істоти");
