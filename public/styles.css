@@ -130,11 +130,16 @@ svg.icon { width: 20px; height: 20px; }
 .npc-node > .node-header { border-bottom-color: rgba(122, 162, 128, .24); background: rgba(62, 98, 68, .3); }
 .npc-node .node-glyph { color: #9ed3a6; }
 .npc-node .entity-summary { color: #ccd8cd; }
-.location-node { border-color: #a884c6; background: rgba(33, 30, 25, .93); }
+/* Ширину обводу задає JS (updateLocationBorders) — він росте назовні й не
+   чіпає нутрощі картки, на відміну від рамки при box-sizing: border-box. */
+.location-node { border-color: #a884c6; outline: 0 solid #a884c6; background: rgba(33, 30, 25, .93); }
 /* Шапка локації нижча за рамкову — висота збігається з locationHeaderHeight. */
 .location-node > .node-header { height: 26em; padding: 0 10em; background: rgba(78, 62, 39, .34); }
 .location-node > .node-header .node-glyph { width: 12em; height: 12em; }
 .location-node > .node-header .node-title { font-size: 11.5em; }
+/* Виділена локація фарбує й обвід: на дальньому зумі він ширший за рамку
+   виділення, і без цього синього кільця під ним було б не видно. */
+.location-node.selected { outline-color: var(--selection); }
 .scene-node { border-color: #cfb58c; background: rgba(33, 30, 25, .93); }
 .scene-node > .node-header { height: 32em; background: rgba(78, 62, 39, .34); }
 /* Статблок — палітра бестіарію. Розміри вузла в em його власного кегля, а там,

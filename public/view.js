@@ -75,7 +75,7 @@ export function locationHeaderHeight(width, height) {
 }
 
 // Локація лишається помітною на загальному плані без зміни геометрії картки.
-// Рамка вимірюється в екранних пікселях і зникає, коли картка заповнює екран.
+// Обвід вимірюється в екранних пікселях і зникає, коли картка заповнює екран.
 export function locationBorderScreenWidth(width, height, scale, viewportWidth, viewportHeight) {
   if (viewportWidth <= 0 || viewportHeight <= 0 || scale <= 0) return 0;
   const coverage = Math.max(width * scale / viewportWidth, height * scale / viewportHeight);

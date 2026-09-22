@@ -364,8 +364,11 @@ function updateLocationBorders() {
       viewport.clientWidth,
       viewport.clientHeight,
     );
+    // Обвід, а не рамка: рамка з box-sizing: border-box їсть картку всередину,
+    // а діти позиційовані у відсотках від padding-box — тож на дальньому зумі,
+    // де вона завтовшки в десятки світових пікселів, вони б повилазили за край.
     // Сцена масштабується цілком, тому переводимо екранні пікселі в локальні.
-    element.style.borderWidth = `${screenWidth / view.scale}px`;
+    element.style.outlineWidth = `${screenWidth / view.scale}px`;
   });
 }
 
