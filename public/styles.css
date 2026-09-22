@@ -140,6 +140,8 @@ svg.icon { width: 20px; height: 20px; }
 /* Статблок — палітра бестіарію. Розміри вузла в em його власного кегля, а там,
    де задано font-size, решта em рахується вже від нього (як у .entity-summary). */
 .statblock-node {
+  display: flex;
+  flex-direction: column;
   --stat-accent: #78c9c4;
   --stat-accent-bright: #a5e4de;
   --stat-border: #477981;
@@ -152,9 +154,15 @@ svg.icon { width: 20px; height: 20px; }
 .statblock-node > .node-header { border-bottom-color: rgba(120, 201, 196, .27); background: #1d343d; }
 .statblock-node .node-glyph { color: var(--stat-accent); }
 .statblock-node .node-title { color: #eef7f5; }
-.statblock-hp { position: absolute; left: 0; right: 0; top: 38em; height: 54em; display: flex; align-items: center; gap: 7em; padding: 0 13em; border-bottom: 1em solid rgba(120, 201, 196, .22); background: #111a20; pointer-events: auto; }
+.statblock-node > .node-header, .statblock-node > .statblock-hp { flex: 0 0 auto; }
+.statblock-hp { height: 54em; display: flex; align-items: center; gap: 7em; padding: 0 13em; border-bottom: 1em solid rgba(120, 201, 196, .22); background: #111a20; pointer-events: auto; }
+/* Кілька однакових істот на одній картці: рядки тіснішають, а число стає
+   вужчим і фіксованим, щоб «/ max» і кнопки стояли в колонку. */
+.statblock-hp.several { height: 44em; gap: 6em; }
+.hp-name { flex: 1 1 auto; min-width: 0; overflow: hidden; color: #cfe3e1; font-size: 12em; text-overflow: ellipsis; white-space: nowrap; }
+.statblock-hp.several .hp-current { field-sizing: fixed; width: 2.6em; font-size: 21em; }
 /* field-sizing підганяє поле під саме число, щоб підкреслення не тяглося далі. */
-.hp-current { field-sizing: content; min-width: 1.1em; max-width: 4em; padding: 0; border: 0; border-bottom: .07em dashed rgba(220, 238, 237, .28); outline: none; background: transparent; color: #eef7f5; font: 700 30em/1.1 Georgia, serif; font-variant-numeric: tabular-nums; text-align: right; }
+.hp-current { field-sizing: content; min-width: 1.1em; max-width: 4em; padding: 0; border: 0; border-bottom: .07em dashed rgba(220, 238, 237, .28); outline: none; background: transparent; color: #eef7f5; font-family: inherit; font-size: 30em; font-weight: 700; line-height: 1.1; font-variant-numeric: lining-nums tabular-nums; text-align: right; }
 .hp-current:focus { border-bottom-color: var(--stat-accent); }
 .statblock-hp.hurt .hp-current { color: #e0705f; }
 .hp-max { color: var(--stat-muted); font-size: 13em; font-variant-numeric: tabular-nums; }
@@ -167,8 +175,7 @@ svg.icon { width: 20px; height: 20px; }
 .hp-button.damage { border-color: #8f4a42; background: rgba(143, 74, 66, .24); color: #e79184; }
 .hp-button.damage:hover { background: rgba(143, 74, 66, .46); color: #ffb3a5; }
 .hp-button:active { transform: translateY(.06em); }
-.statblock-body { position: absolute; inset: 92em 0 0; overflow: auto; overscroll-behavior: contain; padding: 11em 14em 15em; border-radius: 0 0 9em 9em; color: #e4efee; pointer-events: auto; user-select: text; }
-.statblock-body.no-hp { top: 38em; }
+.statblock-body { position: relative; flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 11em 14em 15em; border-radius: 0 0 9em 9em; color: #e4efee; pointer-events: auto; user-select: text; }
 .statblock-body .sb-sub { margin: 0 0 .82em; color: var(--stat-muted); font-size: 11em; }
 .statblock-body .sb-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10em; }
 .statblock-body .sb-vitals p, .statblock-body .sb-init { margin: .33em 0; font-size: 12em; }

@@ -1,6 +1,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { maxHitPoints, metaLine, savingThrows, statblockMarkup, statblockSections, typeLine } from "../public/statblock.js";
+import {
+  creatureHitPoints,
+  creatureLabel,
+  creatureList,
+  maxHitPoints,
+  metaLine,
+  savingThrows,
+  statblockMarkup,
+  statblockSections,
+  typeLine,
+  writeCreatures,
+} from "../public/statblock.js";
 
 const ALISIA = {
   name: "Алісія Дан Торн",
@@ -89,4 +100,50 @@ test("текст картки екранується, а [[посилання]] 
   });
   assert.match(markup, /&lt;b&gt;15&lt;\/b&gt;/);
   assert.match(markup, /<span class="md-link">корабля<\/span> &amp; кусає/);
+});
+
+test("одна істота лишається в node.hp, друга переводить вузол на масив", () => {
+  const node = { id: "n1", hp: 40 };
+  assert.deepEqual(creatureList(node), [{ name: "", hp: 40 }]);
+
+  writeCreatures(node, [{ name: "", hp: 40 }, { name: "", hp: 110 }]);
+  assert.equal(node.hp, undefined);
+  assert.deepEqual(node.creatures, [{ hp: 40 }, { hp: 110 }]);
+  assert.deepEqual(creatureList(node), [{ name: "", hp: 40 }, { name: "", hp: 110 }]);
+
+  writeCreatures(node, [{ name: "Ватажок", hp: 40 }]);
+  assert.equal(node.creatures, undefined);
+  assert.equal(node.hp, 40);
+  assert.deepEqual(creatureList(node), [{ name: "", hp: 40 }]);
+});
+
+test("вузол без HP лишається без поля, а не з нулем", () => {
+  const node = { id: "n2" };
+  assert.deepEqual(creatureList(node), [{ name: "", hp: undefined }]);
+  writeCreatures(node, [{ name: "", hp: undefined }]);
+  assert.equal("hp" in node, false);
+});
+
+test("безіменна істота підписана номером, а свою назву зберігає", () => {
+  assert.equal(creatureLabel({ name: "" }, 0), "Істота 1");
+  assert.equal(creatureLabel(undefined, 2), "Істота 3");
+  assert.equal(creatureLabel({ name: "  Ватажок  " }, 1), "Ватажок");
+});
+
+test("назва, що збігається з номером, у файл не пишеться", () => {
+  const node = { id: "n3" };
+  writeCreatures(node, [{ name: "Істота 1", hp: 5 }, { name: "Ватажок", hp: 7 }]);
+  assert.deepEqual(node.creatures, [{ hp: 5 }, { name: "Ватажок", hp: 7 }]);
+  // Після видалення першої «Ватажок» лишається собою, а решта перенумеровується.
+  writeCreatures(node, creatureList(node).toSpliced(0, 1));
+  assert.equal(node.creatures, undefined);
+  assert.equal(node.hp, 7);
+});
+
+test("поточні HP істоти не перевищують максимум, але йдуть у мінус", () => {
+  assert.equal(creatureHitPoints({ hp: 12 }, 40), 12);
+  assert.equal(creatureHitPoints({ hp: 99 }, 40), 40);
+  assert.equal(creatureHitPoints({ hp: -8 }, 40), -8);
+  assert.equal(creatureHitPoints({}, 40), 40);
+  assert.equal(creatureHitPoints(undefined, 40), 40);
 });

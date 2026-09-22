@@ -100,3 +100,50 @@ export function statblockMarkup(entity) {
     <p class="sb-meta">${metaLine(meta)}</p>
     <hr>${sections}`;
 }
+
+// Один статблок на полотні може тримати цілий загін однакових істот: у кожної
+// власні поточні HP, а з другої — ще й назва, бо інакше їх не розрізнити.
+// Поки істота одна, вузол лишається на старому node.hp: файл розкладки не
+// роздувається масивом там, де рахувати нема чого.
+export const CREATURE_NAME_PREFIX = "Істота";
+
+export function creatureList(node) {
+  const creatures = node?.creatures;
+  if (!Array.isArray(creatures) || !creatures.length) return [{ name: "", hp: node?.hp }];
+  return creatures.map((creature) => ({
+    name: typeof creature?.name === "string" ? creature.name : "",
+    hp: creature?.hp,
+  }));
+}
+
+// Без власної назви істота підписана порядковим номером, тож після видалення
+// сусіда решта перенумеровується сама.
+export function creatureLabel(creature, index) {
+  return String(creature?.name ?? "").trim() || `${CREATURE_NAME_PREFIX} ${index + 1}`;
+}
+
+// Вище максимуму HP не піднімаються, а вниз ідуть скільки завгодно: мінус
+// показує, наскільки удар перебив істоту.
+export function creatureHitPoints(creature, maximum) {
+  return Number.isFinite(creature?.hp) ? Math.min(creature.hp, maximum) : maximum;
+}
+
+// Назва, що збігається з номером за замовчуванням, у файл не пишеться: інакше
+// після видалення сусіда «Істота 3» лишилася б другою в списку.
+export function writeCreatures(node, creatures) {
+  if (creatures.length > 1) {
+    node.creatures = creatures.map((creature, index) => {
+      const entry = {};
+      const name = String(creature?.name ?? "").trim();
+      if (name && name !== creatureLabel(null, index)) entry.name = name;
+      if (Number.isFinite(creature?.hp)) entry.hp = creature.hp;
+      return entry;
+    });
+    delete node.hp;
+  } else {
+    delete node.creatures;
+    if (Number.isFinite(creatures[0]?.hp)) node.hp = creatures[0].hp;
+    else delete node.hp;
+  }
+  return node;
+}

@@ -61,6 +61,18 @@ test("layout validation keeps statblock hit points and rejects broken ones", () 
   assert.throws(() => validateLayout({ formatVersion: 1, children: [{ ...statblock, hp: "12" }] }), /має бути числом/);
 });
 
+test("layout validation keeps a squad of identical creatures on one statblock", () => {
+  const statblock = { id: "hrap-card", type: "entity", entity: "hrap", x: 10, y: 20, width: 440, height: 640, children: [] };
+  const squad = (creatures) => ({ formatVersion: 1, children: [{ ...statblock, creatures }] });
+  assert.deepEqual(validateLayout(squad([{ hp: 12 }, { name: "Ватажок", hp: -3 }])).children[0].creatures,
+    [{ hp: 12 }, { name: "Ватажок", hp: -3 }]);
+  assert.throws(() => validateLayout(squad([])), /непорожнім масивом/);
+  assert.throws(() => validateLayout(squad({ hp: 12 })), /непорожнім масивом/);
+  assert.throws(() => validateLayout(squad(["Ватажок"])), /має бути об'єктом/);
+  assert.throws(() => validateLayout(squad([{ hp: "12" }])), /hp істоти має бути числом/);
+  assert.throws(() => validateLayout(squad([{ name: 7 }])), /назва істоти має бути рядком/);
+});
+
 test("layout validation accepts note references and rejects unsafe ones", () => {
   const note = { id: "note-1", type: "note", note: "map-world#n1", x: 10, y: 20, width: 320, height: 190, children: [] };
   assert.equal(validateLayout({ formatVersion: 1, children: [note] }).children[0].note, "map-world#n1");

@@ -87,6 +87,24 @@ export function validateLayout(layout) {
     if (node.hp !== undefined && !Number.isFinite(node.hp)) {
       throw new Error(`${node.id}.hp має бути числом`);
     }
+    // Кілька однакових істот на одній картці: у кожної свої HP й назва. Поки
+    // істота одна, вузол лишається на node.hp і масиву не має.
+    if (node.creatures !== undefined) {
+      if (!Array.isArray(node.creatures) || !node.creatures.length) {
+        throw new Error(`${node.id}.creatures має бути непорожнім масивом`);
+      }
+      for (const creature of node.creatures) {
+        if (!creature || typeof creature !== "object" || Array.isArray(creature)) {
+          throw new Error(`${node.id}.creatures: кожна істота має бути об'єктом`);
+        }
+        if (creature.hp !== undefined && !Number.isFinite(creature.hp)) {
+          throw new Error(`${node.id}.creatures: hp істоти має бути числом`);
+        }
+        if (creature.name !== undefined && typeof creature.name !== "string") {
+          throw new Error(`${node.id}.creatures: назва істоти має бути рядком`);
+        }
+      }
+    }
     if (node.type === "music") {
       if (!canonicalYouTubeUrl(node.url)) throw new Error(`${node.id}.url має бути лінком на ролік YouTube`);
       if (node.title !== undefined && typeof node.title !== "string") throw new Error(`${node.id}.title має бути рядком`);

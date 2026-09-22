@@ -20,7 +20,7 @@ import { clipboardPayload, noteTargets, parseClipboard, placedItems, withoutNode
 import { matchesEntity } from "./entities.js";
 import { iconElement } from "./icons.js";
 import { renderMarkdown } from "./markdown.js";
-import { maxHitPoints, statblockMarkup } from "./statblock.js";
+import { creatureHitPoints, creatureLabel, creatureList, maxHitPoints, statblockMarkup, writeCreatures } from "./statblock.js";
 import { mapSlugFromPath } from "./notes.js";
 import { noteMarkup, toggleBold } from "./note-format.js";
 import { NOTE_FONT_EM, SUMMARY_FONT_EM, fitBoxKey, fittedFontSize, fittingRatio, notePadding, textShape } from "./text-fit.js";
@@ -169,8 +169,10 @@ let pickerSelection = 0;
 let pickerType = null;
 let insertPoint = null;
 let contextMenuNodeId = null;
+let contextMenuCreature = null;
 let contextMenuPoint = null;
 let renamingNodeId = null;
+let renamingCreature = null;
 let rightPointerGesture = null;
 // Власна копія поруч із системним буфером: читати системний дозволено не
 // завжди (контекстне меню без дозволу на clipboard-read), а вставляти щось
@@ -609,9 +611,12 @@ function renderNode(node, isRoot = false) {
       element.classList.add("statblock-node");
       element.append(nodeHeader(node, { icon: kind.icon, entity }));
       const maximum = maxHitPoints(entity.meta);
-      if (maximum) element.append(hitPointTracker(node, entity, maximum));
+      // Однакових істот у бою буває кілька, тож кожна дістає власний рядок
+      // лічильника; поки істота одна, рядок виглядає точно як раніше.
+      const creatures = maximum ? creatureList(node) : [];
+      for (const index of creatures.keys()) element.append(hitPointTracker(node, entity, maximum, creatures, index));
       const body = document.createElement("div");
-      body.className = `statblock-body${maximum ? "" : " no-hp"}`;
+      body.className = "statblock-body";
       body.innerHTML = statblockMarkup(entity);
       body.addEventListener("pointerdown", (event) => event.stopPropagation());
       body.addEventListener("click", (event) => { event.stopPropagation(); selectFrom(event, node.id); });
@@ -753,10 +758,17 @@ function detailsButton(node, entity) {
 
 // Поточні HP живуть у розкладці (у кожної копії істоти свої), а не в картці
 // бестіарію: на полотні може стояти три однакові стражники з різним здоров'ям.
-// Вище максимуму HP не піднімаються, а вниз ідуть скільки завгодно: мінус
-// показує, наскільки удар перебив істоту.
-function currentHitPoints(node, maximum) {
-  return Number.isFinite(node.hp) ? Math.min(node.hp, maximum) : maximum;
+function currentHitPoints(node, index, maximum) {
+  return creatureHitPoints(creatureList(node)[index], maximum);
+}
+
+// Записуємо назад через увесь список: вузол сам вирішує, лишитися на node.hp
+// чи перейти на масив істот.
+function setHitPoints(node, index, value) {
+  const creatures = creatureList(node);
+  if (!creatures[index]) return;
+  creatures[index] = { ...creatures[index], hp: value };
+  writeCreatures(node, creatures);
 }
 
 // Червоним число стає, щойно в істоти лишилося менше за половину здоров'я.
@@ -765,9 +777,17 @@ function hurt(value, maximum) {
 }
 
 // Поле кількості порожнє (нуль) доти, доки ДМ не набрав шкоду чи лікування.
-function hpAmount(nodeId) {
-  const value = hpAmountByNode.get(nodeId);
+function hpAmount(key) {
+  const value = hpAmountByNode.get(key);
   return Number.isFinite(value) ? value : 0;
+}
+
+// Після додавання чи видалення істоти набрані числа зсунулися б не до тих
+// рядків, тож просто скидаємо їх разом із перебудовою списку.
+function forgetHitPointAmounts(nodeId) {
+  for (const key of [...hpAmountByNode.keys()]) {
+    if (key === nodeId || key.startsWith(`${nodeId}:`)) hpAmountByNode.delete(key);
+  }
 }
 
 // Колесо міняє HP без окремої команди на кожен клац: історія отримує один
@@ -787,39 +807,55 @@ function commitHitPoints() {
   commitLiveCommand("Змінити HP", before, beforeSelection);
 }
 
-function hitPointTracker(node, entity, maximum) {
+function hitPointTracker(node, entity, maximum, creatures, index) {
+  const several = creatures.length > 1;
+  const label = creatureLabel(creatures[index], index);
+  // Поки істота одна, вона безіменна: підпис лише заважав би на вузькій картці.
+  const who = several ? `${entity.name} — ${label}` : entity.name;
+  const amountKey = `${node.id}:${index}`;
+
   const tracker = document.createElement("div");
-  tracker.className = "statblock-hp";
+  tracker.className = `statblock-hp${several ? " several" : ""}`;
+  tracker.dataset.creature = String(index);
   tracker.addEventListener("pointerdown", (event) => event.stopPropagation());
+
+  if (several) {
+    const name = document.createElement("span");
+    name.className = "hp-name";
+    name.textContent = label;
+    name.title = label;
+    tracker.append(name);
+  }
 
   const current = document.createElement("input");
   current.className = "hp-current";
   current.type = "text";
   current.inputMode = "numeric";
   current.autocomplete = "off";
-  current.value = String(currentHitPoints(node, maximum));
+  current.value = String(currentHitPoints(node, index, maximum));
   current.title = "Поточні HP: впиши число або крути колесом";
-  current.setAttribute("aria-label", `Поточні HP: ${entity.name}`);
+  current.setAttribute("aria-label", `Поточні HP: ${who}`);
   current.addEventListener("wheel", (event) => {
     event.preventDefault();
     event.stopPropagation();
     if (!event.deltaY || node.locked) return;
     const step = (event.shiftKey ? 10 : 1) * (event.deltaY < 0 ? 1 : -1);
-    node.hp = Math.min(currentHitPoints(node, maximum) + step, maximum);
-    current.value = String(node.hp);
-    tracker.classList.toggle("hurt", hurt(node.hp, maximum));
+    const next = Math.min(currentHitPoints(node, index, maximum) + step, maximum);
+    setHitPoints(node, index, next);
+    current.value = String(next);
+    tracker.classList.toggle("hurt", hurt(next, maximum));
     beginHitPointEdit(node);
   }, { passive: false });
   current.addEventListener("keydown", (event) => { if (event.key === "Enter") current.blur(); });
   current.addEventListener("change", () => {
     commitHitPoints();
     const raw = current.value.trim().replace("−", "-");
-    const typed = /^-?\d+$/.test(raw) ? Number(raw) : NaN;
+    const typed = /^-?d+$/.test(raw) ? Number(raw) : NaN;
     if (!Number.isFinite(typed)) {
-      current.value = String(currentHitPoints(node, maximum));
+      current.value = String(currentHitPoints(node, index, maximum));
       return;
     }
-    executeCommand("Змінити HP", () => { node.hp = Math.min(typed, maximum); });
+    executeCommand("Змінити HP", () => setHitPoints(node, index, Math.min(typed, maximum)));
   });
   current.addEventListener("blur", commitHitPoints);
 
@@ -832,40 +868,42 @@ function hitPointTracker(node, entity, maximum) {
   amount.type = "text";
   amount.inputMode = "numeric";
   amount.autocomplete = "off";
-  amount.value = String(hpAmount(node.id));
+  amount.value = String(hpAmount(amountKey));
   amount.title = "Скільки HP додати або зняти: впиши число або крути колесом";
-  amount.setAttribute("aria-label", "Скільки HP");
+  amount.setAttribute("aria-label", `Скільки HP: ${who}`);
   amount.addEventListener("input", () => {
-    hpAmountByNode.set(node.id, Math.max(0, Math.trunc(Number(amount.value)) || 0));
+    hpAmountByNode.set(amountKey, Math.max(0, Math.trunc(Number(amount.value)) || 0));
   });
   amount.addEventListener("wheel", (event) => {
     event.preventDefault();
     event.stopPropagation();
     if (!event.deltaY) return;
     const step = (event.shiftKey ? 10 : 1) * (event.deltaY < 0 ? 1 : -1);
-    const next = Math.max(0, hpAmount(node.id) + step);
-    hpAmountByNode.set(node.id, next);
+    const next = Math.max(0, hpAmount(amountKey) + step);
+    hpAmountByNode.set(amountKey, next);
     amount.value = String(next);
   }, { passive: false });
 
-  const applyAmount = (sign, label) => {
+  const applyAmount = (sign, commandLabel) => {
     if (node.locked) return;
-    const delta = sign * hpAmount(node.id);
+    const delta = sign * hpAmount(amountKey);
     if (!delta) return;
     commitHitPoints();
     // Число згоріло разом із ударом: наступний удар набирається з нуля.
-    hpAmountByNode.set(node.id, 0);
+    hpAmountByNode.set(amountKey, 0);
     amount.value = "0";
-    executeCommand(label, () => { node.hp = Math.min(currentHitPoints(node, maximum) + delta, maximum); });
+    executeCommand(commandLabel, () => {
+      setHitPoints(node, index, Math.min(currentHitPoints(node, index, maximum) + delta, maximum));
+    });
   };
-  const damage = hitPointButton("damage", "−", `Завдати шкоди: ${entity.name}`, () => applyAmount(-1, "Зняти HP"));
-  const heal = hitPointButton("heal", "+", `Вилікувати ${entity.name}`, () => applyAmount(1, "Вилікувати HP"));
+  const damage = hitPointButton("damage", "−", `Завдати шкоди: ${who}`, () => applyAmount(-1, "Зняти HP"));
+  const heal = hitPointButton("heal", "+", `Вилікувати ${who}`, () => applyAmount(1, "Вилікувати HP"));
 
   const controls = document.createElement("div");
   controls.className = "hp-controls";
   controls.append(amount, damage, heal);
   tracker.append(current, total, controls);
-  tracker.classList.toggle("hurt", hurt(currentHitPoints(node, maximum), maximum));
+  tracker.classList.toggle("hurt", hurt(currentHitPoints(node, index, maximum), maximum));
   return tracker;
 }
 
@@ -1219,12 +1257,54 @@ function renameNode(node) {
   if (!["scene", "music"].includes(node.type) || node.locked) return;
   const scene = node.type === "scene";
   renamingNodeId = node.id;
+  renamingCreature = null;
   renameDialogTitle.textContent = scene ? "Назва сцени" : "Назва музики";
   renameDialogHint.textContent = scene
     ? "Назва відображатиметься в шапці сцени та списку шарів."
     : "Назва відображатиметься в шапці музичної картки та списку шарів.";
   sceneNameInput.placeholder = scene ? "Наприклад, Засідка біля брами" : "Наприклад, Тема таверни";
   sceneNameInput.value = scene ? node.title : musicTitle(node.title, node.url);
+  sceneNameInput.setCustomValidity("");
+  sceneRenameDialog.showModal();
+  requestAnimationFrame(() => {
+    sceneNameInput.focus();
+    sceneNameInput.select();
+  });
+}
+
+// Номер рядка лічильника під курсором; поза лічильником — null.
+function creatureRowIndex(target) {
+  const row = target?.closest?.(".statblock-hp");
+  return row ? Number(row.dataset.creature) : null;
+}
+
+function addCreature(node) {
+  const creatures = contextMenuCreatures(node);
+  if (!creatures || node.locked) return;
+  const maximum = maxHitPoints(nodeEntity(node).meta);
+  forgetHitPointAmounts(node.id);
+  // Свіже поповнення виходить у бій цілим.
+  executeCommand("Додати істоту", () => writeCreatures(node, [...creatures, { name: "", hp: maximum }]));
+}
+
+// Остання істота не прибирається: без жодного рядка картку не було б куди
+// рахувати.
+function removeCreature(node, index) {
+  const creatures = contextMenuCreatures(node);
+  if (!creatures || creatures.length < 2 || !creatures[index] || node.locked) return;
+  forgetHitPointAmounts(node.id);
+  executeCommand("Прибрати істоту", () => writeCreatures(node, creatures.toSpliced(index, 1)));
+}
+
+function renameCreature(node, index) {
+  const creatures = contextMenuCreatures(node);
+  if (!creatures || creatures.length < 2 || !creatures[index] || node.locked) return;
+  renamingNodeId = null;
+  renamingCreature = { nodeId: node.id, index };
+  renameDialogTitle.textContent = "Назва істоти";
+  renameDialogHint.textContent = "Назва відображатиметься в рядку лічильника HP цієї істоти.";
+  sceneNameInput.placeholder = `Наприклад, ${creatureLabel(null, index)}`;
+  sceneNameInput.value = creatureLabel(creatures[index], index);
   sceneNameInput.setCustomValidity("");
   sceneRenameDialog.showModal();
   requestAnimationFrame(() => {
@@ -1592,6 +1672,14 @@ function closeContextMenu() {
   nodeContextMenu.hidden = true;
   contextMenuNodeId = null;
   contextMenuPoint = null;
+  contextMenuCreature = null;
+}
+
+// Команди над істотою стосуються того рядка лічильника, по якому клацнули:
+// без рядка перейменовувати й прибирати нема кого.
+function contextMenuCreatures(node) {
+  const maximum = nodeVariant(node) === "statblock" ? maxHitPoints(nodeEntity(node)?.meta) : null;
+  return maximum ? creatureList(node) : null;
 }
 
 function shortcutHint(keys) {
@@ -1627,6 +1715,17 @@ function openContextMenu(node, clientX, clientY) {
   contextMenuItem("add-scene").hidden = !isLocationNode(node);
   contextMenuItem("rename").hidden = !["scene", "music"].includes(node?.type);
   contextMenuItem("details").hidden = !node || node.type === "scene";
+  const creatures = node ? contextMenuCreatures(node) : null;
+  const creature = creatures?.length > 1 && creatures[contextMenuCreature] ? contextMenuCreature : null;
+  contextMenuItem("add-creature").hidden = !creatures;
+  for (const action of ["rename-creature", "remove-creature"]) {
+    const item = contextMenuItem(action);
+    item.hidden = creature === null;
+    if (creature === null) continue;
+    const name = creatureLabel(creatures[creature], creature);
+    const verb = action === "rename-creature" ? "Перейменувати" : "Прибрати";
+    item.querySelector(".context-menu-label").textContent = `${verb}: ${name}`;
+  }
   if (node) {
     const lockButton = contextMenuItem("lock");
     lockButton.querySelector(".context-menu-icon").replaceChildren(iconElement(node.locked ? "lock_open" : "lock_filled"));
@@ -1635,9 +1734,11 @@ function openContextMenu(node, clientX, clientY) {
     const addSceneButton = contextMenuItem("add-scene");
     addSceneButton.disabled = false;
     addSceneButton.title = "";
-    const renameButton = contextMenuItem("rename");
-    renameButton.disabled = node.locked;
-    renameButton.title = node.locked ? "Спочатку розблокуйте елемент" : "";
+    for (const action of ["rename", "add-creature", "rename-creature", "remove-creature"]) {
+      const button = contextMenuItem(action);
+      button.disabled = node.locked;
+      button.title = node.locked ? "Спочатку розблокуйте елемент" : "";
+    }
     const deleteButton = contextMenuItem("delete");
     deleteButton.disabled = node.locked;
     deleteButton.title = node.locked ? "Спочатку розблокуйте елемент" : "";
@@ -2415,6 +2516,7 @@ viewport.addEventListener("pointerdown", (event) => {
   rightPointerGesture = {
     pointerId: event.pointerId,
     nodeId: nodeElement?.dataset.id ?? null,
+    creature: creatureRowIndex(event.target),
     dragged: false,
   };
   beginPan(event, { waitForDrag: true, gesture: rightPointerGesture });
@@ -2432,12 +2534,14 @@ viewport.addEventListener("contextmenu", (event) => {
   const nodeElement = event.target.closest(".node");
   const nodeId = rightPointerGesture?.nodeId ?? nodeElement?.dataset.id;
   const node = nodeId ? findNode(layout, nodeId) : null;
+  const creature = rightPointerGesture?.creature ?? creatureRowIndex(event.target);
   rightPointerGesture = null;
   event.preventDefault();
   event.stopPropagation();
   commitHitPoints();
   if (!node || !CONTEXT_MENU_NODE_TYPES.has(node.type)) return openContextMenu(null, event.clientX, event.clientY);
   select(node.id);
+  contextMenuCreature = creature;
   openContextMenu(node, event.clientX, event.clientY);
 });
 viewport.addEventListener("pointermove", onPointerMove);
@@ -2603,10 +2707,14 @@ document.querySelector("#scene-rename-cancel").addEventListener("click", closeSc
 sceneRenameDialog.addEventListener("click", (event) => {
   if (event.target === sceneRenameDialog) closeSceneRenameDialog();
 });
-sceneRenameDialog.addEventListener("close", () => { renamingNodeId = null; });
+sceneRenameDialog.addEventListener("close", () => {
+  renamingNodeId = null;
+  renamingCreature = null;
+});
 sceneNameInput.addEventListener("input", () => sceneNameInput.setCustomValidity(""));
 sceneRenameForm.addEventListener("submit", (event) => {
   event.preventDefault();
+  if (renamingCreature) return submitCreatureName();
   const node = findNode(layout, renamingNodeId);
   if (!node || !["scene", "music"].includes(node.type) || node.locked) return closeSceneRenameDialog();
   const title = sceneNameInput.value.trim();
@@ -2621,11 +2729,32 @@ sceneRenameForm.addEventListener("submit", (event) => {
   }
   closeSceneRenameDialog();
 });
+// Підпис, що збігається з номером за замовчуванням, у вузол не записується:
+// про це подбає writeCreatures.
+function submitCreatureName() {
+  const { nodeId, index } = renamingCreature;
+  const node = findNode(layout, nodeId);
+  const creatures = node ? contextMenuCreatures(node) : null;
+  if (!creatures || !creatures[index] || node.locked) return closeSceneRenameDialog();
+  const name = sceneNameInput.value.trim();
+  if (!name) {
+    sceneNameInput.setCustomValidity("Вкажіть назву істоти");
+    return sceneNameInput.reportValidity();
+  }
+  if (name !== creatureLabel(creatures[index], index)) {
+    executeCommand("Перейменувати істоту", () => {
+      writeCreatures(node, creatures.with(index, { ...creatures[index], name }));
+    });
+  }
+  closeSceneRenameDialog();
+}
+
 nodeContextMenu.addEventListener("click", async (event) => {
   const action = event.target.closest("[data-context-action]")?.dataset.contextAction;
   if (!action || event.target.closest("button")?.disabled) return;
   const node = findNode(layout, contextMenuNodeId);
   const spot = contextMenuPoint;
+  const creature = contextMenuCreature;
   closeContextMenu();
   if (action === "paste") return pasteFromMenu(spot);
   if (!node) return;
@@ -2636,6 +2765,9 @@ nodeContextMenu.addEventListener("click", async (event) => {
   else if (action === "copy") copySelection();
   else if (action === "delete") await deleteSelected();
   else if (action === "details") showNodeDetails(node);
+  else if (action === "add-creature") addCreature(node);
+  else if (action === "rename-creature") renameCreature(node, creature);
+  else if (action === "remove-creature") removeCreature(node, creature);
 });
 nodeContextMenu.addEventListener("keydown", (event) => {
   if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
