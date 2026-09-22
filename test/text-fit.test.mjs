@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { NOTE_FONT_EM, SUMMARY_FONT_EM, TEXT_MIN_RATIO, fitBoxKey, fittedFontSize, fittingRatio, notePadding, textShape } from "../public/text-fit.js";
+import { NOTE_FONT_EM, SUMMARY_FONT_EM, TEXT_FIT_RESERVE_PX, TEXT_MIN_RATIO, fitBoxKey, fittedFontSize, fittingRatio, fitsWithReserve, notePadding, textShape } from "../public/text-fit.js";
 
 // Замість браузера — модель: текст влазить, поки кегль не більший за межу.
 function fitsUpTo(limit, calls = []) {
@@ -50,6 +50,13 @@ test("межу й кількість кроків можна задати сво
   assert.equal(fittingRatio(() => false, { minRatio: 0.8 }), 0.8);
   // Менше кроків — грубший результат, але він так само влазить.
   assert.equal(fittingRatio(fitsUpTo(0.9), { steps: 1 }), 0.75);
+});
+
+test("перевірка вміщення лишає запас від появи мікроскролу", () => {
+  assert.equal(TEXT_FIT_RESERVE_PX, 2);
+  assert.equal(fitsWithReserve(98, 100), true);
+  assert.equal(fitsWithReserve(99, 100), false);
+  assert.equal(fitsWithReserve(100, 100), false);
 });
 
 test("базовий кегль лишається за стилями, зменшений — в em вузла", () => {

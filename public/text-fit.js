@@ -11,7 +11,14 @@ const NOTE_PADDING_EM = 1.076923;
 const NOTE_GUTTER_EM = 3.384615;
 // Дрібніше вже не читають, тож нижче не спускаємось: текст радше обріжеться.
 export const TEXT_MIN_RATIO = 0.5;
+// Залишаємо трохи повітря на округлення браузером розмірів рядків і картки:
+// інакше після ресайзу різниця у кілька пікселів може ввімкнути скрол.
+export const TEXT_FIT_RESERVE_PX = 2;
 const FIT_STEPS = 6;
+
+export function fitsWithReserve(contentSize, viewportSize, reserve = TEXT_FIT_RESERVE_PX) {
+  return contentSize <= viewportSize - reserve;
+}
 
 export function fittedFontSize(baseEm, ratio) {
   return ratio === 1 ? "" : `${(baseEm * ratio).toFixed(3)}em`;
