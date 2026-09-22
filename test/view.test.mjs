@@ -78,16 +78,21 @@ test("a card drawn as a frame scales by the frame base size", () => {
 });
 
 test("a location border is bold from afar and disappears at half screen", () => {
-  assert.equal(locationBorderScreenWidth(80, 60, 1, 1000, 800), 8);
+  assert.equal(locationBorderScreenWidth(40, 30, 1, 1000, 800), 8);
   assert.equal(locationBorderScreenWidth(500, 400, 1, 1000, 800), 0);
   const middle = locationBorderScreenWidth(300, 240, 1, 1000, 800);
   assert.ok(middle > 0 && middle < 8);
 });
 
+test("a location border stays bold until the card is a speck", () => {
+  assert.ok(locationBorderScreenWidth(80, 60, 1, 1000, 800) > 7);
+  assert.ok(locationBorderScreenWidth(30, 24, 1, 1000, 800) > 5);
+});
+
 test("a location border thins back to a hair on the world map", () => {
-  assert.equal(locationBorderScreenWidth(20, 15, 1, 1000, 800), 1);
+  assert.equal(locationBorderScreenWidth(10, 8, 1, 1000, 800), 1);
   assert.equal(locationBorderScreenWidth(4, 3, 1, 1000, 800), 1);
-  const between = locationBorderScreenWidth(40, 30, 1, 1000, 800);
+  const between = locationBorderScreenWidth(25, 20, 1, 1000, 800);
   assert.ok(between > 1 && between < 8);
 });
 

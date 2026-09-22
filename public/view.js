@@ -76,15 +76,16 @@ export function locationHeaderHeight(width, height) {
 
 // Локація лишається помітною на загальному плані без зміни геометрії картки.
 // Обвід вимірюється в екранних пікселях і зникає, коли картка заповнює екран.
-// Найтовстіший він посередині: на загальному плані картки вже дрібні, але ще
-// читаються. Далі кільце знову стоншується до волосини — вісім пікселів
-// навколо цятки в двадцять роблять із неї пляму, і міста за тими плямами на
-// карті світу не видно.
+// Найтовстіший він посередині й тримається таким довго: картка в тридцять
+// пікселів — це вже позначка на карті, і кільце тут єдине, що її показує.
+// Стоншується воно аж на самому кінці, коли від картки лишається цятка на
+// десяток пікселів: вісім пікселів обводу роблять із неї пляму, і міста за
+// тими плямами на карті світу не видно.
 export function locationBorderScreenWidth(width, height, scale, viewportWidth, viewportHeight) {
   if (viewportWidth <= 0 || viewportHeight <= 0 || scale <= 0) return 0;
   const coverage = Math.max(width * scale / viewportWidth, height * scale / viewportHeight);
-  const thinnestCoverage = 0.02;
-  const fullWidthCoverage = 0.08;
+  const thinnestCoverage = 0.01;
+  const fullWidthCoverage = 0.04;
   const hiddenCoverage = 0.5;
   const minimumWidth = 1;
   const maximumWidth = 8;
