@@ -23,7 +23,7 @@ import { renderMarkdown } from "./markdown.js";
 import { creatureHitPoints, creatureLabel, creatureList, maxHitPoints, statblockMarkup, writeCreatures } from "./statblock.js";
 import { mapSlugFromPath } from "./notes.js";
 import { noteMarkup, toggleBold } from "./note-format.js";
-import { NOTE_FONT_EM, SUMMARY_FONT_EM, fitBoxKey, fittedFontSize, fittingRatio, fitsWithReserve, notePadding, textShape } from "./text-fit.js";
+import { NOTE_FONT_EM, SUMMARY_FONT_EM, fitBoxKey, fittedFontSize, fittingRatio, notePadding, reservedFitRatio, textShape } from "./text-fit.js";
 import { canonicalYouTubeUrl, musicTitle, oEmbedUrl, playbackUrl } from "./music.js";
 import { centeredViewOnRect, locationBorderScreenWidth, locationHeaderHeight, maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, rebasedView, rectWithin, rectsOverlap, worldViewportRect, zoomedViewAt } from "./view.js";
 import { CALIBRATION_MILES, milesLabel, parseScale, plural as pluralForm, routeMiles, scaleFromCalibration, travelEstimates } from "./travel.js";
@@ -452,14 +452,15 @@ function fitBoxText(element, { kind, shape, apply, maxRatio = () => 1 }) {
   apply(1);
   // Прямокутник без висоти — картка згорнута на дальньому зумі: міряти нічого.
   if (!element.clientHeight) return;
-  const ratio = fittingRatio((candidate) => {
+  const fittedRatio = fittingRatio((candidate) => {
     apply(candidate);
-    if (!fitsWithReserve(element.scrollHeight, element.clientHeight)) return false;
+    if (element.scrollHeight > element.clientHeight) return false;
     // Ширину питаємо лише на зростанні: слова не переносяться всередині себе,
     // тож найдовше з них вилазить убік, не додаючи висоти, — і без цієї
     // перевірки текст ріс би просто повз край картки.
-    return candidate <= 1 || fitsWithReserve(element.scrollWidth, element.clientWidth);
+    return candidate <= 1 || element.scrollWidth <= element.clientWidth;
   }, { maxRatio: maxRatio(element) });
+  const ratio = reservedFitRatio(fittedRatio);
   apply(ratio);
   // Кеш росте лише від нових пропорцій картки — за протяжку кутом їх стільки,
   // скільки кадрів, тож переповнений просто скидаємо.
