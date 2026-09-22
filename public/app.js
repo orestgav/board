@@ -368,7 +368,12 @@ function updateLocationBorders() {
     // а діти позиційовані у відсотках від padding-box — тож на дальньому зумі,
     // де вона завтовшки в десятки світових пікселів, вони б повилазили за край.
     // Сцена масштабується цілком, тому переводимо екранні пікселі в локальні.
-    element.style.outlineWidth = `${screenWidth / view.scale}px`;
+    const localWidth = screenWidth / view.scale;
+    // Відступ на всю ширину заганяє кільце всередину картки: зовнішній край
+    // обводу лягає на межу вузла, тож габарити локації лишаються ті самі,
+    // а кільце малюється поверх вмісту, як і малювала рамка до цього.
+    element.style.outlineWidth = `${localWidth}px`;
+    element.style.outlineOffset = `${-localWidth}px`;
   });
 }
 
