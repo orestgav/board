@@ -1838,6 +1838,11 @@ function onResizePointerDown(event) {
     originX: node.x * parentWidth / 100, originY: node.y * parentHeight / 100,
     originWidth: node.width, originHeight: node.height, parentWidth, parentHeight,
     corner: event.currentTarget.dataset.corner, aspect: node.type === "image" ? node.width / node.height : null,
+    // Діти тримаються за лівий верхній кут батька: памʼятаємо їхній відступ
+    // у пікселях, бо відсотки від розміру пропорційно розтягувалися б.
+    children: node.children.map((child) => ({
+      node: child, offsetX: child.x * node.width / 100, offsetY: child.y * node.height / 100,
+    })),
     node, before: cloneLayout(layout), beforeSelection: selectionIds(),
   };
   viewport.setPointerCapture(event.pointerId);
@@ -1959,6 +1964,11 @@ function onPointerMove(event) {
   if (west) interaction.node.x = (interaction.originX + interaction.originWidth - width) / interaction.parentWidth * 100;
   if (north) interaction.node.y = (interaction.originY + interaction.originHeight - height) / interaction.parentHeight * 100;
   updateNodeGeometry(interaction.node);
+  for (const child of interaction.children) {
+    child.node.x = child.offsetX / width * 100;
+    child.node.y = child.offsetY / height * 100;
+    updateNodeGeometry(child.node);
+  }
 }
 
 // Нотатка лежить у файлі карти-предка, тож переїзд між картами — це
