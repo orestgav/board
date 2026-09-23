@@ -180,9 +180,14 @@ svg.icon { width: 20px; height: 20px; }
 .hp-button:active { transform: translateY(.06em); }
 .statblock-body { position: relative; flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 11em 14em 15em; border-radius: 0 0 9em 9em; color: #e4efee; pointer-events: auto; user-select: text; }
 .statblock-body .sb-sub { margin: 0 0 .82em; color: var(--stat-muted); font-size: 11em; }
-.statblock-body .sb-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10em; }
-.statblock-body .sb-vitals p, .statblock-body .sb-init { margin: .33em 0; font-size: 12em; }
-.statblock-body .sb-init { white-space: nowrap; }
+.statblock-body .sb-top { display: flex; justify-content: space-between; gap: 10em; }
+.statblock-body .sb-vitals { flex: 1 1 auto; min-width: 0; }
+.statblock-body .sb-vitals p { margin: .33em 0; font-size: 12em; }
+/* Арт праворуч заввишки з колонку AC–Initiative. Сама картинка лежить поверх
+   рамки абсолютно: висоту блоку задає текст, а не пропорції арту, тож коли вона
+   довантажиться, розкладка вже не зміниться. */
+.statblock-body .sb-art { position: relative; flex: 0 0 42%; }
+.statblock-body .sb-art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: right center; }
 .statblock-body .sb-abil { width: 100%; margin: 1.04em 0; border-collapse: collapse; font-size: 11.5em; font-variant-numeric: tabular-nums; text-align: center; }
 .statblock-body .sb-abil th, .statblock-body .sb-abil td { padding: .35em .3em; font-weight: 400; }
 .statblock-body .sb-abil thead tr, .statblock-body .sb-abil tr.sb-save { background: #20323a; }

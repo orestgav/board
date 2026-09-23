@@ -70,8 +70,8 @@ test("мета-рядок завжди має Gear і CR, решта — за н
 
 test("секції йдуть у порядку статблока, без нотаток ДМа й коментарів", () => {
   const sections = statblockSections(ALISIA.body);
-  assert.deepEqual(sections.map((section) => section.title), ["Дії", "Риси"]);
-  assert.deepEqual(sections[0].paragraphs, ["**Bite.** *Melee Weapon Attack* +7 до атаки."]);
+  assert.deepEqual(sections.map((section) => section.title), ["Риси", "Дії"]);
+  assert.deepEqual(sections[0].paragraphs, ["**Spider Climb.** Лазить по стінах."]);
   assert.equal(statblockSections("## Тактика\n\nЛише нотатка ДМа").length, 0);
 });
 
@@ -93,6 +93,14 @@ test("розмітка картки повторює статблок бесті
   assert.match(markup, /<h3>ACTIONS<\/h3><p><strong>Bite\.<\/strong> <em>Melee Weapon Attack<\/em>/);
   assert.match(markup, /<h3>TRAITS<\/h3>/);
   assert.doesNotMatch(markup, /Тактика|тіні/);
+});
+
+test("Initiative стоїть під Speed у колонці показників, а праворуч — арт істоти", () => {
+  const withoutArt = statblockMarkup(ALISIA);
+  assert.match(withoutArt, /<div class="sb-vitals">[\s\S]*Speed[\s\S]*Initiative[\s\S]*<\/div>/);
+  assert.doesNotMatch(withoutArt, /sb-art/);
+  const withArt = statblockMarkup({ ...ALISIA, portrait: "alisia.webp" });
+  assert.match(withArt, /<\/div>\s*<div class="sb-art"><img alt="" draggable="false"><\/div>/);
 });
 
 test("без рятункових кидків рядок SAVE не малюється, а порожні поля дають прочерк", () => {

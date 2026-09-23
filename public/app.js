@@ -643,6 +643,10 @@ function renderNode(node, isRoot = false) {
       const sheet = document.createElement("div");
       sheet.className = "statblock-sheet";
       sheet.innerHTML = statblockMarkup(entity);
+      // Арт вантажиться вже після підбору кегля, тож рамка під нього має
+      // фіксований розмір у стилях — інакше картинка знову б дала скрол.
+      const art = sheet.querySelector(".sb-art > img");
+      if (art) setDirectImageSource(art, entity.portrait);
       body.append(sheet);
       body.addEventListener("pointerdown", (event) => event.stopPropagation());
       body.addEventListener("click", (event) => { event.stopPropagation(); selectFrom(event, node.id); });

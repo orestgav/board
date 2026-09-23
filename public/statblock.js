@@ -14,7 +14,7 @@ const SECTION_TITLES = {
   "Дії": "ACTIONS", "Риси": "TRAITS", "Бонусні дії": "BONUS ACTIONS",
   "Реакції": "REACTIONS", "Легендарні дії": "LEGENDARY ACTIONS", "Закляття": "SPELLS",
 };
-const SECTION_ORDER = ["Дії", "Риси", "Бонусні дії", "Реакції", "Легендарні дії", "Закляття"];
+const SECTION_ORDER = ["Риси", "Дії", "Бонусні дії", "Реакції", "Легендарні дії", "Закляття"];
 const STAT_ENTRY = /^\*\*[^*\n]+\.\*\*/;
 const SAVE = /^([A-Za-zА-Яа-я]{3})\s*([+\-−]?\d+)/;
 
@@ -92,8 +92,9 @@ export function statblockMarkup(entity) {
         <p><strong>AC</strong> ${escapeHtml(filled(meta.ac) ? meta.ac : "—")}</p>
         <p><strong>HP</strong> ${escapeHtml(filled(meta.hp) ? meta.hp : "—")}</p>
         <p><strong>Speed</strong> ${escapeHtml(filled(meta.speed) ? meta.speed : "—")}</p>
+        <p><strong>Initiative</strong> ${escapeHtml(filled(meta.initiative) ? meta.initiative : "+0")}</p>
       </div>
-      <p class="sb-init"><strong>Initiative</strong> ${escapeHtml(filled(meta.initiative) ? meta.initiative : "+0")}</p>
+      ${entity.portrait ? `<div class="sb-art"><img alt="" draggable="false"></div>` : ""}
     </div>
     <table class="sb-abil">
       <thead><tr><th></th>${ABILITIES.map(([, label]) => `<th>${label}</th>`).join("")}</tr></thead>
