@@ -23,7 +23,7 @@ import { renderMarkdown } from "./markdown.js";
 import { creatureHitPoints, creatureLabel, creatureList, maxHitPoints, statblockMarkup, writeCreatures } from "./statblock.js";
 import { mapSlugFromPath } from "./notes.js";
 import { noteMarkup, toggleBold } from "./note-format.js";
-import { NOTE_FONT_EM, SUMMARY_FONT_EM, fitBoxKey, fittedFontSize, fittingRatio, notePadding, reservedFitRatio, textShape } from "./text-fit.js";
+import { NOTE_FONT_EM, STATBLOCK_FONT_EM, SUMMARY_FONT_EM, fitBoxKey, fittedFontSize, fittingRatio, notePadding, reservedFitRatio, textShape } from "./text-fit.js";
 import { canonicalYouTubeUrl, musicTitle, oEmbedUrl, playbackUrl } from "./music.js";
 import { centeredViewOnRect, locationBorderScreenWidth, locationHeaderHeight, maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, rebasedView, rectWithin, rectsOverlap, worldViewportRect, zoomedViewAt } from "./view.js";
 import { CALIBRATION_MILES, milesLabel, parseScale, plural as pluralForm, routeMiles, scaleFromCalibration, travelEstimates } from "./travel.js";
@@ -380,8 +380,8 @@ function render() {
   undoButton.disabled = undoStack.length === 0;
   redoButton.disabled = redoStack.length === 0;
   if (constrainViewScale()) applyView();
-  // Кегль підписів і нотаток підбирається по вже вставлених у сцену картках:
-  // раніше міряти нічого, бо прямокутник тексту ще не має висоти.
+  // Кегль підписів, нотаток і статблоків підбирається по вже вставлених у сцену
+  // картках: раніше міряти нічого, бо прямокутник тексту ще не має висоти.
   fitNodeTexts();
 }
 
@@ -392,6 +392,7 @@ function nodeElement(id) {
 function fitNodeTexts(root = scene) {
   root.querySelectorAll(".entity-summary").forEach((summary) => fitSummary(summary));
   root.querySelectorAll(".note-content, .note-editor").forEach((note) => fitNote(note));
+  root.querySelectorAll(".statblock-sheet").forEach((sheet) => fitStatblock(sheet));
 }
 
 function fitSummary(summary) {
@@ -399,6 +400,21 @@ function fitSummary(summary) {
     kind: "summary",
     shape: textShape(summary.textContent),
     apply: (ratio) => applyFontRatio(summary, SUMMARY_FONT_EM, ratio),
+  });
+}
+
+// Статблок має влазити в картку без скролу: зменшуємо весь аркуш разом, щоб
+// пропорції заголовків, таблиці й тексту лишалися бестіарними. Міряємо тіло
+// картки, а не аркуш: скролиться саме воно, і його поля від кегля не залежать.
+// Рядки лічильника HP забирають висоту в тіла, тож їх кількість теж у ключі.
+function fitStatblock(sheet) {
+  const body = sheet.parentElement;
+  const rows = body.parentElement?.querySelectorAll(":scope > .statblock-hp").length ?? 0;
+  fitBoxText(sheet, {
+    kind: "statblock",
+    box: body,
+    shape: `${rows}.${textShape(sheet.textContent)}`,
+    apply: (ratio) => applyFontRatio(sheet, STATBLOCK_FONT_EM, ratio),
   });
 }
 
@@ -432,9 +448,9 @@ function noteMaxRatio(note) {
   return Math.max(1, note.clientHeight / lineHeight);
 }
 
-// Спільне для підпису й нотатки: прямокутник той самий на будь-якому зумі, тож
+// Спільне для підпису, нотатки й статблока: прямокутник той самий на будь-якому зумі, тож
 // підібрану частку кегля кешуємо за його пропорціями в em.
-function fitBoxText(element, { kind, shape, apply, maxRatio = () => 1 }) {
+function fitBoxText(element, { kind, shape, apply, box = element, maxRatio = () => 1 }) {
   const card = element.closest(".node");
   // Кегль вузла — це nodeVisualScale, а не зум: сцена масштабується трансформом,
   // тож те, що ми міряємо, від наближення не залежить.
@@ -451,14 +467,14 @@ function fitBoxText(element, { kind, shape, apply, maxRatio = () => 1 }) {
   if (cached !== undefined) return apply(cached);
   apply(1);
   // Прямокутник без висоти — картка згорнута на дальньому зумі: міряти нічого.
-  if (!element.clientHeight) return;
+  if (!box.clientHeight) return;
   const fittedRatio = fittingRatio((candidate) => {
     apply(candidate);
-    if (element.scrollHeight > element.clientHeight) return false;
+    if (box.scrollHeight > box.clientHeight) return false;
     // Ширину питаємо лише на зростанні: слова не переносяться всередині себе,
     // тож найдовше з них вилазить убік, не додаючи висоти, — і без цієї
     // перевірки текст ріс би просто повз край картки.
-    return candidate <= 1 || element.scrollWidth <= element.clientWidth;
+    return candidate <= 1 || box.scrollWidth <= box.clientWidth;
   }, { maxRatio: maxRatio(element) });
   const ratio = reservedFitRatio(fittedRatio);
   apply(ratio);
@@ -494,6 +510,8 @@ function updateNodeGeometry(node, element = nodeElement(node.id)) {
   if (summary) fitSummary(summary);
   const note = element.querySelector(":scope > .note-content, :scope > .note-editor");
   if (note) fitNote(note);
+  const sheet = element.querySelector(":scope > .statblock-body > .statblock-sheet");
+  if (sheet) fitStatblock(sheet);
 }
 
 function updateNodePosition(element, node) {
@@ -621,7 +639,11 @@ function renderNode(node, isRoot = false) {
       for (const index of creatures.keys()) element.append(hitPointTracker(node, entity, maximum, creatures, index));
       const body = document.createElement("div");
       body.className = "statblock-body";
-      body.innerHTML = statblockMarkup(entity);
+      // Аркуш — окремий шар, щоб підібраний кегль не чіпав полів самого тіла.
+      const sheet = document.createElement("div");
+      sheet.className = "statblock-sheet";
+      sheet.innerHTML = statblockMarkup(entity);
+      body.append(sheet);
       body.addEventListener("pointerdown", (event) => event.stopPropagation());
       body.addEventListener("click", (event) => { event.stopPropagation(); selectFrom(event, node.id); });
       body.addEventListener("wheel", onStatblockWheel);

@@ -5,6 +5,9 @@
 // Базові кеглі — ті самі, що в .entity-summary і .note-content у стилях.
 export const SUMMARY_FONT_EM = 12;
 export const NOTE_FONT_EM = 13;
+// Аркуш статблока власного кегля не має — кожен його елемент задає свій у em,
+// тож частка множить кегль вузла, а від нього рахується вже решта.
+export const STATBLOCK_FONT_EM = 1;
 // Поля нотатки — той самий padding, що в .note-content. Праве ширше: воно
 // звільняє місце під ручку перетягування.
 const NOTE_PADDING_EM = 1.076923;
