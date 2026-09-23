@@ -86,9 +86,11 @@ export function statblockMarkup(entity) {
   const sections = statblockSections(entity.body).map((section) => `<h3>${escapeHtml(SECTION_TITLES[section.title] ?? section.title.toLocaleUpperCase("uk"))}</h3>`
     + section.paragraphs.map((paragraph) => `<p>${renderInline(paragraph)}</p>`).join("")).join("");
 
-  return `${line ? `<p class="sb-sub"><em>${escapeHtml(line)}</em></p>` : ""}
-    <div class="sb-top">
+  // Підзаголовок у тій самій колонці, що й AC–Initiative: так арт праворуч
+  // тягнеться на всю висоту шапки статблока.
+  return `<div class="sb-top">
       <div class="sb-vitals">
+        ${line ? `<p class="sb-sub"><em>${escapeHtml(line)}</em></p>` : ""}
         <p><strong>AC</strong> ${escapeHtml(filled(meta.ac) ? meta.ac : "—")}</p>
         <p><strong>HP</strong> ${escapeHtml(filled(meta.hp) ? meta.hp : "—")}</p>
         <p><strong>Speed</strong> ${escapeHtml(filled(meta.speed) ? meta.speed : "—")}</p>

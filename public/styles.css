@@ -182,11 +182,11 @@ svg.icon { width: 20px; height: 20px; }
 .statblock-body .sb-sub { margin: 0 0 .82em; color: var(--stat-muted); font-size: 11em; }
 .statblock-body .sb-top { display: flex; justify-content: space-between; gap: 10em; }
 .statblock-body .sb-vitals { flex: 1 1 auto; min-width: 0; }
-.statblock-body .sb-vitals p { margin: .33em 0; font-size: 12em; }
-/* Арт праворуч заввишки з колонку AC–Initiative. Сама картинка лежить поверх
-   рамки абсолютно: висоту блоку задає текст, а не пропорції арту, тож коли вона
-   довантажиться, розкладка вже не зміниться. */
-.statblock-body .sb-art { position: relative; flex: 0 0 42%; }
+.statblock-body .sb-vitals p:not(.sb-sub) { margin: .33em 0; font-size: 12em; }
+/* Арт праворуч заввишки з колонку від підзаголовка до Initiative. Сама картинка
+   лежить поверх рамки абсолютно: висоту блоку задає текст, а не пропорції арту,
+   тож коли вона довантажиться, розкладка вже не зміниться. */
+.statblock-body .sb-art { position: relative; flex: 0 0 30%; }
 .statblock-body .sb-art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: right center; }
 .statblock-body .sb-abil { width: 100%; margin: 1.04em 0; border-collapse: collapse; font-size: 11.5em; font-variant-numeric: tabular-nums; text-align: center; }
 .statblock-body .sb-abil th, .statblock-body .sb-abil td { padding: .35em .3em; font-weight: 400; }
