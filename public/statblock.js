@@ -15,6 +15,7 @@ const SECTION_TITLES = {
   "Реакції": "REACTIONS", "Легендарні дії": "LEGENDARY ACTIONS", "Закляття": "SPELLS",
 };
 const SECTION_ORDER = ["Дії", "Риси", "Бонусні дії", "Реакції", "Легендарні дії", "Закляття"];
+const STAT_ENTRY = /^\*\*[^*\n]+\.\*\*/;
 const SAVE = /^([A-Za-zА-Яа-я]{3})\s*([+\-−]?\d+)/;
 
 function filled(value) {
@@ -67,7 +68,11 @@ export function statblockSections(body) {
     const paragraphs = (newline < 0 ? "" : part.slice(newline + 1)).trim()
       .split(/\n\s*\n/).map((paragraph) => paragraph.trim())
       .filter((paragraph) => paragraph && !paragraph.startsWith("<!--"));
-    if (paragraphs.length) sections.push({ title, paragraphs });
+    if (!paragraphs.length) continue;
+    // Незнайома секція (напр. «ФАЗА 2») потрапляє в статблок, лише якщо вся
+    // складається з записів «**Назва.** …»; описові нотатки в статблок не йдуть.
+    if (!SECTION_ORDER.includes(title) && !paragraphs.every((paragraph) => STAT_ENTRY.test(paragraph))) continue;
+    sections.push({ title, paragraphs });
   }
   const rank = (title) => (SECTION_ORDER.indexOf(title) < 0 ? SECTION_ORDER.length : SECTION_ORDER.indexOf(title));
   return sections.sort((first, second) => rank(first.title) - rank(second.title));

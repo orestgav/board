@@ -75,6 +75,16 @@ test("секції йдуть у порядку статблока, без но�
   assert.equal(statblockSections("## Тактика\n\nЛише нотатка ДМа").length, 0);
 });
 
+test("описові секції не потрапляють у статблок, а записи-здібності лишаються", () => {
+  const body = [
+    "## Хто це", "", "- Те, що посилає Велетень.", "",
+    "## Як діє", "", "- Хапає і тікає.", "", "**Це викрадення, а не бій.** Партія може втратити людину.", "",
+    "## Звʼязки", "", "- Бестіарій: [[veleten]]", "",
+    "## ФАЗА 2", "", "**Blood Link.** Поглинає життєву силу.", "",
+  ].join("\n");
+  assert.deepEqual(statblockSections(body).map((section) => section.title), ["ФАЗА 2"]);
+});
+
 test("розмітка картки повторює статблок бестіарію", () => {
   const markup = statblockMarkup(ALISIA);
   assert.match(markup, /<em>Medium Undead \(Vampire\), Chaotic Evil<\/em>/);
