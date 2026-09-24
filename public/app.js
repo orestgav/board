@@ -667,7 +667,12 @@ function renderNode(node, isRoot = false) {
       // Незнайомий тип лишається на загальній.
       if (!npc && entity.type) element.dataset.entityType = entity.type;
       if (!npc) element.classList.toggle("entity-far", isFarCollapsed(node));
-      element.append(nodeHeader(node, { icon: entityIcon(entity), entity, badge: npc ? "" : entity.type }));
+      // Айтем замість слова типу показує ціну, а рідкість — смугою під шапкою.
+      const item = entity.type === "item";
+      const rarity = item ? String(entity.meta?.rarity ?? "").trim() : "";
+      if (rarity) element.dataset.rarity = rarity.replace(/\s+/g, "-");
+      const badge = npc ? "" : item ? String(entity.meta?.price ?? "").trim() : entity.type;
+      element.append(nodeHeader(node, { icon: entityIcon(entity), entity, badge }));
 
       const content = document.createElement("div");
       content.className = `entity-content${entity.portrait ? "" : " no-portrait"}`;

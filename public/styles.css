@@ -105,6 +105,18 @@ svg.icon { width: 20px; height: 20px; }
 .entity-node:where([data-entity-type="item"]) .node-glyph { color: #efb279; }
 .entity-node:where([data-entity-type="item"]) .entity-type { color: #c89a72; }
 .entity-node:where([data-entity-type="item"]) .entity-summary { color: #d8c8b6; }
+/* На місці слова типу в айтема — ціна: жирніше й більше за звичайний бейдж. */
+.entity-node:where([data-entity-type="item"]) .entity-type { color: #f3c48f; font-size: 13em; font-weight: 700; letter-spacing: 0; text-transform: none; }
+/* Рідкість — смуга під шапкою, кольори як у D&D Beyond. Рамка й тло лишаються
+   мідними; legendary зсунуто в золото, бо помаранчевий злився б із міддю.
+   Без рідкості смуги немає. */
+.entity-node:where([data-entity-type="item"])[data-rarity] > .node-header { border-bottom: 3em solid var(--rarity); }
+.entity-node:where([data-rarity="common"]) { --rarity: #b9b3aa; }
+.entity-node:where([data-rarity="uncommon"]) { --rarity: #4fb05c; }
+.entity-node:where([data-rarity="rare"]) { --rarity: #4a8ff0; }
+.entity-node:where([data-rarity="very-rare"]) { --rarity: #a864e0; }
+.entity-node:where([data-rarity="legendary"]) { --rarity: #f2c230; }
+.entity-node:where([data-rarity="artifact"]) { --rarity: #e0524a; }
 /* Арт предметів завжди на білому тлі — тож і під портретом біле поле, а від
    тексту його відділяє лінія кольору рамки. З розділювачем текст знову
    відступає від портрета на повний падинг. */
