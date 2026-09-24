@@ -686,6 +686,8 @@ function renderNode(node, isRoot = false) {
         portrait.className = "entity-portrait";
         portrait.alt = "";
         portrait.draggable = false;
+        // Арт, де предмет упритул до країв кадру, з прапорцем отримує поле.
+        if (item && String(entity.meta?.image_padding ?? "").trim() === "true") portrait.classList.add("padded");
         setDirectImageSource(portrait, entity.portrait);
         content.append(portrait);
         // Налаштування — трикутник з «A» у кутку арту, у кольорі рідкості.
