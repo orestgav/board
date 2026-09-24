@@ -55,7 +55,7 @@ const ENTITY_KINDS = {
   location: {
     icon: "location_on",
     variant: "frame",
-    members: "npc", // мітка рядка в секції звʼязків локації
+    members: ["npc", "предмети"], // мітки рядків у секції звʼязків локації
     command: "Додати локацію",
     pickerTitle: "Локація з репозиторію",
     searchPlaceholder: "Назва або slug локації…",
@@ -1495,16 +1495,17 @@ function entityNode(entity, left, top, rect, size = entityKind(entity)?.size ?? 
   return node;
 }
 
-// Список карток усередині бере сама локація — рядок «- NPC:» у її секції
-// звʼязків. Посилання на неіндексовані типи (наприклад players/) на полотно
-// не кладемо, але про них повідомляємо.
+// Список карток усередині бере сама локація — рядки «- NPC:» і «- Предмети:»
+// у її секції звʼязків, у цьому порядку. Посилання на неіндексовані типи
+// (наприклад players/) на полотно не кладемо, але про них повідомляємо.
 function containerNode(entity, kind, point, rect) {
-  const slugs = entity.links[kind.members] ?? [];
+  const slugs = [...new Set(kind.members.flatMap((label) => entity.links[label] ?? []))];
   const members = slugs.map((slug) => entitiesBySlug.get(slug)).filter(Boolean);
   const missing = slugs.filter((slug) => !entitiesBySlug.has(slug));
   if (missing.length) showToast(`Немає в індексі карток: ${missing.join(", ")}`);
+  // NPC і предмети мають однаковий розмір картки, тож сітка одна.
   const grid = containerGrid(members.length, {
-    cell: ENTITY_KINDS[kind.members]?.size ?? ENTITY_CARD,
+    cell: NPC_CARD,
     gap: CONTAINER_GAP,
     padding: CONTAINER_PADDING,
     minimum: FRAME_SIZE,
