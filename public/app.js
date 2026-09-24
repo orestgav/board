@@ -19,11 +19,11 @@ import { createStorage } from "./storage.js";
 import { clipboardPayload, noteTargets, parseClipboard, placedItems, withoutNodes } from "./clipboard.js";
 import { matchesEntity } from "./entities.js";
 import { iconElement } from "./icons.js";
-import { renderMarkdown } from "./markdown.js";
+import { renderInline, renderMarkdown } from "./markdown.js";
 import { creatureHitPoints, creatureLabel, creatureList, maxHitPoints, statblockMarkup, writeCreatures } from "./statblock.js";
 import { mapSlugFromPath } from "./notes.js";
 import { noteMarkup, toggleBold } from "./note-format.js";
-import { NOTE_FONT_EM, STATBLOCK_FONT_EM, SUMMARY_FONT_EM, fitBoxKey, fittedFontSize, fittingRatio, notePadding, reservedFitRatio, textShape } from "./text-fit.js";
+import { NOTE_FONT_EM, STATBLOCK_FONT_EM, SUMMARY_FONT_EM, SUMMARY_MIN_RATIO, TEXT_MIN_RATIO, fitBoxKey, fittedFontSize, fittingRatio, notePadding, reservedFitRatio, textShape } from "./text-fit.js";
 import { canonicalYouTubeUrl, musicTitle, oEmbedUrl, playbackUrl } from "./music.js";
 import { centeredViewOnRect, locationBorderScreenWidth, locationHeaderHeight, maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, rebasedView, rectWithin, rectsOverlap, worldViewportRect, zoomedViewAt } from "./view.js";
 import { CALIBRATION_MILES, milesLabel, parseScale, plural as pluralForm, routeMiles, scaleFromCalibration, travelEstimates } from "./travel.js";
@@ -278,9 +278,13 @@ function locationAtPoint(point, excludeId = null) {
   return isLocationNode(target) ? target : nearestAncestor(layout, target.id, isLocationNode);
 }
 
-function plainSummary(source) {
-  return source.replace(/<!--.*?-->/gs, "").replace(/!?\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (_, target, label) => label || target)
-    .replace(/[*_`>#-]/g, "").replace(/\n{3,}/g, "\n\n").trim();
+// Картка показує «На дошці» без блокової розмітки (заголовки, списки, цитати
+// знімаємо з початку рядків), але з inline: **жирний**, *курсив* тощо.
+function summaryMarkup(source) {
+  const text = source.replace(/<!--.*?-->/gs, "").replace(/!?\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (_, target, label) => label || target)
+    .split("\n").map((line) => line.replace(/^\s*(?:#{1,6}\s+|>\s*|[-*+]\s+)/, "")).join("\n")
+    .replace(/\n{3,}/g, "\n\n").trim();
+  return renderInline(text);
 }
 
 async function setDirectImageSource(image, path) {
@@ -399,6 +403,7 @@ function fitSummary(summary) {
   fitBoxText(summary, {
     kind: "summary",
     shape: textShape(summary.textContent),
+    minRatio: SUMMARY_MIN_RATIO,
     apply: (ratio) => applyFontRatio(summary, SUMMARY_FONT_EM, ratio),
   });
 }
@@ -450,7 +455,7 @@ function noteMaxRatio(note) {
 
 // Спільне для підпису, нотатки й статблока: прямокутник той самий на будь-якому зумі, тож
 // підібрану частку кегля кешуємо за його пропорціями в em.
-function fitBoxText(element, { kind, shape, apply, box = element, maxRatio = () => 1 }) {
+function fitBoxText(element, { kind, shape, apply, box = element, minRatio = TEXT_MIN_RATIO, maxRatio = () => 1 }) {
   const card = element.closest(".node");
   // Кегль вузла — це nodeVisualScale, а не зум: сцена масштабується трансформом,
   // тож те, що ми міряємо, від наближення не залежить.
@@ -475,8 +480,8 @@ function fitBoxText(element, { kind, shape, apply, box = element, maxRatio = () 
     // тож найдовше з них вилазить убік, не додаючи висоти, — і без цієї
     // перевірки текст ріс би просто повз край картки.
     return candidate <= 1 || box.scrollWidth <= box.clientWidth;
-  }, { maxRatio: maxRatio(element) });
-  const ratio = reservedFitRatio(fittedRatio);
+  }, { minRatio, maxRatio: maxRatio(element) });
+  const ratio = reservedFitRatio(fittedRatio, minRatio);
   apply(ratio);
   // Кеш росте лише від нових пропорцій картки — за протяжку кутом їх стільки,
   // скільки кадрів, тож переповнений просто скидаємо.
@@ -686,7 +691,8 @@ function renderNode(node, isRoot = false) {
       }
       const summary = document.createElement("p");
       summary.className = "entity-summary";
-      summary.textContent = entity.summary ? plainSummary(entity.summary) : `Немає секції «${summarySection()}»`;
+      if (entity.summary) summary.innerHTML = summaryMarkup(entity.summary);
+      else summary.textContent = `Немає секції «${summarySection()}»`;
       content.append(summary);
       content.addEventListener("click", (event) => {
         event.stopPropagation();
