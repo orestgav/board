@@ -608,7 +608,7 @@ function renderNode(node, isRoot = false) {
       });
     } else {
       const content = document.createElement("div");
-      content.className = "note-content";
+      content.className = `note-content${node.hideText === true ? " text-hidden" : ""}`;
       // Зірочки жирного в показаній нотатці ні до чого: їх видно лише в полі,
       // де їх і ставить кнопка.
       content.innerHTML = noteMarkup(note?.text || `Не знайдено ${node.note}`);
@@ -1740,17 +1740,30 @@ function contextMenuCreatures(node) {
 
 // Без портрета на місці схованого опису лишилась би порожня картка.
 function canToggleSummary(node) {
+  if (node?.type === "note") return true;
   return Boolean(node) && nodeVariant(node) === "npc" && Boolean(nodeEntity(node)?.portrait);
 }
 
-// Схований опис NPC віддає портрету всю картку. Показаний — стан за
-// замовчуванням, тож прапорець у вузлі живе лише поки опис сховано.
+// Нотатка ховає текст під розмиття, як спойлер; NPC — опис.
+function summaryToggleFlag(node) {
+  return node.type === "note" ? "hideText" : "hideSummary";
+}
+
+function summaryToggleLabel(node) {
+  const hidden = node[summaryToggleFlag(node)] === true;
+  return `${hidden ? "Показати" : "Сховати"} ${node.type === "note" ? "текст" : "опис"}`;
+}
+
+// Схований опис NPC віддає портрету всю картку, схований текст нотатки
+// розмивається. Показаний — стан за замовчуванням, тож прапорець у вузлі живе
+// лише поки щось сховано.
 function toggleSummary(node) {
   if (!canToggleSummary(node)) return;
-  const hiding = node.hideSummary !== true;
-  executeCommand(hiding ? "Сховати опис" : "Показати опис", () => {
-    if (hiding) node.hideSummary = true;
-    else delete node.hideSummary;
+  const flag = summaryToggleFlag(node);
+  const hiding = node[flag] !== true;
+  executeCommand(summaryToggleLabel(node), () => {
+    if (hiding) node[flag] = true;
+    else delete node[flag];
   });
 }
 
@@ -1790,8 +1803,8 @@ function openContextMenu(node, clientX, clientY) {
   const summaryToggle = contextMenuItem("toggle-summary");
   summaryToggle.hidden = !canToggleSummary(node);
   if (!summaryToggle.hidden) {
-    summaryToggle.querySelector(".context-menu-icon").replaceChildren(iconElement(node.hideSummary ? "visibility" : "visibility_off"));
-    summaryToggle.querySelector(".context-menu-label").textContent = node.hideSummary ? "Показати опис" : "Сховати опис";
+    summaryToggle.querySelector(".context-menu-icon").replaceChildren(iconElement(node[summaryToggleFlag(node)] ? "visibility" : "visibility_off"));
+    summaryToggle.querySelector(".context-menu-label").textContent = summaryToggleLabel(node);
   }
   const creatures = node ? contextMenuCreatures(node) : null;
   const creature = creatures?.length > 1 && creatures[contextMenuCreature] ? contextMenuCreature : null;

@@ -109,6 +109,10 @@ export function validateLayout(layout) {
     if (node.hideSummary !== undefined && typeof node.hideSummary !== "boolean") {
       throw new Error(`${node.id}.hideSummary має бути булевим`);
     }
+    // Розмитий, як під спойлером, текст нотатки; видимий — без поля.
+    if (node.hideText !== undefined && typeof node.hideText !== "boolean") {
+      throw new Error(`${node.id}.hideText має бути булевим`);
+    }
     if (node.type === "music") {
       if (!canonicalYouTubeUrl(node.url)) throw new Error(`${node.id}.url має бути лінком на ролік YouTube`);
       if (node.title !== undefined && typeof node.title !== "string") throw new Error(`${node.id}.title має бути рядком`);

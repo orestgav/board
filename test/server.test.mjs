@@ -79,6 +79,12 @@ test("layout validation keeps a hidden NPC summary flag", () => {
   assert.throws(() => validateLayout({ formatVersion: 1, children: [{ ...npc, hideSummary: "так" }] }), /hideSummary має бути булевим/);
 });
 
+test("layout validation keeps a hidden note text flag", () => {
+  const note = { id: "note-1", type: "note", note: "map-world#n1", x: 10, y: 20, width: 320, height: 190, children: [] };
+  assert.equal(validateLayout({ formatVersion: 1, children: [{ ...note, hideText: true }] }).children[0].hideText, true);
+  assert.throws(() => validateLayout({ formatVersion: 1, children: [{ ...note, hideText: "так" }] }), /hideText має бути булевим/);
+});
+
 test("layout validation accepts note references and rejects unsafe ones", () => {
   const note = { id: "note-1", type: "note", note: "map-world#n1", x: 10, y: 20, width: 320, height: 190, children: [] };
   assert.equal(validateLayout({ formatVersion: 1, children: [note] }).children[0].note, "map-world#n1");
