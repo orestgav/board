@@ -140,6 +140,8 @@ svg.icon { width: 20px; height: 20px; }
 /* Без портрета підпис займає картку цілком. Лишаємось сіткою, а не блоком:
    так у тексту є визначена висота, під яку JS підбирає кегль. */
 .entity-content.no-portrait { grid-template-columns: 1fr; }
+/* Схований опис NPC: портрет займає всю картку. */
+.npc-node .entity-content.summary-hidden { grid-template-columns: 1fr; }
 .entity-missing { padding: 1.333333em; color: #e08b7d; font-size: 12em; pointer-events: auto; }
 .node.locked > .entity-content, .node.locked > .entity-missing { pointer-events: none; }
 /* Заблоковане тіло не приймає звичайні дії, але сам вузол лишається ціллю

@@ -679,8 +679,10 @@ function renderNode(node, isRoot = false) {
       const badge = npc ? "" : item ? String(entity.meta?.price ?? "").trim() : entity.type;
       element.append(nodeHeader(node, { icon: entityIcon(entity), entity, badge }));
 
+      // Сховати опис можна лише NPC з портретом: тоді арт займає картку цілком.
+      const summaryHidden = npc && node.hideSummary === true && Boolean(entity.portrait);
       const content = document.createElement("div");
-      content.className = `entity-content${entity.portrait ? "" : " no-portrait"}`;
+      content.className = `entity-content${entity.portrait ? "" : " no-portrait"}${summaryHidden ? " summary-hidden" : ""}`;
       if (entity.portrait) {
         const portrait = document.createElement("img");
         portrait.className = "entity-portrait";
@@ -699,11 +701,13 @@ function renderNode(node, isRoot = false) {
           content.append(mark);
         }
       }
-      const summary = document.createElement("p");
-      summary.className = "entity-summary";
-      if (entity.summary) summary.innerHTML = summaryMarkup(entity.summary);
-      else summary.textContent = `Немає секції «${summarySection()}»`;
-      content.append(summary);
+      if (!summaryHidden) {
+        const summary = document.createElement("p");
+        summary.className = "entity-summary";
+        if (entity.summary) summary.innerHTML = summaryMarkup(entity.summary);
+        else summary.textContent = `Немає секції «${summarySection()}»`;
+        content.append(summary);
+      }
       content.addEventListener("click", (event) => {
         event.stopPropagation();
         selectFrom(event, node.id);
@@ -1734,6 +1738,22 @@ function contextMenuCreatures(node) {
   return maximum ? creatureList(node) : null;
 }
 
+// Без портрета на місці схованого опису лишилась би порожня картка.
+function canToggleSummary(node) {
+  return Boolean(node) && nodeVariant(node) === "npc" && Boolean(nodeEntity(node)?.portrait);
+}
+
+// Схований опис NPC віддає портрету всю картку. Показаний — стан за
+// замовчуванням, тож прапорець у вузлі живе лише поки опис сховано.
+function toggleSummary(node) {
+  if (!canToggleSummary(node)) return;
+  const hiding = node.hideSummary !== true;
+  executeCommand(hiding ? "Сховати опис" : "Показати опис", () => {
+    if (hiding) node.hideSummary = true;
+    else delete node.hideSummary;
+  });
+}
+
 function shortcutHint(keys) {
   const hint = document.createElement("kbd");
   hint.textContent = keys;
@@ -1767,6 +1787,12 @@ function openContextMenu(node, clientX, clientY) {
   contextMenuItem("add-scene").hidden = !isLocationNode(node);
   contextMenuItem("rename").hidden = !["scene", "music"].includes(node?.type);
   contextMenuItem("details").hidden = !node || node.type === "scene";
+  const summaryToggle = contextMenuItem("toggle-summary");
+  summaryToggle.hidden = !canToggleSummary(node);
+  if (!summaryToggle.hidden) {
+    summaryToggle.querySelector(".context-menu-icon").replaceChildren(iconElement(node.hideSummary ? "visibility" : "visibility_off"));
+    summaryToggle.querySelector(".context-menu-label").textContent = node.hideSummary ? "Показати опис" : "Сховати опис";
+  }
   const creatures = node ? contextMenuCreatures(node) : null;
   const creature = creatures?.length > 1 && creatures[contextMenuCreature] ? contextMenuCreature : null;
   contextMenuItem("add-creature").hidden = !creatures;
@@ -1783,7 +1809,7 @@ function openContextMenu(node, clientX, clientY) {
     lockButton.querySelector(".context-menu-icon").replaceChildren(iconElement(node.locked ? "lock_open" : "lock_filled"));
     lockButton.querySelector(".context-menu-label").replaceChildren(node.locked ? "Розблокувати" : "Заблокувати", shortcutHint("Ctrl+L"));
     contextMenuItem("details").disabled = node.type === "entity" && !nodeEntity(node);
-    for (const action of ["add-scene", "rename-creature"]) {
+    for (const action of ["add-scene", "toggle-summary", "rename-creature"]) {
       const button = contextMenuItem(action);
       button.disabled = false;
       button.title = "";
@@ -2829,6 +2855,7 @@ nodeContextMenu.addEventListener("click", async (event) => {
   else if (action === "copy") copySelection();
   else if (action === "delete") await deleteSelected();
   else if (action === "details") showNodeDetails(node);
+  else if (action === "toggle-summary") toggleSummary(node);
   else if (action === "add-creature") addCreature(node);
   else if (action === "rename-creature") renameCreature(node, creature);
   else if (action === "remove-creature") removeCreature(node, creature);

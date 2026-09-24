@@ -73,6 +73,12 @@ test("layout validation keeps a squad of identical creatures on one statblock", 
   assert.throws(() => validateLayout(squad([{ name: 7 }])), /назва істоти має бути рядком/);
 });
 
+test("layout validation keeps a hidden NPC summary flag", () => {
+  const npc = { id: "vera-card", type: "entity", entity: "vera", x: 10, y: 20, width: 400, height: 210, children: [] };
+  assert.equal(validateLayout({ formatVersion: 1, children: [{ ...npc, hideSummary: true }] }).children[0].hideSummary, true);
+  assert.throws(() => validateLayout({ formatVersion: 1, children: [{ ...npc, hideSummary: "так" }] }), /hideSummary має бути булевим/);
+});
+
 test("layout validation accepts note references and rejects unsafe ones", () => {
   const note = { id: "note-1", type: "note", note: "map-world#n1", x: 10, y: 20, width: 320, height: 190, children: [] };
   assert.equal(validateLayout({ formatVersion: 1, children: [note] }).children[0].note, "map-world#n1");
