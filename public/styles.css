@@ -105,6 +105,12 @@ svg.icon { width: 20px; height: 20px; }
 .entity-node:where([data-entity-type="item"]) .node-glyph { color: #efb279; }
 .entity-node:where([data-entity-type="item"]) .entity-type { color: #c89a72; }
 .entity-node:where([data-entity-type="item"]) .entity-summary { color: #d8c8b6; }
+/* Арт предметів завжди на білому тлі — тож і під портретом біле поле, а від
+   тексту його відділяє лінія кольору рамки. З розділювачем текст знову
+   відступає від портрета на повний падинг. */
+.entity-node:where([data-entity-type="item"]) .entity-portrait { background: #fff; border-right: 1em solid #b8783a; }
+.entity-node:where([data-entity-type="item"]) .entity-content:not(.no-portrait) .entity-summary { padding-left: 1.083333em; }
+.entity-node:where([data-entity-type="item"]).entity-far .entity-portrait { border-right: 0; opacity: 1; }
 .entity-node:where([data-entity-type="faction"]) { border-color: #a45b86; background: rgba(40, 26, 35, .95); }
 .entity-node:where([data-entity-type="faction"]) > .node-header { border-bottom-color: rgba(212, 142, 184, .26); background: rgba(134, 60, 105, .3); }
 .entity-node:where([data-entity-type="faction"]) .node-glyph { color: #e6a6cd; }
