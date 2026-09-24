@@ -688,6 +688,14 @@ function renderNode(node, isRoot = false) {
         portrait.draggable = false;
         setDirectImageSource(portrait, entity.portrait);
         content.append(portrait);
+        // Налаштування — трикутник з «A» у кутку арту, у кольорі рідкості.
+        if (item && String(entity.meta?.attunement ?? "").trim() === "true") {
+          const mark = document.createElement("span");
+          mark.className = "attunement-mark";
+          mark.textContent = "A";
+          mark.title = "Потребує налаштування";
+          content.append(mark);
+        }
       }
       const summary = document.createElement("p");
       summary.className = "entity-summary";

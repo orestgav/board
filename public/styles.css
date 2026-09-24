@@ -123,6 +123,9 @@ svg.icon { width: 20px; height: 20px; }
 .entity-node:where([data-entity-type="item"]) .entity-portrait { background: #fff; border-right: 1em solid #b8783a; }
 .entity-node:where([data-entity-type="item"]) .entity-content:not(.no-portrait) .entity-summary { padding-left: 1.083333em; }
 .entity-node:where([data-entity-type="item"]).entity-far .entity-portrait { border-right: 0; opacity: 1; }
+/* Налаштування — трикутник у лівому верхньому куті арту, у кольорі рідкості
+   (без рідкості — мідь рамки). Букву опущено донизу, де трикутник ширший. */
+.attunement-mark { position: absolute; top: .461538em; left: .461538em; display: flex; align-items: flex-end; justify-content: center; width: 2.307692em; height: 2em; padding-bottom: .153846em; box-sizing: border-box; clip-path: polygon(50% 0, 100% 100%, 0 100%); background: var(--rarity, #b8783a); color: #fff; font-size: 13em; font-weight: 700; line-height: 1; pointer-events: none; }
 .entity-node:where([data-entity-type="faction"]) { border-color: #a45b86; background: rgba(40, 26, 35, .95); }
 .entity-node:where([data-entity-type="faction"]) > .node-header { border-bottom-color: rgba(212, 142, 184, .26); background: rgba(134, 60, 105, .3); }
 .entity-node:where([data-entity-type="faction"]) .node-glyph { color: #e6a6cd; }
