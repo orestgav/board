@@ -104,6 +104,8 @@ test("layout validation keeps music cards pointing at a real YouTube video", () 
   assert.equal(validateLayout({ formatVersion: 1, children: [music] }).children[0].url, music.url);
   assert.throws(() => validateLayout({ formatVersion: 1, children: [{ ...music, url: "https://evil.example/track" }] }), /ролік YouTube/);
   assert.throws(() => validateLayout({ formatVersion: 1, children: [{ ...music, title: 7 }] }), /має бути рядком/);
+  assert.equal(validateLayout({ formatVersion: 1, children: [{ ...music, start: 90 }] }).children[0].start, 90);
+  for (const start of [-1, 1.5, "90"]) assert.throws(() => validateLayout({ formatVersion: 1, children: [{ ...music, start }] }), /start/);
 });
 
 test("entity API indexes configured markdown through the campaign parser", async (context) => {

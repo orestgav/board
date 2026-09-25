@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { canonicalYouTubeUrl, musicTitle, oEmbedUrl, playbackUrl, youTubeListId, youTubeVideoId } from "../public/music.js";
+import { canonicalYouTubeUrl, musicTitle, oEmbedUrl, parseMusicStart, playbackUrl, youTubeListId, youTubeVideoId } from "../public/music.js";
 
 test("ідентифікатор ролика читається з усіх звичних виглядів лінка", () => {
   const forms = [
@@ -47,4 +47,15 @@ test("картка лишається підписаною навіть без �
   assert.equal(musicTitle("", url), "dQw4w9WgXcQ");
   assert.equal(musicTitle(undefined, "не лінк"), "Трек");
   assert.equal(oEmbedUrl(url), `https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(url)}`);
+});
+
+test("«плей» стартує із заданої секунди, а поле старту приймає лише цілі секунди", () => {
+  const parameters = new URL(playbackUrl("https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=214s", 95)).searchParams;
+  assert.equal(parameters.get("t"), "95s");
+  assert.equal(parameters.get("start"), "95");
+  assert.equal(new URL(playbackUrl("https://www.youtube.com/watch?v=dQw4w9WgXcQ", -3)).searchParams.get("t"), "0s");
+  assert.equal(parseMusicStart(""), undefined);
+  assert.equal(parseMusicStart("  "), undefined);
+  assert.equal(parseMusicStart(" 90 "), 90);
+  for (const raw of ["-5", "1.5", "1e3", "хв"]) assert.equal(parseMusicStart(raw), null, raw);
 });

@@ -1,6 +1,6 @@
 // Картка «музика»: у розкладці лежить канонічний лінк на ролік і його назва,
-// а кнопка «плей» відкриває ютуб уже з нульової позначки часу — інакше
-// ютуб підхопив би трек із місця, де ДМ зупинив його минулого разу.
+// а кнопка «плей» відкриває ютуб із заданої секунди (без неї — з нульової):
+// інакше ютуб підхопив би трек із місця, де ДМ зупинив його минулого разу.
 
 const HOSTS = new Set([
   "youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com",
@@ -47,12 +47,25 @@ export function canonicalYouTubeUrl(raw) {
   return `https://www.youtube.com/watch?v=${videoId}${list ? `&list=${list}` : ""}`;
 }
 
-export function playbackUrl(raw) {
+// Секунда старту — ціле невідʼємне число; порожнє поле означає «з початку».
+export function isMusicStart(value) {
+  return Number.isInteger(value) && value >= 0;
+}
+
+// Що вписали в поле вікна: undefined — поле порожнє, null — там не секунди.
+export function parseMusicStart(raw) {
+  const trimmed = typeof raw === "string" ? raw.trim() : "";
+  if (!trimmed) return undefined;
+  return /^\d+$/.test(trimmed) ? Number(trimmed) : null;
+}
+
+export function playbackUrl(raw, start = 0) {
   const url = parseUrl(raw);
   if (!url) return null;
+  const seconds = isMusicStart(start) ? start : 0;
   for (const parameter of TIME_PARAMETERS) url.searchParams.delete(parameter);
-  url.searchParams.set("t", "0s");
-  url.searchParams.set("start", "0");
+  url.searchParams.set("t", `${seconds}s`);
+  url.searchParams.set("start", String(seconds));
   return url.toString();
 }
 

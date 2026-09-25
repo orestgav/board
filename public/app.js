@@ -27,7 +27,7 @@ import { mapSlugFromPath } from "./notes.js";
 import { TOKEN_COLORS, TOKEN_SIZE, tokenColor, tokenInitial, tokenInk, writeTokenColor } from "./token.js";
 import { noteMarkup, toggleBold } from "./note-format.js";
 import { NOTE_FONT_EM, STATBLOCK_FONT_EM, SUMMARY_FONT_EM, SUMMARY_MIN_RATIO, TEXT_MIN_RATIO, fitBoxKey, fittedFontSize, fittingRatio, notePadding, reservedFitRatio, textShape } from "./text-fit.js";
-import { canonicalYouTubeUrl, musicTitle, oEmbedUrl, playbackUrl } from "./music.js";
+import { canonicalYouTubeUrl, musicTitle, oEmbedUrl, parseMusicStart, playbackUrl } from "./music.js";
 import { centeredViewOnRect, locationBorderScreenWidth, locationHeaderHeight, maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, rebasedView, rectWithin, rectsOverlap, worldViewportRect, zoomedViewAt } from "./view.js";
 import { elementToPng, urlToPng, writeImageToClipboard } from "./snapshot.js";
 import { BOARD_THUMBNAIL_SIZE, PORTRAIT_THUMBNAIL_SIZE, createThumbnails, wantsFullImage } from "./thumbnails.js";
@@ -140,6 +140,7 @@ const renameDialogHint = document.querySelector("#rename-dialog-hint");
 const musicDialog = document.querySelector("#music-dialog");
 const musicUrlInput = document.querySelector("#music-url");
 const musicTitleInput = document.querySelector("#music-title");
+const musicStartInput = document.querySelector("#music-start");
 const musicHint = document.querySelector("#music-hint");
 const measureRouteButton = document.querySelector("#measure-route");
 const routeOverlay = document.querySelector("#route-overlay");
@@ -1032,15 +1033,22 @@ function nodeHeader(node, { icon, entity = null, badge = "" } = {}) {
 
 // Ютуб памʼятає, де ролик спинили минулого разу, тож «плей» веде на лінк із
 // явною нульовою позначкою часу — трек на сесії починається спочатку.
+function musicStartLabel(node) {
+  if (!node.start) return "Слухати з початку";
+  const minutes = Math.floor(node.start / 60);
+  const seconds = String(node.start % 60).padStart(2, "0");
+  return `Слухати з ${minutes}:${seconds}`;
+}
+
 function playLink(node) {
   const link = document.createElement("a");
   link.className = "node-play";
-  link.href = playbackUrl(node.url) ?? node.url;
+  link.href = playbackUrl(node.url, node.start) ?? node.url;
   // Голий target="_blank" — найпростіше прохання «нова вкладка»: у Chrome
   // і Edge, яких дошка й так вимагає, він сам означає noopener, а явний rel
   // деякі браузери читають як прохання відкрити цілим вікном.
   link.target = "_blank";
-  link.title = `Слухати з початку: ${nodeLabel(node)}`;
+  link.title = `${musicStartLabel(node)}: ${nodeLabel(node)}`;
   link.setAttribute("aria-label", link.title);
   link.append(iconElement("play_arrow"));
   // Клік лише не доходить до канви: вибір картки перемалював би шапку
@@ -1853,6 +1861,7 @@ function openMusicDialog() {
   musicTitleEdited = false;
   musicUrlInput.value = "";
   musicTitleInput.value = "";
+  musicStartInput.value = "";
   setMusicHint("Встав лінк на ролік — назву канва спитає в ютуба.");
   musicDialog.showModal();
   requestAnimationFrame(() => musicUrlInput.focus());
@@ -1894,6 +1903,12 @@ function addMusic() {
     musicUrlInput.focus();
     return;
   }
+  const start = parseMusicStart(musicStartInput.value);
+  if (start === null) {
+    setMusicHint("Старт — ціле число секунд від 0, або лиши поле порожнім.");
+    musicStartInput.focus();
+    return;
+  }
   clearTimeout(musicLookupTimer);
   musicLookup += 1;
   const point = insertPoint ?? defaultInsertPoint();
@@ -1903,6 +1918,7 @@ function addMusic() {
     x: (point.x - rect.x) / rect.width * 100,
     y: (point.y - rect.y) / rect.height * 100,
     width: MUSIC_CARD.width, height: MUSIC_CARD.height, locked: false, children: [],
+    ...(start ? { start } : {}),
   };
   executeCommand("Додати музику", () => {
     (parent ? parent.children : layout.children).push(node);
@@ -2002,9 +2018,9 @@ function showMusicDetails(node) {
   const body = document.createElement("div");
   body.className = "entity-details-markdown";
   const link = document.createElement("a");
-  link.href = playbackUrl(node.url) ?? node.url;
+  link.href = playbackUrl(node.url, node.start) ?? node.url;
   link.target = "_blank";
-  link.textContent = "Відкрити трек із початку";
+  link.textContent = `${musicStartLabel(node)} — відкрити трек`;
   body.append(link);
   entityDetailsContent.append(title, meta, path, body);
   if (!entityDetails.open) entityDetails.showModal();
@@ -3237,7 +3253,7 @@ document.addEventListener("pointerdown", (event) => {
 });
 musicUrlInput.addEventListener("input", onMusicUrlInput);
 musicTitleInput.addEventListener("input", () => { musicTitleEdited = true; });
-for (const input of [musicUrlInput, musicTitleInput]) {
+for (const input of [musicUrlInput, musicTitleInput, musicStartInput]) {
   input.addEventListener("keydown", (event) => {
     if (event.key !== "Enter") return;
     event.preventDefault();

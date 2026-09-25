@@ -15,7 +15,7 @@ import {
   splitNoteReference,
   updateNoteBlock,
 } from "../public/notes.js";
-import { canonicalYouTubeUrl } from "../public/music.js";
+import { canonicalYouTubeUrl, isMusicStart } from "../public/music.js";
 import { isTokenColor } from "../public/token.js";
 
 export const LAYOUT_VERSION = 1;
@@ -121,6 +121,8 @@ export function validateLayout(layout) {
     if (node.type === "music") {
       if (!canonicalYouTubeUrl(node.url)) throw new Error(`${node.id}.url має бути лінком на ролік YouTube`);
       if (node.title !== undefined && typeof node.title !== "string") throw new Error(`${node.id}.title має бути рядком`);
+      // Секунда, з якої «плей» запускає трек; з початку — без поля.
+      if (node.start !== undefined && !isMusicStart(node.start)) throw new Error(`${node.id}.start має бути цілим числом секунд від 0`);
     }
     if (node.type === "note") splitNoteReference(node.note);
     if (!Array.isArray(node.children)) throw new Error(`${node.id}.children має бути масивом`);
