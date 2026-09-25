@@ -144,6 +144,25 @@ export function nodeIndex(layout, { inset = () => 0 } = {}) {
   return index;
 }
 
+// Нова розкладка (з історії чи збереженої копії) — але з тими самими об'єктами
+// вузлів, що й у поточній: значення переносяться в наявний об'єкт за id. Хто
+// тримає посилання на вузол (картка на полотні, її обробники подій), бачить
+// нові значення, а не застарілу копію. `next` після цього — вже не окремий
+// знімок: його вузли стали вузлами `current`.
+export function adoptLayout(current, next) {
+  const existing = new Map();
+  walkNodes(current.children, ({ node }) => existing.set(node.id, node));
+  const adopt = (children) => children.map((incoming) => {
+    const node = existing.get(incoming.id);
+    const adoptedChildren = adopt(incoming.children);
+    if (!node) return Object.assign(incoming, { children: adoptedChildren });
+    for (const key of Object.keys(node)) if (!(key in incoming)) delete node[key];
+    return Object.assign(node, incoming, { children: adoptedChildren });
+  });
+  next.children = adopt(next.children);
+  return next;
+}
+
 export function allAbsoluteRects(layout) {
   return [...nodeIndex(layout)].map(([id, { rect }]) => ({ id, ...rect }));
 }

@@ -1,6 +1,7 @@
 import {
   WORLD_SIZE,
   absoluteRect,
+  adoptLayout,
   allAbsoluteRects,
   cloneLayout,
   containerGrid,
@@ -36,6 +37,7 @@ const MIN_ZOOM_VIEWPORT_COVERAGE = 0.7;
 const MAX_ZOOM_VIEWPORT_PADDING = 32;
 const SAVE_DELAY = 450;
 const HP_COMMIT_DELAY = 500;
+const UNDO_LIMIT = 200;
 const ENTITY_CARD = { width: 320, height: 190 };
 const NPC_CARD = { width: 400, height: 210 };
 const STATBLOCK_CARD = { width: 440, height: 640 };
@@ -493,25 +495,75 @@ function updateLocationBorders() {
   });
 }
 
+// Полотно зводиться до розкладки, але з уже намальованого береться все, що
+// можна: картка будується наново, лише коли змінилося те, що вона показує.
+// Свіжий DOM дошки браузер уперше розкладає сотні мілісекунд, тож повна
+// перебудова на кожен зсув стрілкою чи undo була помітною паузою.
 function render() {
   // Індекс — до вузлів: за ним картинки вирішують, з чого почати. Рамки
   // нових вузлів ще не поміряні, тож після вставки індекс перебудовуємо.
   viewIndex = renderedIndex();
-  scene.replaceChildren(...layout.children.map((node) => renderNode(node, true)));
-  nodeBorders.clear();
-  scene.querySelectorAll(".node").forEach(measureBorder);
+  const previous = new Map([...scene.querySelectorAll(".node")].map((element) => [element.dataset.id, element]));
+  const fresh = [];
+  scene.querySelectorAll(".resize-handle").forEach((handle) => handle.remove());
+  reconcileChildren(scene, layout.children, true, previous, fresh);
+  fresh.forEach(measureBorder);
   viewIndex = renderedIndex();
+  for (const id of nodeBorders.keys()) if (!viewIndex.has(id)) nodeBorders.delete(id);
   updateOffscreenNodes();
+  updateFarCards();
+  showSelection();
   updateImageSources();
   updateLocationBorders();
-  renderLayers();
   emptyState.hidden = layout.children.length !== 0;
   undoButton.disabled = undoStack.length === 0;
   redoButton.disabled = redoStack.length === 0;
   if (constrainViewScale()) applyView();
   // Кегль підписів, нотаток і статблоків підбирається по вже вставлених у сцену
   // картках: раніше міряти нічого, бо прямокутник тексту ще не має висоти.
-  fitNodeTexts();
+  fresh.forEach(fitOwnTexts);
+}
+
+// Вузли одного контейнера в порядку розкладки. Готовий елемент переїжджає
+// в новий контейнер сам, разом зі своїми дітьми; якщо порядок не змінився,
+// DOM не чіпаємо зовсім.
+function reconcileChildren(container, nodes, isRoot, previous, fresh) {
+  const elements = nodes.map((node) => {
+    const signature = nodeSignature(node, isRoot);
+    let element = previous.get(node.id);
+    if (element?.dataset.signature === signature) {
+      updateNodeGeometry(node, element);
+    } else {
+      element = renderNode(node, isRoot);
+      element.dataset.signature = signature;
+      fresh.push(element);
+    }
+    reconcileChildren(element, node.children, false, previous, fresh);
+    return element;
+  });
+  const wanted = new Set(elements);
+  const current = [...container.children].filter((child) => child.classList.contains("node"));
+  for (const child of current) if (!wanted.has(child)) child.remove();
+  const kept = current.filter((child) => wanted.has(child));
+  if (kept.length !== elements.length || kept.some((child, index) => child !== elements[index])) container.append(...elements);
+}
+
+// Усе, від чого залежить вигляд самої картки, крім місця й розміру: їх
+// оновлюють на готовому елементі. Сам об'єкт вузла теж тут — його тримають
+// обробники подій картки; adoptLayout береже його після undo.
+function nodeSignature(node, isRoot) {
+  const { children, x, y, width, height, ...own } = node;
+  const note = node.type === "note" ? notesByRef.get(node.note) : null;
+  // Порожня рамка чи сцена показує підказку замість вмісту.
+  return JSON.stringify([own, isRoot, children.length > 0, editingNoteId === node.id, objectKey(node), objectKey(nodeEntity(node)), objectKey(note)]);
+}
+
+const objectKeys = new WeakMap();
+let nextObjectKey = 1;
+function objectKey(value) {
+  if (!value || typeof value !== "object") return 0;
+  if (!objectKeys.has(value)) objectKeys.set(value, nextObjectKey++);
+  return objectKeys.get(value);
 }
 
 function nodeElement(id) {
@@ -629,17 +681,26 @@ function applyNoteRatio(element, ratio) {
 
 // Елемент можна передати готовим: під час групового перетягування пошук по
 // сцені для кожного вузла на кожен кадр коштував би квадрата від їх кількості.
+// Однакові значення не переписуємо: render проходить так кожен вузол дошки, і
+// кожен зайвий запис змусив би браузер наново розкладати картку.
 function updateNodeGeometry(node, element = nodeElement(node.id)) {
   if (!element) return;
   updateNodePosition(element, node);
-  element.style.width = `${node.width}px`;
-  element.style.height = `${node.height}px`;
+  const width = `${node.width}px`;
+  const height = `${node.height}px`;
   const fontSize = `${nodeVisualScale(node, nodeVariant(node))}px`;
+  if (element.style.width === width && element.style.height === height && element.style.fontSize === fontSize) return;
+  element.style.width = width;
+  element.style.height = height;
   if (element.style.fontSize !== fontSize) {
     element.style.fontSize = fontSize;
     measureBorder(element);
   }
   // Протяжка кутом міняє пропорції картки, а з ними й місце під текст.
+  fitOwnTexts(element);
+}
+
+function fitOwnTexts(element) {
   const summary = element.querySelector(":scope > .entity-content > .entity-summary");
   if (summary) fitSummary(summary);
   const note = element.querySelector(":scope > .note-content, :scope > .note-editor");
@@ -649,13 +710,11 @@ function updateNodeGeometry(node, element = nodeElement(node.id)) {
 }
 
 function updateNodePosition(element, node) {
-  if (element.dataset.root === "true") {
-    element.style.left = `${node.x * WORLD_SIZE / 100 - renderOrigin.x}px`;
-    element.style.top = `${node.y * WORLD_SIZE / 100 - renderOrigin.y}px`;
-  } else {
-    element.style.left = `${node.x}%`;
-    element.style.top = `${node.y}%`;
-  }
+  const root = element.dataset.root === "true";
+  const left = root ? `${node.x * WORLD_SIZE / 100 - renderOrigin.x}px` : `${node.x}%`;
+  const top = root ? `${node.y * WORLD_SIZE / 100 - renderOrigin.y}px` : `${node.y}%`;
+  if (element.style.left !== left) element.style.left = left;
+  if (element.style.top !== top) element.style.top = top;
 }
 
 function updateRootRenderPositions() {
@@ -705,7 +764,7 @@ function renderNode(node, isRoot = false) {
           editor.dataset.cancelled = "true";
           editingNoteId = null;
           if (newNoteIds.delete(node.id)) undo();
-          else rerenderNode(node);
+          else render();
         }
       });
       editor.addEventListener("blur", () => {
@@ -748,7 +807,7 @@ function renderNode(node, isRoot = false) {
         if (event.shiftKey) return toggleSelected(node.id);
         setSelection([node.id]);
         editingNoteId = node.id;
-        rerenderNode(node);
+        render();
       });
       element.append(content);
     }
@@ -873,9 +932,8 @@ function renderNode(node, isRoot = false) {
     body.textContent = node.children.length ? "" : "Рамка для вмісту";
     element.append(body);
   }
-  element.append(...node.children.map((child) => renderNode(child)));
-
-  if (hasResizeHandles(node)) element.append(...resizeHandles(node));
+  // Дітей і маркери розміру додає render: діти можуть бути вже готові з
+  // попереднього разу, а маркери залежать від виділення, не від вузла.
   return element;
 }
 
@@ -894,21 +952,6 @@ function resizeHandles(node) {
     sizeResizeHandle(handle);
     return handle;
   });
-}
-
-// Одна картка наново, решта дошки як була: вхід у редагування нотатки й вихід
-// з нього міняють лише саму нотатку, а повний render на великій дошці — це
-// помітна пауза між кліком і появою поля.
-function rerenderNode(node) {
-  const previous = findEntry(layout, node.id) ? nodeElement(node.id) : null;
-  if (!previous) return render();
-  const element = renderNode(node, previous.dataset.root === "true");
-  previous.replaceWith(element);
-  [element, ...element.querySelectorAll(".node")].forEach(measureBorder);
-  viewIndex = renderedIndex();
-  updateOffscreenNodes();
-  fitNodeTexts(element);
-  showSelection();
 }
 
 // Від виділення на полотні залежать лише підсвітка й маркери розміру, тож
@@ -1257,7 +1300,7 @@ function beginNoteEdit(node, key = null) {
   setSelection([node.id]);
   editingNoteId = node.id;
   pendingNoteInput = key ? { id: node.id, key } : null;
-  rerenderNode(node);
+  render();
   return true;
 }
 
@@ -1330,11 +1373,18 @@ function screenToWorld(clientX, clientY) {
   return { x: (clientX - bounds.left - view.x) / view.scale, y: (clientY - bounds.top - view.y) / view.scale };
 }
 
+// Кожен крок історії тримає дві повні копії розкладки, тож без стелі пам'ять
+// за довгу сесію росла б без кінця. Найстаріші кроки просто забуваються.
+function pushUndo(command) {
+  undoStack.push(command);
+  if (undoStack.length > UNDO_LIMIT) undoStack.splice(0, undoStack.length - UNDO_LIMIT);
+}
+
 function executeCommand(label, mutate, metadata = {}) {
   const before = cloneLayout(layout);
   const beforeSelection = selectionIds();
   if (mutate() === false || layoutsEqual(before, layout)) return false;
-  undoStack.push({ label, before, after: cloneLayout(layout), beforeSelection, afterSelection: selectionIds(), ...metadata });
+  pushUndo({ label, before, after: cloneLayout(layout), beforeSelection, afterSelection: selectionIds(), ...metadata });
   redoStack = [];
   render();
   changed();
@@ -1346,7 +1396,7 @@ function commitLiveCommand(label, before, beforeSelection, metadata = {}) {
     render();
     return false;
   }
-  undoStack.push({ label, before, after: cloneLayout(layout), beforeSelection, afterSelection: selectionIds(), ...metadata });
+  pushUndo({ label, before, after: cloneLayout(layout), beforeSelection, afterSelection: selectionIds(), ...metadata });
   redoStack = [];
   render();
   changed();
@@ -1381,7 +1431,7 @@ async function applyHistory(command, direction) {
     findNode(snapshot, noteMove.nodeId).note = moved.reference;
     updateNoteHistoryReference(noteMove.nodeId, moved.reference);
   }
-  layout = target;
+  layout = adoptLayout(layout, target);
   setSelection(direction === "undo" ? command.beforeSelection : command.afterSelection);
 }
 
@@ -1423,7 +1473,7 @@ async function redo() {
   historyBusy = true;
   try {
     await applyHistory(command, "redo");
-    undoStack.push(command);
+    pushUndo(command);
     render();
     changed();
   } catch (error) {
@@ -1601,10 +1651,10 @@ async function finishNoteEdit(node, text) {
     const note = await storage.updateNote(node.note, text);
     notesByRef.set(note.reference, note);
     newNoteIds.delete(node.id);
-    rerenderNode(node);
+    render();
     setStatus("Збережено");
   } catch (error) {
-    rerenderNode(node);
+    render();
     setStatus("Помилка збереження нотатки", "error");
     showToast(error.message);
   }
@@ -2271,7 +2321,7 @@ async function relocateNotes(pending) {
 }
 
 function cancelMove(finished) {
-  layout = finished.before;
+  layout = adoptLayout(layout, finished.before);
   setSelection(finished.beforeSelection);
   render();
 }

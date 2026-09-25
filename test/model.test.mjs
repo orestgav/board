@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { absoluteRect, allAbsoluteRects, containerGrid, deepestContainerAt, findEntry, nearestAncestor, nodeIndex, nodesInRect, outermostIds, reparentNode, reorderNode } from "../public/model.js";
+import { absoluteRect, adoptLayout, allAbsoluteRects, containerGrid, deepestContainerAt, findEntry, nearestAncestor, nodeIndex, nodesInRect, outermostIds, reparentNode, reorderNode } from "../public/model.js";
 import { rectWithin } from "../public/view.js";
 
 const frame = (id, x, y, width = 400, height = 300, children = []) => ({ id, type: "frame", title: id, x, y, width, height, locked: false, children });
@@ -155,4 +155,29 @@ test("node index can place children inside the parent's border", () => {
   const layout = { formatVersion: 1, children: [frame("parent", 0, 0, 500, 400, [frame("child", 50, 50, 100, 80)])] };
   const index = nodeIndex(layout, { inset: (node) => (node.id === "parent" ? 10 : 0) });
   assert.deepEqual(index.get("child").rect, { x: 10 + 240, y: 10 + 190, width: 100, height: 80 });
+});
+
+test("adopting a layout keeps node objects and takes the new values", () => {
+  const child = frame("child", 10, 10, 100, 80);
+  const parent = frame("parent", 0, 0, 500, 400, [child]);
+  const current = { formatVersion: 1, children: [parent] };
+  const next = structuredClone(current);
+  next.children[0].children[0].x = 42;
+  delete next.children[0].children[0].locked;
+  next.children[0].children.push(frame("added", 1, 1));
+  const adopted = adoptLayout(current, next);
+  assert.equal(adopted.children[0], parent);
+  assert.equal(adopted.children[0].children[0], child);
+  assert.equal(child.x, 42);
+  assert.equal("locked" in child, false);
+  assert.deepEqual(adopted.children[0].children.map(({ id }) => id), ["child", "added"]);
+});
+
+test("adopting a layout can move a node to another parent", () => {
+  const child = frame("child", 10, 10, 100, 80);
+  const current = { formatVersion: 1, children: [frame("a", 0, 0, 500, 400, [child]), frame("b", 50, 50)] };
+  const next = { formatVersion: 1, children: [frame("a", 0, 0, 500, 400), frame("b", 50, 50, 400, 300, [frame("child", 5, 5, 100, 80)])] };
+  const adopted = adoptLayout(current, next);
+  assert.equal(adopted.children[1].children[0], child);
+  assert.deepEqual(adopted.children[0].children, []);
 });
