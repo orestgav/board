@@ -875,19 +875,46 @@ function renderNode(node, isRoot = false) {
   }
   element.append(...node.children.map((child) => renderNode(child)));
 
-  // Маркери розміру — лише коли вибрано рівно один вузол: групового ресайзу нема.
-  if (node.id === soleSelectedId() && !node.locked) {
-    for (const corner of ["nw", "ne", "sw", "se"]) {
-      const handle = document.createElement("span");
-      handle.className = `resize-handle ${corner}`;
-      handle.dataset.corner = corner;
-      handle.dataset.id = node.id;
-      handle.addEventListener("pointerdown", onResizePointerDown);
-      sizeResizeHandle(handle);
-      element.append(handle);
-    }
-  }
+  if (hasResizeHandles(node)) element.append(...resizeHandles(node));
   return element;
+}
+
+// Маркери розміру — лише коли вибрано рівно один вузол: групового ресайзу нема.
+function hasResizeHandles(node) {
+  return node.id === soleSelectedId() && !node.locked;
+}
+
+function resizeHandles(node) {
+  return ["nw", "ne", "sw", "se"].map((corner) => {
+    const handle = document.createElement("span");
+    handle.className = `resize-handle ${corner}`;
+    handle.dataset.corner = corner;
+    handle.dataset.id = node.id;
+    handle.addEventListener("pointerdown", onResizePointerDown);
+    sizeResizeHandle(handle);
+    return handle;
+  });
+}
+
+// Від виділення на полотні залежать лише підсвітка й маркери розміру, тож
+// міняємо тільки їх. Повний render перебудовує всю дошку разом із розкладкою
+// кожної картки, а виділення — перший крок правого кліку: контекстне меню
+// через це чекало на ноуті понад секунду.
+function showSelection() {
+  scene.querySelectorAll(".node").forEach((element) => {
+    const selected = isSelected(element.dataset.id);
+    if (element.classList.contains("selected") !== selected) element.classList.toggle("selected", selected);
+  });
+  const sole = soleSelectedId();
+  scene.querySelectorAll(".resize-handle").forEach((handle) => {
+    if (handle.dataset.id !== sole) handle.remove();
+  });
+  const node = sole ? viewIndex.get(sole)?.node ?? findNode(layout, sole) : null;
+  const element = sole ? nodeElement(sole) : null;
+  if (node && element && hasResizeHandles(node) && !element.querySelector(":scope > .resize-handle")) {
+    element.append(...resizeHandles(node));
+  }
+  renderLayers();
 }
 
 function nodeHeader(node, { icon, entity = null, badge = "" } = {}) {
@@ -1195,13 +1222,13 @@ function centerNode(id) {
 function select(id) {
   if (selectedIds.size === (id ? 1 : 0) && (!id || isSelected(id))) return;
   setSelection(id ? [id] : []);
-  render();
+  showSelection();
 }
 
 // Shift по вузлу додає його до виділення або прибирає звідти.
 function toggleSelected(id) {
   if (!selectedIds.delete(id)) selectedIds.add(id);
-  render();
+  showSelection();
 }
 
 // Клік по тілу картки виділяє її так само, як клік по шапці, — разом із Shift.
@@ -2128,7 +2155,7 @@ function finishMarquee(finished) {
     );
   }).map((element) => element.dataset.id);
   setSelection(outermostIds(layout, [...finished.base, ...caught]));
-  render();
+  showSelection();
 }
 
 function onPointerMove(event) {
