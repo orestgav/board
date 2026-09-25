@@ -705,7 +705,7 @@ function renderNode(node, isRoot = false) {
           editor.dataset.cancelled = "true";
           editingNoteId = null;
           if (newNoteIds.delete(node.id)) undo();
-          else render();
+          else rerenderNode(node);
         }
       });
       editor.addEventListener("blur", () => {
@@ -748,7 +748,7 @@ function renderNode(node, isRoot = false) {
         if (event.shiftKey) return toggleSelected(node.id);
         setSelection([node.id]);
         editingNoteId = node.id;
-        render();
+        rerenderNode(node);
       });
       element.append(content);
     }
@@ -894,6 +894,21 @@ function resizeHandles(node) {
     sizeResizeHandle(handle);
     return handle;
   });
+}
+
+// Одна картка наново, решта дошки як була: вхід у редагування нотатки й вихід
+// з нього міняють лише саму нотатку, а повний render на великій дошці — це
+// помітна пауза між кліком і появою поля.
+function rerenderNode(node) {
+  const previous = findEntry(layout, node.id) ? nodeElement(node.id) : null;
+  if (!previous) return render();
+  const element = renderNode(node, previous.dataset.root === "true");
+  previous.replaceWith(element);
+  [element, ...element.querySelectorAll(".node")].forEach(measureBorder);
+  viewIndex = renderedIndex();
+  updateOffscreenNodes();
+  fitNodeTexts(element);
+  showSelection();
 }
 
 // Від виділення на полотні залежать лише підсвітка й маркери розміру, тож
@@ -1242,7 +1257,7 @@ function beginNoteEdit(node, key = null) {
   setSelection([node.id]);
   editingNoteId = node.id;
   pendingNoteInput = key ? { id: node.id, key } : null;
-  render();
+  rerenderNode(node);
   return true;
 }
 
@@ -1586,10 +1601,10 @@ async function finishNoteEdit(node, text) {
     const note = await storage.updateNote(node.note, text);
     notesByRef.set(note.reference, note);
     newNoteIds.delete(node.id);
-    render();
+    rerenderNode(node);
     setStatus("Збережено");
   } catch (error) {
-    render();
+    rerenderNode(node);
     setStatus("Помилка збереження нотатки", "error");
     showToast(error.message);
   }
