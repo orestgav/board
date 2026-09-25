@@ -10,6 +10,7 @@ import {
   findNode,
   nearestAncestor,
   nearestPointParent,
+  nodeIndex,
   nodesInRect,
   outermostIds,
   reparentNode,
@@ -27,6 +28,7 @@ import { NOTE_FONT_EM, STATBLOCK_FONT_EM, SUMMARY_FONT_EM, SUMMARY_MIN_RATIO, TE
 import { canonicalYouTubeUrl, musicTitle, oEmbedUrl, playbackUrl } from "./music.js";
 import { centeredViewOnRect, locationBorderScreenWidth, locationHeaderHeight, maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, rebasedView, rectWithin, rectsOverlap, worldViewportRect, zoomedViewAt } from "./view.js";
 import { elementToPng, urlToPng, writeImageToClipboard } from "./snapshot.js";
+import { BOARD_THUMBNAIL_SIZE, PORTRAIT_THUMBNAIL_SIZE, createThumbnails, wantsFullImage } from "./thumbnails.js";
 import { CALIBRATION_MILES, milesLabel, parseScale, plural as pluralForm, routeMiles, scaleFromCalibration, travelEstimates } from "./travel.js";
 
 const MIN_NODE_SIZE = Number.EPSILON;
@@ -43,6 +45,12 @@ const SCENE_SIZE = { width: 300, height: 160 };
 const MUSIC_CARD = { width: 320, height: 46 };
 const MUSIC_LOOKUP_DELAY = 350;
 const TEXT_FIT_CACHE_LIMIT = 400;
+// Скільки тиші після останнього кроку зуму чи панорамування вважаємо кінцем
+// жесту: тоді й доробляємо те, що під час руху не видно.
+const VIEW_SETTLE_DELAY = 160;
+// Поза екраном вузли не малюються. Запас — частка екрана з кожного боку:
+// за один кадр панорамування чи зуму край не встигає показати порожнечу.
+const OFFSCREEN_MARGIN = 0.5;
 // Коротша протяжка — це ще клік по порожньому полотну, а не рамка виділення.
 const MARQUEE_THRESHOLD = 3;
 const CONTAINER_GAP = 24;
@@ -186,6 +194,17 @@ let musicLookup = 0;
 let musicLookupTimer = null;
 let musicTitleEdited = false;
 let renderOrigin = { x: 0, y: 0 };
+let viewFrame = 0;
+let viewSettleTimer = null;
+// Вузли й світові прямокутники на момент останнього кадру: за ними кадр
+// вирішує, що видно, а картинка — чи брати оригінал.
+let viewIndex = new Map();
+const thumbnails = createThumbnails({
+  readCached: (path) => storage.cachedThumbnail(path),
+  saveCached: (path, blob) => storage.saveThumbnail(blob, path),
+  readOriginal: async (path) => (await fetch(await storage.mediaUrl(path, false))).blob(),
+  shrink: shrinkImage,
+});
 // Масштаб карти переживає перезавантаження, сам маршрут — ні: він потрібен
 // рівно на ту розмову, у якій його проклали.
 const ROUTE_SCALE_KEY = "crown-board.route-scale";
@@ -292,25 +311,57 @@ async function setDirectImageSource(image, path) {
   try { image.src = await storage.mediaUrl(path, false); } catch (error) { console.warn(error); }
 }
 
-async function setImageSource(image, node, thumbnail) {
-  const key = `${thumbnail ? "thumb" : "full"}:${node.image}`;
+// Картинка на полотні: мініатюра, а оригінал — лише коли вузол видно і на
+// екрані він уже завбільшки з мініатюру. Мініатюри карт дошки зберігаються в
+// кеші на диску; портретів — лише на сесію: їх кладуть і поза текою медіа
+// дошки, а в кеші тримаються самі імена файлів, які там можуть збігтися.
+function showMedia(image, path, { node = null, size = PORTRAIT_THUMBNAIL_SIZE, persist = false } = {}) {
+  image.decoding = "async";
+  image.dataset.mediaPath = path;
+  image.dataset.mediaNode = node?.id ?? "";
+  image.dataset.thumbnailSize = size;
+  image.dataset.persistThumbnail = persist;
+  refreshMedia(image);
+}
+
+function refreshMedia(image) {
+  const path = image.dataset.mediaPath;
+  const size = Number(image.dataset.thumbnailSize);
+  const entry = viewIndex.get(image.dataset.mediaNode);
+  const full = Boolean(entry) && rectsOverlap(entry.rect, screenWorldRect())
+    && wantsFullImage(entry.node.width * view.scale, size);
+  const key = `${full ? "full" : size}:${path}`;
+  if (image.dataset.sourceKey === key) return;
   image.dataset.sourceKey = key;
-  try {
-    const url = await storage.mediaUrl(node.image, thumbnail);
-    if (image.dataset.sourceKey === key) image.src = url;
-  } catch (error) {
-    console.warn(error);
-  }
+  // Поки нове джерело вантажиться, лишається старе: краще трохи розмите чи
+  // зайве чітке, ніж порожня рамка.
+  const url = full ? storage.mediaUrl(path, false) : thumbnails.url(path, size, { persist: image.dataset.persistThumbnail === "true" });
+  url.then((source) => { if (image.dataset.sourceKey === key) image.src = source; }).catch((error) => console.warn(error));
 }
 
 function updateImageSources() {
   if (!layout) return;
-  document.querySelectorAll(".node-image").forEach((image) => {
-    const node = findNode(layout, image.closest(".node").dataset.id);
-    if (!node) return;
-    const full = node.width * view.scale >= 900;
-    setImageSource(image, node, !full);
-  });
+  scene.querySelectorAll("img[data-media-path]").forEach(refreshMedia);
+}
+
+async function shrinkImage(blob, size) {
+  const bitmap = await createImageBitmap(blob);
+  try {
+    if (Math.max(bitmap.width, bitmap.height) <= size) return blob;
+    return await canvasBlob(bitmap, 0.8, size);
+  } finally {
+    bitmap.close();
+  }
+}
+
+function screenWorldRect(margin = 0) {
+  const screen = worldViewportRect(view, viewport.clientWidth, viewport.clientHeight);
+  return {
+    x: screen.x - screen.width * margin,
+    y: screen.y - screen.height * margin,
+    width: screen.width * (1 + margin * 2),
+    height: screen.height * (1 + margin * 2),
+  };
 }
 
 function boardScaleLimits() {
@@ -329,38 +380,89 @@ function constrainViewScale(localX = viewport.clientWidth / 2, localY = viewport
   return true;
 }
 
+// Одразу й повністю: для переходів, після яких нічого не рухається далі.
 function applyView() {
+  cancelAnimationFrame(viewFrame);
+  viewFrame = 0;
+  clearTimeout(viewSettleTimer);
+  viewSettleTimer = null;
+  drawView();
+  settleView();
+}
+
+// Колесо, тачпад і панорамування шлють подій більше, ніж браузер малює
+// кадрів, тож усі кроки між двома кадрами збираються в один. Решту — те, чого
+// під час руху не видно, — робимо, коли жест стихне.
+function requestView() {
+  if (!viewFrame) viewFrame = requestAnimationFrame(() => { viewFrame = 0; drawView(); });
+  clearTimeout(viewSettleTimer);
+  viewSettleTimer = setTimeout(() => { viewSettleTimer = null; settleView(); }, VIEW_SETTLE_DELAY);
+}
+
+function drawView() {
   constrainViewScale();
   const rebased = rebasedView(view, viewport.clientWidth, viewport.clientHeight);
   renderOrigin = { x: rebased.originX, y: rebased.originY };
   scene.style.transform = `translate(${rebased.translateX}px, ${rebased.translateY}px) scale(${view.scale})`;
   updateRootRenderPositions();
-  scene.style.setProperty("--resize-handle-size", `${13 / view.scale}px`);
-  scene.style.setProperty("--resize-handle-offset", `${-6.5 / view.scale}px`);
-  scene.style.setProperty("--resize-handle-border", `${2 / view.scale}px`);
-  scene.style.setProperty("--resize-handle-radius", `${3 / view.scale}px`);
+  scene.querySelectorAll(".resize-handle").forEach(sizeResizeHandle);
   const gridSize = 24 * view.scale;
   grid.style.backgroundSize = `${gridSize}px ${gridSize}px`;
   grid.style.backgroundPosition = `${view.x % gridSize}px ${view.y % gridSize}px`;
-  persistView();
-  renderLayers();
-  updateImageSources();
-  document.querySelectorAll(".entity-node").forEach((element) => {
-    const node = findNode(layout, element.dataset.id);
-    if (node) element.classList.toggle("entity-far", isFarCollapsed(node));
-  });
-  // Картка, що саме розгорнулася з дальнього зуму, показує підпис уперше —
-  // до цієї миті його прямокутник не мав висоти й кегль не підбирався.
-  fitNodeTexts();
-  updateLocationBorders();
+  if (layout) {
+    viewIndex = nodeIndex(layout);
+    updateFarCards();
+    updateOffscreenNodes();
+    updateLocationBorders();
+  }
   // Маршрут живе у світових координатах, а малюється в екранних, тож після
   // кожного зсуву й зуму його доводиться перекладати наново.
   renderRoute();
 }
 
+function settleView() {
+  persistView();
+  renderLayers();
+  updateImageSources();
+}
+
+// Маркер тримає однаковий екранний розмір за будь-якого зуму. Змінні стоять на
+// самих маркерах, а не на сцені: змінна на сцені на кожен кадр перераховувала б
+// стилі всього її вмісту.
+function sizeResizeHandle(handle) {
+  handle.style.setProperty("--resize-handle-size", `${13 / view.scale}px`);
+  handle.style.setProperty("--resize-handle-offset", `${-6.5 / view.scale}px`);
+  handle.style.setProperty("--resize-handle-border", `${2 / view.scale}px`);
+  handle.style.setProperty("--resize-handle-radius", `${3 / view.scale}px`);
+}
+
+function updateFarCards() {
+  scene.querySelectorAll(".entity-node").forEach((element) => {
+    const node = viewIndex.get(element.dataset.id)?.node;
+    if (!node || element.classList.contains("entity-far") === isFarCollapsed(node)) return;
+    element.classList.toggle("entity-far");
+    // Картка, що саме розгорнулася з дальнього зуму, показує підпис уперше —
+    // до цієї миті його прямокутник не мав висоти й кегль не підбирався.
+    fitNodeTexts(element);
+  });
+}
+
+// Прихований вузол браузер не малює, а картинку в ньому — не розпаковує.
+// Дитина ховається чи показується сама: видимість у .node задана кожному
+// вузлу окремо, тож не успадковується від прихованого контейнера. Нотатку,
+// що редагується, не чіпаємо: поле з фокусом сховати — значить його закрити.
+function updateOffscreenNodes() {
+  const area = screenWorldRect(OFFSCREEN_MARGIN);
+  scene.querySelectorAll(".node").forEach((element) => {
+    const entry = viewIndex.get(element.dataset.id);
+    const hidden = Boolean(entry) && entry.node.id !== editingNoteId && !rectsOverlap(entry.rect, area);
+    if (element.classList.contains("offscreen") !== hidden) element.classList.toggle("offscreen", hidden);
+  });
+}
+
 function updateLocationBorders() {
-  document.querySelectorAll(".location-node").forEach((element) => {
-    const node = findNode(layout, element.dataset.id);
+  scene.querySelectorAll(".location-node").forEach((element) => {
+    const node = viewIndex.get(element.dataset.id)?.node;
     if (!node) return;
     const screenWidth = locationBorderScreenWidth(
       node.width,
@@ -378,7 +480,10 @@ function updateLocationBorders() {
 }
 
 function render() {
+  // Індекс — до вузлів: за ним картинки вирішують, з чого почати.
+  viewIndex = nodeIndex(layout);
   scene.replaceChildren(...layout.children.map((node) => renderNode(node, true)));
+  updateOffscreenNodes();
   updateLocationBorders();
   renderLayers();
   emptyState.hidden = layout.children.length !== 0;
@@ -652,7 +757,7 @@ function renderNode(node, isRoot = false) {
       // Арт вантажиться вже після підбору кегля, тож рамка під нього має
       // фіксований розмір у стилях — інакше картинка знову б дала скрол.
       const art = sheet.querySelector(".sb-art > img");
-      if (art) setDirectImageSource(art, entity.portrait);
+      if (art) showMedia(art, entity.portrait, { node });
       body.append(sheet);
       body.addEventListener("pointerdown", (event) => event.stopPropagation());
       body.addEventListener("click", (event) => { event.stopPropagation(); selectFrom(event, node.id); });
@@ -691,7 +796,7 @@ function renderNode(node, isRoot = false) {
         portrait.draggable = false;
         // Арт, де предмет упритул до країв кадру, з прапорцем отримує поле.
         if (item && String(entity.meta?.image_padding ?? "").trim() === "true") portrait.classList.add("padded");
-        setDirectImageSource(portrait, entity.portrait);
+        showMedia(portrait, entity.portrait, { node });
         content.append(portrait);
         // Налаштування — трикутник з «A» у кутку арту, у кольорі рідкості.
         if (item && String(entity.meta?.attunement ?? "").trim() === "true") {
@@ -734,7 +839,7 @@ function renderNode(node, isRoot = false) {
     image.dataset.id = node.id;
     image.alt = nodeLabel(node);
     image.draggable = false;
-    setImageSource(image, node, node.width * view.scale < 900);
+    showMedia(image, node.image, { node, size: BOARD_THUMBNAIL_SIZE, persist: true });
     image.addEventListener("pointerdown", onNodePointerDown);
     element.append(image);
   } else {
@@ -755,6 +860,7 @@ function renderNode(node, isRoot = false) {
       handle.dataset.corner = corner;
       handle.dataset.id = node.id;
       handle.addEventListener("pointerdown", onResizePointerDown);
+      sizeResizeHandle(handle);
       element.append(handle);
     }
   }
@@ -1480,7 +1586,7 @@ function renderEntityResults() {
     if (entity.portrait) {
       const image = document.createElement("img");
       image.alt = "";
-      setDirectImageSource(image, entity.portrait);
+      showMedia(image, entity.portrait);
       button.append(image);
     } else {
       const placeholder = document.createElement("span");
@@ -1876,6 +1982,7 @@ function cardPng(node) {
   return elementToPng(element, {
     width: node.width, height: node.height,
     strip: [".node", ".resize-handle", ".node-details", ".node-lock-indicator"],
+    imageSource: (image) => image.dataset.mediaPath ? storage.mediaUrl(image.dataset.mediaPath, false) : null,
   });
 }
 
@@ -2016,7 +2123,7 @@ function onPointerMove(event) {
     }
     view.x = interaction.originX + dx;
     view.y = interaction.originY + dy;
-    applyView();
+    requestView();
     return;
   }
   if (interaction.type === "marquee") {
@@ -2350,7 +2457,11 @@ function canvasBlob(bitmap, quality, maxDimension = null) {
   const canvas = document.createElement("canvas");
   canvas.width = Math.max(1, Math.round(bitmap.width * scale));
   canvas.height = Math.max(1, Math.round(bitmap.height * scale));
-  canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  const context = canvas.getContext("2d");
+  // Мініатюра зменшує в рази: з типовим згладжуванням дрібні лінії карти
+  // пішли б сходинками.
+  context.imageSmoothingQuality = "high";
+  context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("Браузер не зміг закодувати WebP")), "image/webp", quality);
   });
@@ -2432,7 +2543,7 @@ function zoomAt(clientX, clientY, factor) {
   const nextView = zoomedViewAt(view, localX, localY, nextScale / view.scale);
   if (!nextView) return;
   view = nextView;
-  applyView();
+  requestView();
 }
 
 function fitAll() {
@@ -2784,7 +2895,7 @@ window.addEventListener("keydown", (event) => {
 });
 window.addEventListener("keyup", (event) => { if (event.code === "Space") spacePressed = false; });
 window.addEventListener("blur", () => { spacePressed = false; });
-window.addEventListener("resize", applyView);
+window.addEventListener("resize", requestView);
 
 document.querySelector("#add-frame").addEventListener("click", addFrame);
 document.querySelector("#empty-add").addEventListener("click", addFrame);

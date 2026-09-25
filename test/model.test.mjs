@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { absoluteRect, containerGrid, deepestContainerAt, findEntry, nearestAncestor, nodesInRect, outermostIds, reparentNode, reorderNode } from "../public/model.js";
+import { absoluteRect, allAbsoluteRects, containerGrid, deepestContainerAt, findEntry, nearestAncestor, nodeIndex, nodesInRect, outermostIds, reparentNode, reorderNode } from "../public/model.js";
 import { rectWithin } from "../public/view.js";
 
 const frame = (id, x, y, width = 400, height = 300, children = []) => ({ id, type: "frame", title: id, x, y, width, height, locked: false, children });
@@ -140,4 +140,13 @@ test("the largest node can stay listed outside the visible rect", () => {
   };
   const rows = nodesInRect(layout, { x: 0, y: 0, width: 500, height: 500 }, overlaps, { includeLargest: true });
   assert.deepEqual(rows.map(({ node }) => node.id), ["largest", "visible"]);
+});
+
+test("node index gives every node with its world rect in tree order", () => {
+  const layout = { formatVersion: 1, children: [frame("parent", 10, 20, 500, 400, [frame("child", 50, 25, 100, 80)]), frame("other", 0, 0)] };
+  const index = nodeIndex(layout);
+  assert.deepEqual([...index.keys()], ["parent", "child", "other"]);
+  assert.deepEqual(index.get("child").rect, absoluteRect(layout, "child"));
+  assert.equal(index.get("child").node, layout.children[0].children[0]);
+  assert.deepEqual(allAbsoluteRects(layout).map(({ id }) => id), ["parent", "child", "other"]);
 });

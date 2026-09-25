@@ -215,6 +215,9 @@ test("media upload chooses a unique board WebP name and serves its configured th
   assert.equal(firstMedia.path, "board/media/maps/Мапа.webp");
   assert.equal(secondMedia.name, "Мапа-2.webp");
 
+  const missing = await fetch(`${running.url}/api/media?thumbnail=only&path=${encodeURIComponent(firstMedia.path)}`);
+  assert.equal(missing.status, 404);
+
   const thumbnail = await fetch(`${running.url}/api/thumbnail`, {
     method: "POST", headers: { "content-type": "image/webp", "x-media-path": encodeURIComponent(firstMedia.path) }, body: webp,
   });

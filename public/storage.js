@@ -334,6 +334,17 @@ function createDirectoryStorage() {
       const cacheDir = config.media.cacheDir ?? ".cache/board";
       await writeFile(root, `${cacheDir}/${mediaPath.split("/").at(-1)}`, blob);
     },
+    // На відміну від mediaUrl, без відкату на оригінал: нема мініатюри — null,
+    // і її зробить сама канва.
+    async cachedThumbnail(mediaPath) {
+      const cacheDir = config.media.cacheDir ?? ".cache/board";
+      try {
+        return await (await fileAt(root, `${cacheDir}/${mediaPath.split("/").at(-1)}`)).getFile();
+      } catch (error) {
+        if (error.name === "NotFoundError") return null;
+        throw error;
+      }
+    },
     async mediaUrl(mediaPath, thumbnail = false) {
       const key = `${thumbnail ? "thumb:" : "full:"}${mediaPath}`;
       if (objectUrls.has(key)) return objectUrls.get(key);
@@ -413,6 +424,12 @@ function createServerStorage() {
         method: "POST", headers: { "content-type": "image/webp", "x-media-path": encodeURIComponent(mediaPath) }, body: blob,
       });
       if (!response.ok) throw new Error("Не вдалося зберегти мініатюру");
+    },
+    async cachedThumbnail(mediaPath) {
+      const response = await fetch(`/api/media?path=${encodeURIComponent(mediaPath)}&thumbnail=only`);
+      if (response.status === 404) return null;
+      if (!response.ok) throw new Error("Не вдалося прочитати мініатюру");
+      return response.blob();
     },
     async mediaUrl(mediaPath, thumbnail = false) {
       return `/api/media?path=${encodeURIComponent(mediaPath)}${thumbnail ? "&thumbnail=1" : ""}`;

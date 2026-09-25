@@ -373,11 +373,14 @@ async function serveMedia(config, campaignRoot, url, response) {
     return errorResponse(response, 403, "Медіафайл поза дозволеними теками");
   }
   const thumbnail = join(cacheRoot(campaignRoot, config), basename(original));
-  let target = url.searchParams.get("thumbnail") === "1" ? thumbnail : original;
+  // `thumbnail=only` — лише мініатюра, без відкату на оригінал: так канва
+  // дізнається, що мініатюри ще нема і її треба зробити.
+  const thumbnailMode = url.searchParams.get("thumbnail");
+  let target = thumbnailMode === "1" || thumbnailMode === "only" ? thumbnail : original;
   try {
     await stat(target);
   } catch (error) {
-    if (error.code === "ENOENT" && target === thumbnail) target = original;
+    if (error.code === "ENOENT" && target === thumbnail && thumbnailMode !== "only") target = original;
     else if (error.code === "ENOENT") return errorResponse(response, 404, "Медіафайл не знайдено");
     else throw error;
   }

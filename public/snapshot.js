@@ -31,13 +31,16 @@ export async function urlToPng(url) {
 // Картку знімаємо такою, як вона стоїть на полотні: клон її DOM разом зі
 // стилями дошки кладемо в SVG foreignObject і малюємо на canvas. Картинки
 // всередині SVG-зображення мусять бути data: URL — зовнішніх воно не вантажить.
-export async function elementToPng(element, { width, height, strip = [] }) {
+// На полотні картинка буває мініатюрою, тож `imageSource` може дати для знімка
+// інше, повне джерело; нема його — береться показане.
+export async function elementToPng(element, { width, height, strip = [], imageSource = () => null }) {
   const clone = element.cloneNode(true);
   for (const selector of strip) clone.querySelectorAll(selector).forEach((part) => part.remove());
-  clone.classList.remove("selected");
+  clone.classList.remove("selected", "offscreen");
   Object.assign(clone.style, { left: "0", top: "0", margin: "0" });
   await Promise.all([...clone.querySelectorAll("img")].map(async (image) => {
-    if (image.src) image.src = await urlToDataUrl(image.src);
+    const source = await imageSource(image) ?? image.src;
+    if (source) image.src = await urlToDataUrl(source);
   }));
 
   const page = getComputedStyle(document.body);

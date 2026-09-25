@@ -112,10 +112,29 @@ export function reorderNode(layout, id, operation) {
   return true;
 }
 
+// Вузол і його світовий прямокутник за id — одним проходом згори вниз.
+// absoluteRect для кожного вузла окремо щоразу шукав би шлях від кореня,
+// а цей індекс потрібен на кожен кадр зуму.
+export function nodeIndex(layout) {
+  const index = new Map();
+  const collect = (children, area) => {
+    children.forEach((node) => {
+      const rect = {
+        x: area.x + node.x * area.width / 100,
+        y: area.y + node.y * area.height / 100,
+        width: node.width,
+        height: node.height,
+      };
+      index.set(node.id, { node, rect });
+      collect(node.children, rect);
+    });
+  };
+  collect(layout.children, { x: 0, y: 0, width: WORLD_SIZE, height: WORLD_SIZE });
+  return index;
+}
+
 export function allAbsoluteRects(layout) {
-  const result = [];
-  walkNodes(layout.children, ({ node }) => result.push({ id: node.id, ...absoluteRect(layout, node.id) }));
-  return result;
+  return [...nodeIndex(layout)].map(([id, { rect }]) => ({ id, ...rect }));
 }
 
 // Обхід із прямокутниками напохваті: дочірні відлічуються від батьківського
