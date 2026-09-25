@@ -150,3 +150,9 @@ test("node index gives every node with its world rect in tree order", () => {
   assert.equal(index.get("child").node, layout.children[0].children[0]);
   assert.deepEqual(allAbsoluteRects(layout).map(({ id }) => id), ["parent", "child", "other"]);
 });
+
+test("node index can place children inside the parent's border", () => {
+  const layout = { formatVersion: 1, children: [frame("parent", 0, 0, 500, 400, [frame("child", 50, 50, 100, 80)])] };
+  const index = nodeIndex(layout, { inset: (node) => (node.id === "parent" ? 10 : 0) });
+  assert.deepEqual(index.get("child").rect, { x: 10 + 240, y: 10 + 190, width: 100, height: 80 });
+});

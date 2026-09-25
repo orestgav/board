@@ -115,7 +115,12 @@ export function reorderNode(layout, id, operation) {
 // Вузол і його світовий прямокутник за id — одним проходом згори вниз.
 // absoluteRect для кожного вузла окремо щоразу шукав би шлях від кореня,
 // а цей індекс потрібен на кожен кадр зуму.
-export function nodeIndex(layout) {
+//
+// `inset` — на скільки від краю батька починається місце для дітей. У моделі
+// нуль, а на сторінці діти стоять усередині рамки батька. Рамка там у em, а
+// у вузла на всю карту світу вона завтовшки десятки тисяч одиниць, тож без
+// поправки прямокутник дитини відʼїжджав би від того, де її справді видно.
+export function nodeIndex(layout, { inset = () => 0 } = {}) {
   const index = new Map();
   const collect = (children, area) => {
     children.forEach((node) => {
@@ -126,7 +131,13 @@ export function nodeIndex(layout) {
         height: node.height,
       };
       index.set(node.id, { node, rect });
-      collect(node.children, rect);
+      const border = inset(node);
+      collect(node.children, {
+        x: rect.x + border,
+        y: rect.y + border,
+        width: Math.max(0, rect.width - border * 2),
+        height: Math.max(0, rect.height - border * 2),
+      });
     });
   };
   collect(layout.children, { x: 0, y: 0, width: WORLD_SIZE, height: WORLD_SIZE });

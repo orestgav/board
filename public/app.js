@@ -199,6 +199,8 @@ let viewSettleTimer = null;
 // Вузли й світові прямокутники на момент останнього кадру: за ними кадр
 // вирішує, що видно, а картинка — чи брати оригінал.
 let viewIndex = new Map();
+// Справжня товщина рамки кожного вузла за id — див. renderedIndex.
+const nodeBorders = new Map();
 const thumbnails = createThumbnails({
   readCached: (path) => storage.cachedThumbnail(path),
   saveCached: (path, blob) => storage.saveThumbnail(blob, path),
@@ -410,7 +412,7 @@ function drawView() {
   grid.style.backgroundSize = `${gridSize}px ${gridSize}px`;
   grid.style.backgroundPosition = `${view.x % gridSize}px ${view.y % gridSize}px`;
   if (layout) {
-    viewIndex = nodeIndex(layout);
+    viewIndex = renderedIndex();
     updateFarCards();
     updateOffscreenNodes();
     updateLocationBorders();
@@ -418,6 +420,18 @@ function drawView() {
   // Маршрут живе у світових координатах, а малюється в екранних, тож після
   // кожного зсуву й зуму його доводиться перекладати наново.
   renderRoute();
+}
+
+// Прямокутники вузлів такими, як їх видно на сторінці: діти стоять усередині
+// рамки батька. Товщину рамки беремо в браузера, а не рахуємо з 1em: він
+// округлює її до пікселя і ще й обмежує зверху — у вузла на всю карту світу
+// em за сорок тисяч, а рамка лише десять тисяч.
+function renderedIndex() {
+  return nodeIndex(layout, { inset: (node) => nodeBorders.get(node.id) ?? 0 });
+}
+
+function measureBorder(element) {
+  nodeBorders.set(element.dataset.id, Number.parseFloat(getComputedStyle(element).borderLeftWidth) || 0);
 }
 
 function settleView() {
@@ -480,10 +494,15 @@ function updateLocationBorders() {
 }
 
 function render() {
-  // Індекс — до вузлів: за ним картинки вирішують, з чого почати.
-  viewIndex = nodeIndex(layout);
+  // Індекс — до вузлів: за ним картинки вирішують, з чого почати. Рамки
+  // нових вузлів ще не поміряні, тож після вставки індекс перебудовуємо.
+  viewIndex = renderedIndex();
   scene.replaceChildren(...layout.children.map((node) => renderNode(node, true)));
+  nodeBorders.clear();
+  scene.querySelectorAll(".node").forEach(measureBorder);
+  viewIndex = renderedIndex();
   updateOffscreenNodes();
+  updateImageSources();
   updateLocationBorders();
   renderLayers();
   emptyState.hidden = layout.children.length !== 0;
@@ -615,7 +634,11 @@ function updateNodeGeometry(node, element = nodeElement(node.id)) {
   updateNodePosition(element, node);
   element.style.width = `${node.width}px`;
   element.style.height = `${node.height}px`;
-  element.style.fontSize = `${nodeVisualScale(node, nodeVariant(node))}px`;
+  const fontSize = `${nodeVisualScale(node, nodeVariant(node))}px`;
+  if (element.style.fontSize !== fontSize) {
+    element.style.fontSize = fontSize;
+    measureBorder(element);
+  }
   // Протяжка кутом міняє пропорції картки, а з ними й місце під текст.
   const summary = element.querySelector(":scope > .entity-content > .entity-summary");
   if (summary) fitSummary(summary);
