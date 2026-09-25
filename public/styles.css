@@ -149,7 +149,7 @@ svg.icon { width: 20px; height: 20px; }
 .node.locked > .entity-content, .node.locked > .entity-missing { pointer-events: none; }
 /* Заблоковане тіло не приймає звичайні дії, але сам вузол лишається ціллю
    правого кліку. Так contextmenu бачить верхню картку, а не елемент під нею. */
-.node.locked:is(.image-node, .entity-node, .npc-node, .location-node, .scene-node, .statblock-node, .note-node, .music-node) { pointer-events: auto; }
+.node.locked:is(.image-node, .entity-node, .npc-node, .location-node, .scene-node, .statblock-node, .note-node, .music-node, .token-node) { pointer-events: auto; }
 /* Розміри кнопки — в частках її власного кегля (12em вузла), як у .entity-summary. */
 .node-details { flex: 0 0 auto; display: grid; place-items: center; width: 1.666667em; height: 1.666667em; padding: 0; border: 0; border-radius: 50%; background: transparent; color: #b3aa9c; font-size: 12em; cursor: pointer; pointer-events: auto; }
 .node-details svg.icon { width: 1.333333em; height: 1.333333em; }
@@ -268,6 +268,15 @@ svg.icon { width: 20px; height: 20px; }
 .node-image { display: block; width: 100%; height: 100%; border-radius: inherit; object-fit: fill; pointer-events: auto; cursor: grab; }
 .node-image:active { cursor: grabbing; }
 .node.locked > .node-image { pointer-events: none; }
+/* Токен — коло з артом істоти або першою літерою. Кільце кольорове, тож
+   виділення малюється тінню назовні, а не кольором рамки. */
+.token-node { border: 0; border-radius: 50%; background: transparent; box-shadow: 0 8em 18em rgba(0,0,0,.4); }
+.token-node.selected { box-shadow: 0 0 0 3em var(--selection), 0 8em 18em rgba(0,0,0,.45); }
+.token-face { position: absolute; inset: 0; display: grid; place-items: center; overflow: hidden; border: 7em solid var(--token-color); border-radius: 50%; background: var(--token-color); pointer-events: auto; cursor: grab; }
+.token-face:active { cursor: grabbing; }
+.token-art { display: block; width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+.token-letter { color: var(--token-ink); font-family: Georgia, serif; font-size: 58em; line-height: 1; }
+.node.locked > .token-face { pointer-events: none; }
 .resize-handle { position: absolute; z-index: 3; width: var(--resize-handle-size); height: var(--resize-handle-size); border: var(--resize-handle-border) solid #191816; border-radius: var(--resize-handle-radius); background: var(--selection); pointer-events: auto; }
 .resize-handle.nw { left: var(--resize-handle-offset); top: var(--resize-handle-offset); cursor: nwse-resize; }
 .resize-handle.ne { right: var(--resize-handle-offset); top: var(--resize-handle-offset); cursor: nesw-resize; }
@@ -393,6 +402,11 @@ svg.icon { width: 20px; height: 20px; }
 .context-menu kbd { font: inherit; font-size: 11px; color: #8f8578; white-space: nowrap; }
 .context-menu hr { margin: 5px 4px; border: 0; border-top: 1px solid #3d3832; }
 .context-menu hr[hidden] { display: none; }
+.context-menu-colors { display: grid; grid-template-columns: repeat(10, 1fr); gap: 5px; padding: 6px 9px; }
+.context-menu-colors[hidden] { display: none; }
+.context-menu .token-swatch { display: block; width: 100%; min-height: 0; aspect-ratio: 1; padding: 0; border: 2px solid transparent; border-radius: 50%; background: var(--swatch); box-shadow: inset 0 0 0 1px rgba(0,0,0,.35); }
+.context-menu .token-swatch:hover:not(:disabled), .context-menu .token-swatch:focus-visible { background: var(--swatch); border-color: #fff8eb; }
+.context-menu .token-swatch[aria-pressed="true"] { border-color: var(--gold-bright); box-shadow: 0 0 0 1px var(--gold-bright); }
 
 /* Маршрут малюється поверх полотна в екранних координатах: у координатах
    сцени лінія товщала б разом із зумом і на дальньому плані зникала б. */

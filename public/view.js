@@ -66,6 +66,7 @@ export function nodeVisualScale(node, variant = node.type) {
       : variant === "npc" ? [400, 210]
         : variant === "statblock" ? [440, 640]
           : variant === "music" ? [320, 46]
+            : variant === "token" ? [120, 120]
             : [320, 190];
   return Math.min(node.width / baseWidth, node.height / baseHeight);
 }

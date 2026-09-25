@@ -24,6 +24,7 @@ import { iconElement } from "./icons.js";
 import { renderInline, renderMarkdown } from "./markdown.js";
 import { creatureHitPoints, creatureLabel, creatureList, maxHitPoints, statblockMarkup, writeCreatures } from "./statblock.js";
 import { mapSlugFromPath } from "./notes.js";
+import { TOKEN_COLORS, TOKEN_SIZE, tokenColor, tokenInitial, tokenInk, writeTokenColor } from "./token.js";
 import { noteMarkup, toggleBold } from "./note-format.js";
 import { NOTE_FONT_EM, STATBLOCK_FONT_EM, SUMMARY_FONT_EM, SUMMARY_MIN_RATIO, TEXT_MIN_RATIO, fitBoxKey, fittedFontSize, fittingRatio, notePadding, reservedFitRatio, textShape } from "./text-fit.js";
 import { canonicalYouTubeUrl, musicTitle, oEmbedUrl, playbackUrl } from "./music.js";
@@ -57,7 +58,7 @@ const OFFSCREEN_MARGIN = 0.5;
 const MARQUEE_THRESHOLD = 3;
 const CONTAINER_GAP = 24;
 const CONTAINER_PADDING = 28;
-const CONTEXT_MENU_NODE_TYPES = new Set(["image", "entity", "note", "music", "scene"]);
+const CONTEXT_MENU_NODE_TYPES = new Set(["image", "entity", "note", "music", "scene", "token"]);
 const CLIPBOARD_IMAGE_TYPES = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" };
 
 // Типи карток із власним виглядом і власною кнопкою на полотні. Решта типів
@@ -122,6 +123,8 @@ const addEntityButton = document.querySelector("#add-entity");
 const addLocationButton = document.querySelector("#add-location");
 const addNpcButton = document.querySelector("#add-npc");
 const addStatblockButton = document.querySelector("#add-statblock");
+const addTokenButton = document.querySelector("#add-token");
+const tokenColorsMenu = document.querySelector("#token-colors");
 const entityPicker = document.querySelector("#entity-picker");
 const entitySearch = document.querySelector("#entity-search");
 const entityResults = document.querySelector("#entity-results");
@@ -178,6 +181,8 @@ const newNoteIds = new Set();
 let pendingNoteInput = null;
 let pickerSelection = 0;
 let pickerType = null;
+// Той самий пошук по бестіарію кладе на полотно або статблок, або токен.
+let pickerMakesToken = false;
 let insertPoint = null;
 let contextMenuNodeId = null;
 let contextMenuCreature = null;
@@ -260,7 +265,7 @@ function selectedRoots() { return outermostIds(layout, selectionIds()).map((id) 
 function plural(count, one, many) { return count > 1 ? many : one; }
 function nodeLabel(node) {
   if (node.type === "image") return node.image.split("/").at(-1);
-  if (node.type === "entity") return entitiesBySlug.get(node.entity)?.name ?? `[[${node.entity}]]`;
+  if (node.type === "entity" || node.type === "token") return entitiesBySlug.get(node.entity)?.name ?? `[[${node.entity}]]`;
   if (node.type === "note") return notesByRef.get(node.note)?.text.split("\n").find((line) => line.trim())?.slice(0, 60) || "Нотатка";
   if (node.type === "music") return musicTitle(node.title, node.url);
   return node.title || "Без назви";
@@ -272,6 +277,11 @@ function summarySection() {
 
 function nodeEntity(node) {
   return node.type === "entity" ? entitiesBySlug.get(node.entity) ?? null : null;
+}
+
+// Картка, на яку спирається вузол: сама картка сутності або токен її істоти.
+function linkedEntity(node) {
+  return ["entity", "token"].includes(node.type) ? entitiesBySlug.get(node.entity) ?? null : null;
 }
 
 function entityKind(entity) {
@@ -555,7 +565,7 @@ function nodeSignature(node, isRoot) {
   const { children, x, y, width, height, ...own } = node;
   const note = node.type === "note" ? notesByRef.get(node.note) : null;
   // Порожня рамка чи сцена показує підказку замість вмісту.
-  return JSON.stringify([own, isRoot, children.length > 0, editingNoteId === node.id, objectKey(node), objectKey(nodeEntity(node)), objectKey(note)]);
+  return JSON.stringify([own, isRoot, children.length > 0, editingNoteId === node.id, objectKey(node), objectKey(linkedEntity(node)), objectKey(note)]);
 }
 
 const objectKeys = new WeakMap();
@@ -914,6 +924,9 @@ function renderNode(node, isRoot = false) {
     const header = nodeHeader(node, { icon: "music_note" });
     header.append(playLink(node));
     element.append(header);
+  } else if (node.type === "token") {
+    element.classList.add("token-node");
+    element.append(tokenFace(node));
   } else if (node.type === "image") {
     element.classList.add("image-node");
     const image = document.createElement("img");
@@ -935,6 +948,33 @@ function renderNode(node, isRoot = false) {
   // Дітей і маркери розміру додає render: діти можуть бути вже готові з
   // попереднього разу, а маркери залежать від виділення, не від вузла.
   return element;
+}
+
+// Коло токена саме й тягається: шапки, за яку братися, у нього нема.
+function tokenFace(node) {
+  const entity = linkedEntity(node);
+  const color = tokenColor(node);
+  const face = document.createElement("div");
+  face.className = "token-face";
+  face.dataset.id = node.id;
+  face.title = nodeLabel(node);
+  face.style.setProperty("--token-color", color);
+  face.style.setProperty("--token-ink", tokenInk(color));
+  if (entity?.portrait) {
+    const art = document.createElement("img");
+    art.className = "token-art";
+    art.alt = "";
+    art.draggable = false;
+    showMedia(art, entity.portrait, { node });
+    face.append(art);
+  } else {
+    const letter = document.createElement("span");
+    letter.className = "token-letter";
+    letter.textContent = tokenInitial(entity?.name ?? node.entity);
+    face.append(letter);
+  }
+  face.addEventListener("pointerdown", onNodePointerDown);
+  return face;
 }
 
 // Маркери розміру — лише коли вибрано рівно один вузол: групового ресайзу нема.
@@ -1200,10 +1240,11 @@ function onStatblockWheel(event) {
 }
 
 function layerIcon(node) {
+  if (node.type === "token") return "circle";
   const entity = nodeEntity(node);
   if (entity) return entityIcon(entity);
   return node.type === "image" ? "image" : node.type === "entity" ? "description"
-    : node.type === "note" ? "sticky_note_2" : node.type === "music" ? "music_note" : "crop_square";
+    : node.type === "note" ? "sticky_note_2" : node.type === "music" ? "music_note" : node.type === "token" ? "circle" : "crop_square";
 }
 
 // Список показує видимі вузли та найбільший вузол борду, навіть коли той поза екраном.
@@ -1665,12 +1706,13 @@ function defaultInsertPoint() {
   return screenToWorld(bounds.left + bounds.width / 2, bounds.top + bounds.height / 2);
 }
 
-function openEntityPicker(type = null) {
+function openEntityPicker(type = null, { token = false } = {}) {
   if (!layout) return;
   insertPoint ??= defaultInsertPoint();
   pickerType = type;
+  pickerMakesToken = token;
   pickerSelection = 0;
-  pickerTitle.textContent = ENTITY_KINDS[type]?.pickerTitle ?? "Картка з репозиторію";
+  pickerTitle.textContent = token ? "Токен істоти з бестіарію" : ENTITY_KINDS[type]?.pickerTitle ?? "Картка з репозиторію";
   entitySearch.placeholder = ENTITY_KINDS[type]?.searchPlaceholder ?? "Назва, slug або тип…";
   entitySearch.value = "";
   renderEntityResults();
@@ -1765,6 +1807,7 @@ function containerNode(entity, kind, point, rect) {
 }
 
 function addEntity(entity) {
+  if (pickerMakesToken) return addToken(entity);
   const point = insertPoint ?? defaultInsertPoint();
   const { parent, rect } = nearestPointParent(layout, point);
   const kind = entityKind(entity);
@@ -1774,6 +1817,28 @@ function addEntity(entity) {
     setSelection([node.id]);
   });
   entityPicker.close();
+}
+
+// Токен стає центром під курсор: це фішка, яку ставлять на клітинку карти.
+function addToken(entity) {
+  const point = insertPoint ?? defaultInsertPoint();
+  const { parent, rect } = nearestPointParent(layout, point);
+  const node = {
+    id: crypto.randomUUID(), type: "token", entity: entity.slug,
+    x: (point.x - TOKEN_SIZE.width / 2 - rect.x) / rect.width * 100,
+    y: (point.y - TOKEN_SIZE.height / 2 - rect.y) / rect.height * 100,
+    width: TOKEN_SIZE.width, height: TOKEN_SIZE.height, locked: false, children: [],
+  };
+  executeCommand("Додати токен", () => {
+    (parent ? parent.children : layout.children).push(node);
+    setSelection([node.id]);
+  });
+  entityPicker.close();
+}
+
+function setTokenColor(node, color) {
+  if (node?.type !== "token" || node.locked || tokenColor(node) === color) return;
+  executeCommand("Змінити колір токена", () => writeTokenColor(node, color));
 }
 
 function setMusicHint(text) {
@@ -2032,6 +2097,14 @@ function openContextMenu(node, clientX, clientY) {
   const creatures = node ? contextMenuCreatures(node) : null;
   const creature = creatures?.length > 1 && creatures[contextMenuCreature] ? contextMenuCreature : null;
   contextMenuItem("add-creature").hidden = !creatures;
+  tokenColorsMenu.hidden = node?.type !== "token";
+  if (!tokenColorsMenu.hidden) {
+    const current = tokenColor(node);
+    for (const swatch of tokenColorsMenu.children) {
+      swatch.setAttribute("aria-pressed", String(swatch.dataset.color === current));
+      swatch.disabled = node.locked;
+    }
+  }
   for (const action of ["rename-creature", "remove-creature"]) {
     const item = contextMenuItem(action);
     item.hidden = creature === null;
@@ -2044,7 +2117,7 @@ function openContextMenu(node, clientX, clientY) {
     const lockButton = contextMenuItem("lock");
     lockButton.querySelector(".context-menu-icon").replaceChildren(iconElement(node.locked ? "lock_open" : "lock_filled"));
     lockButton.querySelector(".context-menu-label").replaceChildren(node.locked ? "Розблокувати" : "Заблокувати", shortcutHint("Ctrl+L"));
-    contextMenuItem("details").disabled = node.type === "entity" && !nodeEntity(node);
+    contextMenuItem("details").disabled = ["entity", "token"].includes(node.type) && !linkedEntity(node);
     for (const action of ["add-scene", "toggle-summary", "rename-creature"]) {
       const button = contextMenuItem(action);
       button.disabled = false;
@@ -2106,7 +2179,7 @@ function showNodeDetails(node) {
   else if (node.type === "note") showNoteDetails(node);
   else if (node.type === "music") showMusicDetails(node);
   else {
-    const entity = nodeEntity(node);
+    const entity = linkedEntity(node);
     if (entity) showEntityDetails(entity);
   }
 }
@@ -2154,7 +2227,7 @@ function onResizePointerDown(event) {
     type: "resize", pointerId: event.pointerId, startX: event.clientX, startY: event.clientY,
     originX: node.x * parentWidth / 100, originY: node.y * parentHeight / 100,
     originWidth: node.width, originHeight: node.height, parentWidth, parentHeight,
-    corner: event.currentTarget.dataset.corner, aspect: node.type === "image" ? node.width / node.height : null,
+    corner: event.currentTarget.dataset.corner, aspect: ["image", "token"].includes(node.type) ? node.width / node.height : null,
     // Діти тримаються за лівий верхній кут батька: памʼятаємо їхній відступ
     // у пікселях, бо відсотки від розміру пропорційно розтягувалися б.
     children: node.children.map((child) => ({
@@ -3041,6 +3114,21 @@ addStatblockButton.addEventListener("click", () => {
   insertPoint = defaultInsertPoint();
   openEntityPicker("creature");
 });
+addTokenButton.addEventListener("click", () => {
+  insertPoint = defaultInsertPoint();
+  openEntityPicker("creature", { token: true });
+});
+for (const [color, name] of TOKEN_COLORS) {
+  const swatch = document.createElement("button");
+  swatch.type = "button";
+  swatch.className = "token-swatch";
+  swatch.dataset.contextAction = "token-color";
+  swatch.dataset.color = color;
+  swatch.style.setProperty("--swatch", color);
+  swatch.title = name;
+  swatch.setAttribute("aria-label", `Колір токена: ${name}`);
+  tokenColorsMenu.append(swatch);
+}
 toggleLayersButton.addEventListener("click", () => setLayersOpen(!layersOpen));
 for (const overlay of [canvasActions, ...document.querySelectorAll(".hud")]) {
   overlay.addEventListener("pointerdown", (event) => event.stopPropagation());
@@ -3133,11 +3221,13 @@ nodeContextMenu.addEventListener("click", async (event) => {
   else if (action === "add-creature") addCreature(node);
   else if (action === "rename-creature") renameCreature(node, creature);
   else if (action === "remove-creature") removeCreature(node, creature);
+  else if (action === "token-color") setTokenColor(node, event.target.closest("[data-color]")?.dataset.color);
 });
 nodeContextMenu.addEventListener("keydown", (event) => {
   if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
   event.preventDefault();
-  const buttons = [...nodeContextMenu.querySelectorAll("button:not(:disabled):not([hidden])")];
+  // Кнопки палітри лежать у групі, що ховається цілком, тож видимість питаємо в розкладки.
+  const buttons = [...nodeContextMenu.querySelectorAll("button:not(:disabled)")].filter((button) => button.offsetParent);
   const index = buttons.indexOf(document.activeElement);
   const direction = event.key === "ArrowDown" ? 1 : -1;
   buttons[(index + direction + buttons.length) % buttons.length]?.focus();

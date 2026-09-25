@@ -16,6 +16,7 @@ import {
   updateNoteBlock,
 } from "../public/notes.js";
 import { canonicalYouTubeUrl } from "../public/music.js";
+import { isTokenColor } from "../public/token.js";
 
 export const LAYOUT_VERSION = 1;
 const STATIC_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../public");
@@ -67,7 +68,7 @@ export function validateLayout(layout) {
     if (typeof node.id !== "string" || !node.id) throw new Error("Кожен вузол мусить мати id");
     if (ids.has(node.id)) throw new Error(`Повторний id вузла: ${node.id}`);
     ids.add(node.id);
-    if (!["frame", "scene", "image", "entity", "note", "music"].includes(node.type)) throw new Error(`Непідтримуваний тип вузла: ${node.type}`);
+    if (!["frame", "scene", "image", "entity", "note", "music", "token"].includes(node.type)) throw new Error(`Непідтримуваний тип вузла: ${node.type}`);
     for (const field of ["x", "y", "width", "height"]) {
       if (!Number.isFinite(node[field])) throw new Error(`${node.id}.${field} має бути числом`);
     }
@@ -79,8 +80,12 @@ export function validateLayout(layout) {
         throw new Error(`${node.id}.image має бути безпечним відносним шляхом до WebP`);
       }
     }
-    if (node.type === "entity" && (typeof node.entity !== "string" || !node.entity)) {
+    if (["entity", "token"].includes(node.type) && (typeof node.entity !== "string" || !node.entity)) {
       throw new Error(`${node.id}.entity має бути непорожнім slug`);
+    }
+    // Колір кільця токена — лише з палітри; червоний за замовчуванням без поля.
+    if (node.type === "token" && node.color !== undefined && !isTokenColor(node.color)) {
+      throw new Error(`${node.id}.color має бути кольором із палітри токенів`);
     }
     // Поточні HP статблока: у кожної копії істоти свої, тож живуть у вузлі.
     // Мінус — нормальне значення: так видно, наскільки істоту перебили.

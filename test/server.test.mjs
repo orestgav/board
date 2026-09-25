@@ -85,6 +85,14 @@ test("layout validation keeps a hidden note text flag", () => {
   assert.throws(() => validateLayout({ formatVersion: 1, children: [{ ...note, hideText: "так" }] }), /hideText має бути булевим/);
 });
 
+test("layout validation keeps a token with a palette color", () => {
+  const token = { id: "token-1", type: "token", entity: "wolf", x: 10, y: 20, width: 120, height: 120, children: [] };
+  assert.equal(validateLayout({ formatVersion: 1, children: [token] }).children[0].entity, "wolf");
+  assert.equal(validateLayout({ formatVersion: 1, children: [{ ...token, color: "#2c55b3" }] }).children[0].color, "#2c55b3");
+  assert.throws(() => validateLayout({ formatVersion: 1, children: [{ ...token, color: "blue" }] }), /палітри токенів/);
+  assert.throws(() => validateLayout({ formatVersion: 1, children: [{ ...token, entity: "" }] }), /непорожнім slug/);
+});
+
 test("layout validation accepts note references and rejects unsafe ones", () => {
   const note = { id: "note-1", type: "note", note: "map-world#n1", x: 10, y: 20, width: 320, height: 190, children: [] };
   assert.equal(validateLayout({ formatVersion: 1, children: [note] }).children[0].note, "map-world#n1");
