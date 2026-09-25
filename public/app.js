@@ -26,6 +26,7 @@ import { noteMarkup, toggleBold } from "./note-format.js";
 import { NOTE_FONT_EM, STATBLOCK_FONT_EM, SUMMARY_FONT_EM, SUMMARY_MIN_RATIO, TEXT_MIN_RATIO, fitBoxKey, fittedFontSize, fittingRatio, notePadding, reservedFitRatio, textShape } from "./text-fit.js";
 import { canonicalYouTubeUrl, musicTitle, oEmbedUrl, playbackUrl } from "./music.js";
 import { centeredViewOnRect, locationBorderScreenWidth, locationHeaderHeight, maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, rebasedView, rectWithin, rectsOverlap, worldViewportRect, zoomedViewAt } from "./view.js";
+import { elementToPng, urlToPng, writeImageToClipboard } from "./snapshot.js";
 import { CALIBRATION_MILES, milesLabel, parseScale, plural as pluralForm, routeMiles, scaleFromCalibration, travelEstimates } from "./travel.js";
 
 const MIN_NODE_SIZE = Number.EPSILON;
@@ -1797,6 +1798,7 @@ function openContextMenu(node, clientX, clientY) {
   contextMenuNodeId = node?.id ?? null;
   contextMenuPoint = { clientX, clientY, world: screenToWorld(clientX, clientY) };
   for (const action of ["copy", "lock", "delete"]) contextMenuItem(action).hidden = !node;
+  contextMenuItem("copy-image").hidden = !imageCopyKind(node);
   contextMenuItem("add-scene").hidden = !isLocationNode(node);
   contextMenuItem("rename").hidden = !["scene", "music"].includes(node?.type);
   contextMenuItem("details").hidden = !node || node.type === "scene";
@@ -1843,6 +1845,38 @@ function openContextMenu(node, clientX, clientY) {
   const bounds = nodeContextMenu.getBoundingClientRect();
   nodeContextMenu.style.left = `${clamp(clientX, 8, innerWidth - bounds.width - 8)}px`;
   nodeContextMenu.style.top = `${clamp(clientY, 8, innerHeight - bounds.height - 8)}px`;
+}
+
+// «Як картинку» копіюється те, що справді є картинкою: зображення з полотна,
+// портрет NPC без рамки картки і предмет — цілою карткою, як його видно.
+function imageCopyKind(node) {
+  if (node?.type === "image") return node.image ? "image" : null;
+  if (node?.type !== "entity") return null;
+  const entity = nodeEntity(node);
+  if (!entity) return null;
+  if (nodeVariant(node) === "npc") return entity.portrait ? "portrait" : null;
+  return entity.type === "item" && nodeVariant(node) === "entity" ? "card" : null;
+}
+
+function copyAsImage(node) {
+  const kind = imageCopyKind(node);
+  if (!kind) return;
+  const png = kind === "card" ? cardPng(node)
+    : storage.mediaUrl(kind === "image" ? node.image : nodeEntity(node).portrait, false).then(urlToPng);
+  writeImageToClipboard(png).then(
+    () => showToast(kind === "portrait" ? "Портрет скопійовано" : "Картинку скопійовано"),
+    (error) => { console.warn(error); showToast(`Не вдалося скопіювати картинку: ${error.message}`); },
+  );
+}
+
+// Кнопка «i», замок і маркери розміру — керування дошкою, а не частина картки.
+function cardPng(node) {
+  const element = nodeElement(node.id);
+  if (!element) return Promise.reject(new Error("картки не видно на полотні"));
+  return elementToPng(element, {
+    width: node.width, height: node.height,
+    strip: [".node", ".resize-handle", ".node-details", ".node-lock-indicator"],
+  });
 }
 
 function showNodeDetails(node) {
@@ -2866,6 +2900,7 @@ nodeContextMenu.addEventListener("click", async (event) => {
   else if (action === "rename") renameNode(node);
   else if (action === "lock") toggleLock();
   else if (action === "copy") copySelection();
+  else if (action === "copy-image") copyAsImage(node);
   else if (action === "delete") await deleteSelected();
   else if (action === "details") showNodeDetails(node);
   else if (action === "toggle-summary") toggleSummary(node);
