@@ -33,27 +33,37 @@ const ROLL = "\\d+\\s*[кd]\\s*\\d+(?:\\s*[+−-]\\s*\\d+)?";
 const DICE = `(?:\\d+\\s*)?(?:\\(${ROLL}\\)|${ROLL})`;
 const APOSTROPHE = "(?:'|’|&#39;)";
 const CONDITION = "(?:схоплен|зачарован|наляка|переляка|осліплен|оглух|паралізован|скам" + APOSTROPHE + "ян|отруєн|знерухомлен"
-  + "|недієздатн|невидим|непритомн|приголомшен|оглушен|виснажен|переваг)[\\p{L}]*|лежить ниць|збит[\\p{L}]* з ніг"
-  + "|(?:з|має|мають|отримує|дає)\\s+перешкод[\\p{L}]*"
+  + "|недієздатн|невидим|непритомн|приголомшен|оглушен|виснажен)[\\p{L}]*|лежить ниць|збит[\\p{L}]* з ніг"
   + "|(?:grappled|restrained|prone|charmed|frightened|blinded|deafened|paralyzed|petrified|poisoned|stunned|incapacitated"
-  + "|invisible|unconscious|exhaustion|advantage|disadvantage)";
-const KEY_TERMS = new RegExp([
-  // «Мудрості (DC 15)», «Сили або Спритності СЛ 13», «WIS Save DC 14», «Constitution Saving Throw: DC 14».
-  `${ABILITY}(?:\\s+або\\s+${ABILITY})?(?:\\s+(?:Saving Throw|save)\\s*:?)?\\s*(?:\\(\\s*${DC}\\s*\\)|(?:зі\\s+)?${DC})`,
-  // Характеристика рятунку без СЛ: «рятунковий кидок Статури проти…».
-  `(?<=(?:рятунков[\\p{L}]*\\s+кид[\\p{L}]*|ряткид[\\p{L}]*|кид[\\p{L}]*\\s+рятунку)\\s+)${ABILITY}`,
-  // Решта складностей: «СЛ вислизання 14», «Escape DC 14».
-  `(?:СЛ\\s+вислизання\\s+\\d+|(?:escape\\s+)?${DC})`,
-  `[+−-]\\d+\\s+(?:до\\s+(?:влучання|атаки)|to hit)`,
-  `${DICE}(?:\\s+${DAMAGE_TYPE})?`,
-  CONDITION,
-].map((pattern) => `${WORD_START}(?:${pattern})${WORD_END}`).join("|"), "giu");
+  + "|invisible|unconscious|exhaustion)";
+const EDGE = "переваг[\\p{L}]*|(?:з|має|мають|отримує|дає)\\s+перешкод[\\p{L}]*|advantage|disadvantage";
+// Кожен тип має свій колір (клас sb-key-<тип>), щоб око розрізняло їх одразу.
+const KEY_KINDS = {
+  save: [
+    // «Мудрості (DC 15)», «Сили або Спритності СЛ 13», «WIS Save DC 14», «Constitution Saving Throw: DC 14».
+    `${ABILITY}(?:\\s+або\\s+${ABILITY})?(?:\\s+(?:Saving Throw|save)\\s*:?)?\\s*(?:\\(\\s*${DC}\\s*\\)|(?:зі\\s+)?${DC})`,
+    // Характеристика рятунку без СЛ: «рятунковий кидок Статури проти…».
+    `(?<=(?:рятунков[\\p{L}]*\\s+кид[\\p{L}]*|ряткид[\\p{L}]*|кид[\\p{L}]*\\s+рятунку)\\s+)${ABILITY}`,
+    // Решта складностей: «СЛ вислизання 14», «Escape DC 14».
+    `СЛ\\s+вислизання\\s+\\d+|(?:escape\\s+)?${DC}`,
+  ],
+  hit: [`[+−-]\\d+\\s+(?:до\\s+(?:влучання|атаки)|to hit)`],
+  damage: [`${DICE}(?:\\s+${DAMAGE_TYPE})?`],
+  condition: [CONDITION],
+  edge: [EDGE],
+};
+const KEY_TERMS = new RegExp(Object.entries(KEY_KINDS)
+  .map(([kind, patterns]) => `${WORD_START}(?<${kind}>${patterns.map((pattern) => `(?:${pattern})`).join("|")})${WORD_END}`)
+  .join("|"), "giu");
 
 // Працює по готовому HTML абзацу: теги й сутності не чіпає, обгортає лише текст.
 export function highlightKeyTerms(html) {
   return String(html ?? "").split(/(<[^>]*>)/).map((part) => (part.startsWith("<")
     ? part
-    : part.replace(KEY_TERMS, (match) => `<b class="sb-key">${match}</b>`))).join("");
+    : part.replace(KEY_TERMS, (...args) => {
+      const kind = Object.keys(KEY_KINDS).find((name) => args.at(-1)[name] !== undefined);
+      return `<b class="sb-key sb-key-${kind}">${args[0]}</b>`;
+    }))).join("");
 }
 
 function filled(value) {

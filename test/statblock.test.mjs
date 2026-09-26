@@ -111,8 +111,7 @@ test("без рятункових кидків рядок SAVE не малюєт
   assert.match(markup, /<td>\+4<\/td><td>\+0<\/td>/);
 });
 
-test("рятунок із СЛ, бонус до влучання, кістки шкоди й стани виділено жирним", () => {
-  const key = (text) => `<b class="sb-key">${text}</b>`;
+test("рятунок із СЛ, бонус до влучання, кістки шкоди й стани виділено кожен своїм кольором", () => {
   const markup = statblockMarkup({
     name: "Пригнічений",
     meta: {},
@@ -125,13 +124,15 @@ test("рятунок із СЛ, бонус до влучання, кістки �
       "",
       "**Рука-гарпун.** *Рукопашна атака зброєю* +7 до влучання. Влучання: 10 (2к8 + 2) колючої шкоди, і ціль стає схопленою (СЛ вислизання 14).",
       "",
-      "**Удар.** *Melee Weapon Attack* +6 to hit. Hit: 1d10+4 slashing (у формі 1d10+4). WIS Save DC 14 або Prone; ряткидок Статури СЛ 12.",
+      "**Удар.** *Melee Weapon Attack* +6 to hit. Hit: 1d10+4 slashing (у формі 1d10+4). WIS Save DC 14 або Prone; ряткидок Статури СЛ 12, кидає з перевагою, атакує з перешкодою.",
     ].join("\n"),
   });
-  for (const text of [
-    "Мудрості (DC 15)", "10 (3к6) психічної", "+7 до влучання", "10 (2к8 + 2) колючої", "схопленою",
-    "СЛ вислизання 14", "+6 to hit", "1d10+4 slashing", "1d10+4", "WIS Save DC 14", "Prone", "Статури СЛ 12",
-  ]) assert.ok(markup.includes(key(text)), text);
+  for (const [kind, text] of [
+    ["save", "Мудрості (DC 15)"], ["damage", "10 (3к6) психічної"], ["hit", "+7 до влучання"],
+    ["damage", "10 (2к8 + 2) колючої"], ["condition", "схопленою"], ["save", "СЛ вислизання 14"],
+    ["hit", "+6 to hit"], ["damage", "1d10+4 slashing"], ["damage", "1d10+4"], ["save", "WIS Save DC 14"],
+    ["condition", "Prone"], ["save", "Статури СЛ 12"], ["edge", "перевагою"], ["edge", "з перешкодою"],
+  ]) assert.ok(markup.includes(`<b class="sb-key sb-key-${kind}">${text}</b>`), text);
   assert.match(markup, /<strong>Телепатична п&#39;явка\.<\/strong>|<strong>Телепатична п’явка\.<\/strong>/);
   assert.doesNotMatch(markup, /sb-key">[^<]*\)<\/b>\)/);
 });
