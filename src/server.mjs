@@ -15,6 +15,8 @@ import {
   splitNoteReference,
   updateNoteBlock,
 } from "../public/notes.js";
+import { campaignKey, campaignName, parseBoardConfig } from "../public/board-config.js";
+import * as builtInFrontmatter from "../public/frontmatter.js";
 import { emptyLayout, parseLayout, validateLayout } from "../public/layout.js";
 
 export { LAYOUT_VERSION, emptyLayout, validateLayout } from "../public/layout.js";
@@ -52,14 +54,14 @@ function revisionOf(source) {
 
 async function readConfig(base) {
   const configPath = join(base, "board.config.json");
-  let config;
+  let source;
   try {
-    config = JSON.parse(await readFile(configPath, "utf8"));
+    source = await readFile(configPath, "utf8");
   } catch (error) {
     if (error.code === "ENOENT") throw new Error(`Не знайдено ${configPath}`);
     throw new Error(`Не вдалося прочитати board.config.json: ${error.message}`);
   }
-  if (config.boardConfigVersion !== 1) throw new Error(`Непідтримувана boardConfigVersion: ${config.boardConfigVersion}`);
+  const config = parseBoardConfig(source);
   return { config, layoutPath: safePath(base, config.layout) };
 }
 
@@ -171,10 +173,12 @@ async function collectMarkdown(root, skipDirs, campaignRoot = root, result = [])
 }
 
 async function readEntities(campaignRoot, config) {
-  const parserPath = safePath(campaignRoot, config.frontmatter);
-  const parser = await import(`${pathToFileURL(parserPath).href}?board=${Date.now()}`);
+  // Власний парсер кампанії перечитується щоразу: його могли щойно поправити.
+  const parser = config.frontmatter
+    ? await import(`${pathToFileURL(safePath(campaignRoot, config.frontmatter)).href}?board=${Date.now()}`)
+    : builtInFrontmatter;
   if (typeof parser.parseFrontmatter !== "function") throw new Error(`${config.frontmatter} не експортує parseFrontmatter`);
-  const mediaRoot = safePath(campaignRoot, config.media.entityDir ?? config.media.dir);
+  const mediaRoot = safePath(campaignRoot, config.media.entityDir);
   const mediaByName = await collectMediaPaths(mediaRoot, campaignRoot);
   const documents = await collectMarkdown(campaignRoot, new Set(config.entities.skipDirs));
   const types = new Set(config.entities.types);
@@ -304,12 +308,12 @@ function pathInside(root, target) {
 }
 
 function mediaRoots(campaignRoot, config) {
-  return [...new Set([config.media?.dir, config.media?.entityDir].filter(Boolean))]
+  return [...new Set([config.media.dir, config.media.entityDir])]
     .map((path) => safePath(campaignRoot, path));
 }
 
 function cacheRoot(campaignRoot, config) {
-  return safePath(campaignRoot, config.media?.cacheDir ?? ".cache/board");
+  return safePath(campaignRoot, config.media.cacheDir);
 }
 
 async function serveMedia(config, campaignRoot, url, response) {
@@ -377,7 +381,10 @@ export async function startServer({ base, host = "127.0.0.1", port = 4173 }) {
       if (url.pathname === "/api/health" && request.method === "GET") return json(response, 200, { ok: true });
       if (url.pathname === "/api/board" && request.method === "GET") {
         const state = await readLayout(layoutPath);
-        return json(response, 200, { ...state, campaign: campaignRoot, config }, { etag: state.revision });
+        const folder = basename(campaignRoot);
+        return json(response, 200, {
+          ...state, campaign: campaignName(config, folder), campaignKey: campaignKey(config, folder), config,
+        }, { etag: state.revision });
       }
       if (url.pathname === "/api/entities" && request.method === "GET") {
         return json(response, 200, { entities: await readEntities(campaignRoot, config) });
@@ -446,7 +453,7 @@ export async function startServer({ base, host = "127.0.0.1", port = 4173 }) {
         const buffer = await readBuffer(request, 200_000_000);
         if (!isWebP(buffer)) return errorResponse(response, 415, "Канва приймає лише WebP");
         const result = await enqueueMutation(async () => {
-          const mediaRoot = safePath(campaignRoot, config.media?.dir);
+          const mediaRoot = safePath(campaignRoot, config.media.dir);
           const encodedName = request.headers["x-file-name"] || "image";
           let originalName;
           try { originalName = decodeURIComponent(encodedName); } catch { originalName = "image"; }
@@ -462,7 +469,7 @@ export async function startServer({ base, host = "127.0.0.1", port = 4173 }) {
         const encodedPath = request.headers["x-media-path"] || "";
         let mediaPath;
         try { mediaPath = decodeURIComponent(encodedPath); } catch { mediaPath = ""; }
-        const mediaRoot = safePath(campaignRoot, config.media?.dir);
+        const mediaRoot = safePath(campaignRoot, config.media.dir);
         const original = resolve(campaignRoot, mediaPath || "");
         if (!pathInside(mediaRoot, original)) return errorResponse(response, 403, "Медіафайл поза текою медіа дошки");
         const buffer = await readBuffer(request, 20_000_000);

@@ -9,7 +9,8 @@ export const ABILITIES = [
 ];
 
 // Секції нотаток ДМа на картці не показуємо: вони є в попапі кнопки «i».
-const DM_SECTIONS = new Set(["Тактика", "Де використовувати", "Що знають гравці"]);
+// Кампанія може назвати їх інакше — `entities.statblockHiddenSections`.
+export const DEFAULT_HIDDEN_SECTIONS = ["Тактика", "Де використовувати", "Що знають гравці"];
 const SECTION_TITLES = {
   "Дії": "ACTIONS", "Риси": "TRAITS", "Бонусні дії": "BONUS ACTIONS",
   "Реакції": "REACTIONS", "Легендарні дії": "LEGENDARY ACTIONS", "Закляття": "SPELLS",
@@ -54,17 +55,18 @@ export function metaLine(meta) {
     if (filled(meta[field])) lines.push(`<strong>${label}</strong> ${escapeHtml(meta[field])}`);
   }
   const inside = [filled(meta.xp) ? `XP ${meta.xp}` : null, filled(meta.pb) ? `PB ${meta.pb}` : null].filter(Boolean).join("; ");
-  lines.push(`<strong>CR</strong> ${escapeHtml(filled(meta.cr) ? meta.cr : "—")}${inside ? ` (${inside})` : ""}`);
+  lines.push(`<strong>CR</strong> ${escapeHtml(filled(meta.cr) ? meta.cr : "—")}${inside ? ` (${escapeHtml(inside)})` : ""}`);
   return lines.join("<br>");
 }
 
 // Секції тіла картки в порядку статблока; службові коментарі відкидаються.
-export function statblockSections(body) {
+export function statblockSections(body, hiddenSections = DEFAULT_HIDDEN_SECTIONS) {
+  const hidden = new Set(hiddenSections);
   const sections = [];
   for (const part of String(body ?? "").replace(/\r\n/g, "\n").split(/^## /m).slice(1)) {
     const newline = part.indexOf("\n");
     const title = part.slice(0, newline < 0 ? part.length : newline).trim();
-    if (DM_SECTIONS.has(title)) continue;
+    if (hidden.has(title)) continue;
     const paragraphs = (newline < 0 ? "" : part.slice(newline + 1)).trim()
       .split(/\n\s*\n/).map((paragraph) => paragraph.trim())
       .filter((paragraph) => paragraph && !paragraph.startsWith("<!--"));
@@ -78,12 +80,12 @@ export function statblockSections(body) {
   return sections.sort((first, second) => rank(first.title) - rank(second.title));
 }
 
-export function statblockMarkup(entity) {
+export function statblockMarkup(entity, { hiddenSections = DEFAULT_HIDDEN_SECTIONS } = {}) {
   const meta = entity.meta ?? {};
   const saves = savingThrows(meta.saves);
   const line = typeLine(meta);
   const abilities = ABILITIES.map(([field]) => `<td>${escapeHtml(filled(meta[field]) ? meta[field] : "+0")}</td>`).join("");
-  const sections = statblockSections(entity.body).map((section) => `<h3>${escapeHtml(SECTION_TITLES[section.title] ?? section.title.toLocaleUpperCase("uk"))}</h3>`
+  const sections = statblockSections(entity.body, hiddenSections).map((section) => `<h3>${escapeHtml(SECTION_TITLES[section.title] ?? section.title.toLocaleUpperCase("uk"))}</h3>`
     + section.paragraphs.map((paragraph) => `<p>${renderInline(paragraph)}</p>`).join("")).join("");
 
   // Підзаголовок у тій самій колонці, що й AC–Initiative: так арт праворуч

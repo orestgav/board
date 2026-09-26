@@ -28,9 +28,9 @@ export function parseArgs(args) {
 
 function usage() {
   return [
-    "Crown Board",
+    "Дошка кампанії",
     "",
-    "  node canvas.mjs --base ../crown [--port 4173]",
+    "  node canvas.mjs --base <тека кампанії> [--port 4173]",
     "",
     "Опції:",
     "  --base <path>  корінь репозиторію кампанії",
@@ -47,7 +47,7 @@ async function main() {
       return;
     }
     const { server, url } = await startServer(options);
-    console.log(`Crown Board: ${url}`);
+    console.log(`Дошка кампанії: ${url}`);
     console.log(`Кампанія: ${options.base}`);
     const stop = () => server.close(() => process.exit(0));
     process.on("SIGINT", stop);

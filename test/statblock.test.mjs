@@ -178,3 +178,11 @@ test("typed hit points accept whole numbers, negatives and the typographic minus
   assert.equal(parseHitPoints("1.5"), null);
   assert.equal(parseHitPoints("12abc"), null);
 });
+
+test("a campaign names its own DM-only statblock sections", () => {
+  const body = "## Дії\n**Удар.** +3.\n\n## Тактика\n**Тікає.** Коли поранений.\n\n## Секрет ДМа\n**Прихована.** Є.\n";
+  assert.deepEqual(statblockSections(body).map((section) => section.title), ["Дії", "Секрет ДМа"]);
+  assert.deepEqual(statblockSections(body, ["Секрет ДМа"]).map((section) => section.title), ["Дії", "Тактика"]);
+  assert.doesNotMatch(statblockMarkup({ meta: {}, body }, { hiddenSections: ["Секрет ДМа"] }), /Прихована/);
+  assert.match(statblockMarkup({ meta: { xp: "<b>50</b>" }, body: "" }), /XP &lt;b&gt;50&lt;\/b&gt;/);
+});

@@ -31,7 +31,7 @@ test("the server refuses to start without a supported board config", async () =>
   await writeFile(join(base, "board.config.json"), JSON.stringify({ boardConfigVersion: 2, layout: "board/canvas.json" }));
   await assert.rejects(startServer({ base, port: 0 }), /boardConfigVersion/);
   await writeFile(join(base, "board.config.json"), JSON.stringify({ boardConfigVersion: 1, layout: "../outside.json" }));
-  await assert.rejects(startServer({ base, port: 0 }), /за межі кампанії/);
+  await assert.rejects(startServer({ base, port: 0 }), /layout має бути відносним шляхом усередині кампанії/);
 });
 
 test("a layout from a newer editor or of an unknown node type is refused", () => {
@@ -125,4 +125,27 @@ test("a rename blocked for a moment by another reader is retried, a real failure
   calls = 0;
   await assert.rejects(renameWithRetry("a", "b", { attempts: 4, delay: 1, renameFile: async () => { calls += 1; throw busy("EBUSY"); } }), /EBUSY/);
   assert.equal(calls, 4);
+});
+
+test("a campaign with the minimal config opens: its name, its key, cards read by the built-in parser", async (context) => {
+  const base = await mkdtemp(join(tmpdir(), "north-"));
+  await writeFile(join(base, "board.config.json"), JSON.stringify({ boardConfigVersion: 1, name: "Північ" }));
+  await mkdir(join(base, "npcs"), { recursive: true });
+  await writeFile(join(base, "npcs/yarl.md"), "---\ntype: npc\nname: Ярл\n---\n\n## На дошці\nВолодар.\n");
+  const running = await startServer({ base, port: 0 });
+  context.after(() => running.server.close());
+  const board = await (await fetch(`${running.url}/api/board`)).json();
+  assert.equal(board.campaign, "Північ");
+  assert.match(board.campaignKey, /^north-/);
+  assert.equal(board.config.notes.dir, "board/notes");
+  const { entities } = await (await fetch(`${running.url}/api/entities`)).json();
+  assert.deepEqual(entities.map((entity) => [entity.slug, entity.name, entity.summary]), [["yarl", "Ярл", "Володар."]]);
+});
+
+test("a broken board config stops the server with the field named", async () => {
+  const base = await mkdtemp(join(tmpdir(), "crown-board-badconfig-"));
+  await writeFile(join(base, "board.config.json"), JSON.stringify({ boardConfigVersion: 1, notes: { prefix: "Нотатки " } }));
+  await assert.rejects(startServer({ base, port: 0 }), /board\.config\.json: notes\.prefix/);
+  await writeFile(join(base, "board.config.json"), "{ oops");
+  await assert.rejects(startServer({ base, port: 0 }), /не читається як JSON/);
 });

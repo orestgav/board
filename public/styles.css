@@ -318,6 +318,19 @@ svg.icon { width: 20px; height: 20px; }
 .connection-screen button { display: inline-flex; align-items: center; gap: 9px; padding: 11px 17px; border: 1px solid #80683f; border-radius: 7px; background: #312a21; color: var(--gold-bright); cursor: pointer; }
 .connection-screen button:hover { border-color: var(--gold-bright); }
 .connection-screen small { margin-top: 12px; color: #756e66; }
+.connection-mark .icon { width: 30px; height: 30px; }
+.connection-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.connection-screen button.quiet { border-color: #4a4239; background: transparent; color: var(--muted); }
+.connection-screen button:disabled { cursor: progress; opacity: .6; }
+.connection-screen button[hidden] { display: none; }
+.recent-campaigns { display: grid; gap: 6px; width: min(420px, calc(100vw - 48px)); margin: 0 0 16px; }
+.recent-campaigns[hidden] { display: none; }
+.recent-campaign { display: flex; align-items: stretch; gap: 6px; }
+.connection-screen .recent-open { flex: 1; min-width: 0; display: grid; justify-items: start; gap: 3px; padding: 10px 14px; border-color: #5f523f; background: #25211c; color: var(--text); text-align: left; }
+.recent-open strong { max-width: 100%; overflow: hidden; font: 16px Georgia, serif; text-overflow: ellipsis; white-space: nowrap; }
+.connection-screen .recent-open small { margin: 0; color: #8a8177; }
+.connection-screen .recent-forget { padding: 0 10px; border-color: #4a4239; background: transparent; color: #8a8177; }
+.connection-screen .recent-forget:hover { border-color: #824b43; color: #ff8c7d; }
 .entity-picker { width: min(620px, calc(100vw - 32px)); max-height: min(680px, calc(100vh - 32px)); padding: 0; border: 1px solid #655943; border-radius: 12px; background: #201d1a; color: var(--text); box-shadow: 0 24px 80px rgba(0,0,0,.65); }
 .entity-picker::backdrop { background: rgba(8, 8, 7, .7); backdrop-filter: blur(3px); }
 .entity-picker-panel { display: grid; grid-template-rows: auto auto minmax(100px, 1fr) auto; max-height: min(680px, calc(100vh - 32px)); padding: 15px; }

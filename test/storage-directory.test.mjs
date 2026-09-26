@@ -34,7 +34,7 @@ test("an unsupported board config version is refused", async () => {
 });
 
 test("storage needs an opened folder before loading", async () => {
-  await assert.rejects(createDirectoryStorage().loadBoard(), /папку кампанії/);
+  await assert.rejects(createDirectoryStorage().loadBoard(), /теку кампанії/);
 });
 
 test("layout saves only over the revision it was loaded from", async () => {
@@ -182,4 +182,88 @@ test("an invalid layout is never written into the folder", async () => {
   const bad = { formatVersion: 1, children: [{ id: "x", type: "hologram", x: 0, y: 0, width: 1, height: 1, children: [] }] };
   await assert.rejects(storage.saveLayout(bad, revision), /Непідтримуваний тип вузла/);
   assert.equal(await root.exists("board/canvas.json"), false);
+});
+
+// Сховище запамʼятованих тек у памʼяті — замість IndexedDB браузера.
+function memoryCampaigns() {
+  const entries = new Map();
+  return {
+    entries,
+    async list() { return [...entries.values()].map((entry) => ({ ...entry })); },
+    async put(entry) { entries.set(entry.id, { ...entry }); },
+    async remove(id) { entries.delete(id); },
+  };
+}
+
+async function folder(name, config = { boardConfigVersion: 1 }) {
+  const root = new MemoryDirectory(name);
+  await root.put("board.config.json", JSON.stringify(config));
+  return root;
+}
+
+test("the most recent campaign reopens by itself, but only while the browser keeps its permission", async () => {
+  const campaigns = memoryCampaigns();
+  const crown = await folder("dnd-campaign", { boardConfigVersion: 1, name: "Crown" });
+  const north = await folder("north");
+  await campaigns.put({ id: "a", handle: crown, name: "Crown", folder: "dnd-campaign", openedAt: 2 });
+  await campaigns.put({ id: "b", handle: north, name: "north", folder: "north", openedAt: 1 });
+  const storage = createDirectoryStorage({ campaigns });
+  assert.deepEqual((await storage.recent()).map((entry) => entry.id), ["a", "b"]);
+  assert.equal(await storage.restore(), true);
+  assert.equal((await storage.loadBoard()).campaign, "Crown");
+
+  crown.permission = "prompt";
+  const again = createDirectoryStorage({ campaigns });
+  // Мовчки на іншу кампанію не перескакує: без дозволу на останню — екран вибору.
+  assert.equal(await again.restore(), false);
+});
+
+test("a remembered campaign opens by id, and opening it moves it to the top", async () => {
+  const campaigns = memoryCampaigns();
+  await campaigns.put({ id: "a", handle: await folder("first"), name: "first", folder: "first", openedAt: 5 });
+  await campaigns.put({ id: "b", handle: await folder("second", { boardConfigVersion: 1, id: "second-id", name: "Друга" }), name: "second", folder: "second", openedAt: 1 });
+  const storage = createDirectoryStorage({ campaigns });
+  await storage.connect({ id: "b" });
+  const board = await storage.loadBoard();
+  assert.equal(board.campaign, "Друга");
+  assert.equal(board.campaignKey, "second-id");
+  const [top] = await storage.recent();
+  assert.equal(top.id, "b");
+  assert.equal(top.name, "Друга");
+  await assert.rejects(storage.connect({ id: "gone" }), /вже немає в списку/);
+});
+
+test("a campaign whose folder refuses permission is not opened", async () => {
+  const campaigns = memoryCampaigns();
+  const locked = await folder("locked");
+  locked.permission = "denied";
+  await campaigns.put({ id: "a", handle: locked, name: "locked", folder: "locked", openedAt: 1 });
+  await assert.rejects(createDirectoryStorage({ campaigns }).connect({ id: "a" }), /Потрібен дозвіл/);
+});
+
+test("forgetting a campaign drops it from the list but leaves the folder alone", async () => {
+  const campaigns = memoryCampaigns();
+  const root = await folder("north");
+  await campaigns.put({ id: "a", handle: root, name: "north", folder: "north", openedAt: 1 });
+  const storage = createDirectoryStorage({ campaigns });
+  await storage.forget("a");
+  assert.deepEqual(await storage.recent(), []);
+  assert.equal(await root.exists("board.config.json"), true);
+});
+
+test("a folder without board.config.json is named as not a campaign", async () => {
+  const storage = createDirectoryStorage({ root: new MemoryDirectory("Photos"), campaigns: memoryCampaigns() });
+  await assert.rejects(storage.loadBoard(), /У теці «Photos» немає board\.config\.json/);
+});
+
+test("a campaign without its own parser or portrait folder still indexes its cards", async () => {
+  const root = await folder("north", { boardConfigVersion: 1, entities: { types: ["npc"] } });
+  await root.put("npcs/yarl.md", "---\ntype: npc\nname: Ярл\n---\n\n## На дошці\nВолодар півночі.\n");
+  await root.put("notes/plain.md", "# без метаданих");
+  const storage = createDirectoryStorage({ root, campaigns: memoryCampaigns() });
+  await storage.loadBoard();
+  const [yarl] = await storage.loadEntities();
+  assert.equal(yarl.name, "Ярл");
+  assert.equal(yarl.summary, "Володар півночі.");
+  assert.equal(yarl.portrait, null);
 });

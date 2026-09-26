@@ -35,7 +35,7 @@ function sameHeading(line, heading) {
 }
 
 // «NPC», «NPC (ще)» і «npc» — одна мітка.
-function linkLabel(text) {
+export function linkLabel(text) {
   return text.replace(APOSTROPHES, "'").replace(/\s*\(.*\)\s*$/, "").trim().toLocaleLowerCase("uk");
 }
 

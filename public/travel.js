@@ -12,6 +12,8 @@ const MINUTES_PER_HOUR = 60;
 
 // Добова відстань не виводиться з годинної: у книжці швидкий темп — це 4 милі
 // на годину, але 30 за день, а не 32. Обидві колонки взяті з таблиці як є.
+// Це типова таблиця будь-якої кампанії; свої судна чи звірів кампанія додає
+// в board.config.json (`travel.extra`), а зайві рядки ховає (`travel.hide`).
 export const TRAVEL_MODES = [
   { id: "foot-slow", label: "Пішки повільно", milesPerHour: 2, milesPerDay: 18, hoursPerDay: 8, note: "можна крастися" },
   { id: "foot", label: "Пішки", milesPerHour: 3, milesPerDay: 24, hoursPerDay: 8, note: "" },
@@ -21,14 +23,35 @@ export const TRAVEL_MODES = [
   // звичайному; це вибір дошки, а не рядок таблиці.
   { id: "mount", label: "Верхи", milesPerHour: 4, milesPerDay: 30, hoursPerDay: 8, note: "галоп ×2, але не довше години" },
   { id: "wagon", label: "Возом", milesPerHour: 3, milesPerDay: 24, hoursPerDay: 8, note: "темп обирається як пішки" },
-  // Партія ходить власним кораблем, тож решта суден лежить прихованою: числа
-  // на місці, і повернути рядок — це зняти `hidden`.
-  { id: "sailing-ship", label: "Вітрильник", milesPerHour: 2, milesPerDay: 48, hoursPerDay: 24, note: "", hidden: true },
-  { id: "longship", label: "Довгий човен", milesPerHour: 3, milesPerDay: 72, hoursPerDay: 24, note: "", hidden: true },
-  // «Росінант» — корвет, найшвидший у гавані Кардоси; власних статів картка
-  // корабля не дає, тому він іде за галерою — найпрудкішим судном таблиці.
-  { id: "rosinant", label: "Росінант", milesPerHour: 4, milesPerDay: 96, hoursPerDay: 24, note: "швидкість галери" },
+  { id: "sailing-ship", label: "Вітрильник", milesPerHour: 2, milesPerDay: 48, hoursPerDay: 24, note: "" },
+  { id: "longship", label: "Довгий човен", milesPerHour: 3, milesPerDay: 72, hoursPerDay: 24, note: "" },
+  { id: "galley", label: "Галера", milesPerHour: 4, milesPerDay: 96, hoursPerDay: 24, note: "" },
 ];
+
+// Свій рядок таблиці з конфігу кампанії: ті самі поля, що й у TRAVEL_MODES.
+// Кидає помилку з назвою поля — її покаже канва при відкритті кампанії.
+export function validateTravelMode(mode, where = "travel.extra") {
+  if (!mode || typeof mode !== "object" || Array.isArray(mode)) throw new Error(`${where}: кожен рядок має бути об'єктом`);
+  if (typeof mode.id !== "string" || !mode.id.trim()) throw new Error(`${where}: id має бути непорожнім рядком`);
+  if (typeof mode.label !== "string" || !mode.label.trim()) throw new Error(`${where}.${mode.id}: label має бути непорожнім рядком`);
+  for (const field of ["milesPerHour", "milesPerDay"]) {
+    if (!(Number.isFinite(mode[field]) && mode[field] > 0)) throw new Error(`${where}.${mode.id}: ${field} має бути додатним числом`);
+  }
+  if (!(Number.isInteger(mode.hoursPerDay) && mode.hoursPerDay >= 1 && mode.hoursPerDay <= 24)) {
+    throw new Error(`${where}.${mode.id}: hoursPerDay має бути цілим числом від 1 до 24`);
+  }
+  if (mode.note !== undefined && typeof mode.note !== "string") throw new Error(`${where}.${mode.id}: note має бути рядком`);
+  return { id: mode.id, label: mode.label, milesPerHour: mode.milesPerHour, milesPerDay: mode.milesPerDay, hoursPerDay: mode.hoursPerDay, note: mode.note ?? "" };
+}
+
+// Таблиця лінійки для кампанії: типові рядки без схованих, далі свої — у
+// тому порядку, у якому їх перелічено. Свій рядок із id типового замінює його.
+export function travelModes({ hide = [], extra = [] } = {}) {
+  const hidden = new Set(hide);
+  const own = new Map(extra.map((mode) => [mode.id, mode]));
+  const base = TRAVEL_MODES.filter((mode) => !hidden.has(mode.id) && !own.has(mode.id));
+  return [...base, ...extra.filter((mode) => !hidden.has(mode.id))];
+}
 
 // Українська форма числа: 1 день, 2 дні, 5 днів; 11–14 завжди «днів».
 export function plural(count, one, few, many) {
@@ -103,5 +126,5 @@ export function milesLabel(miles) {
 }
 
 export function travelEstimates(miles, modes = TRAVEL_MODES) {
-  return modes.filter((mode) => !mode.hidden).map((mode) => ({ ...mode, duration: formatTravelTime(miles, mode) }));
+  return modes.map((mode) => ({ ...mode, duration: formatTravelTime(miles, mode) }));
 }

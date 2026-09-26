@@ -4,41 +4,19 @@
 // FileSystemDirectoryHandle, — а її handle запамʼятовується в IndexedDB так,
 // як це робить сама канва після вибору теки.
 import assert from "node:assert/strict";
-import { createReadStream } from "node:fs";
-import { stat } from "node:fs/promises";
-import { createServer } from "node:http";
-import { dirname, extname, join, resolve, sep } from "node:path";
 import { after, before, describe, test } from "node:test";
-import { fileURLToPath } from "node:url";
 import { findChrome, launchBrowser } from "./browser.mjs";
 import { FILES, MEDIA, TINY_WEBP, allNodes, findNode, layout } from "./fixture.mjs";
+import { staticSite } from "./static-site.mjs";
 
 const chrome = findChrome();
-const PUBLIC = resolve(dirname(fileURLToPath(import.meta.url)), "../../public");
-const TYPES = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml" };
-
-// Лише статика, як на Pages: /api/health тут 404, тож канва обирає теку.
-async function staticServer() {
-  const server = createServer(async (request, response) => {
-    const path = resolve(PUBLIC, `.${new URL(request.url, "http://x").pathname.replace(/\/$/, "/index.html")}`);
-    try {
-      if (!path.startsWith(PUBLIC + sep) || !(await stat(path)).isFile()) throw new Error();
-      response.writeHead(200, { "content-type": TYPES[extname(path)] ?? "application/octet-stream" });
-      createReadStream(path).pipe(response);
-    } catch {
-      response.writeHead(404).end();
-    }
-  });
-  await new Promise((done) => server.listen(0, "127.0.0.1", done));
-  return { server, url: `http://127.0.0.1:${server.address().port}/` };
-}
 
 describe("canvas in a browser, local folder mode", { skip: !chrome && "Chrome не знайдено" }, () => {
   let browser;
   let site;
   before(async () => {
     browser = await launchBrowser();
-    site = await staticServer();
+    site = await staticSite();
   });
   after(async () => {
     await browser?.close();
@@ -162,5 +140,7 @@ describe("canvas in a browser, local folder mode", { skip: !chrome && "Chrome н
       && document.querySelector("#connection-hint").textContent.includes("board/canvas.json"), { message: "нема пояснення" });
     assert.match(await page.evaluate(() => document.querySelector("#connection-hint").textContent), /board\/canvas\.json: Непідтримуваний тип вузла/);
     assert.equal(await read("board/canvas.json"), broken);
+    // Дошки не відкрито — повертатися нема куди, і кнопки не видно.
+    assert.equal(await page.evaluate(() => document.querySelector("#cancel-campaign").offsetParent), null);
   });
 });

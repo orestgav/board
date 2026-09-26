@@ -3,6 +3,8 @@ import test from "node:test";
 import {
   CALIBRATION_MILES,
   TRAVEL_MODES,
+  travelModes,
+  validateTravelMode,
   formatMiles,
   formatTravelTime,
   milesLabel,
@@ -46,7 +48,7 @@ test("travel paces keep the book numbers, day column included", () => {
   );
   assert.deepEqual([mode("wagon").milesPerHour, mode("wagon").milesPerDay], [3, 24]);
   // Кораблі йдуть цілодобово, тож добовий шлях — це швидкість судна на 24.
-  for (const id of ["sailing-ship", "longship", "rosinant"]) {
+  for (const id of ["sailing-ship", "longship", "galley"]) {
     assert.equal(mode(id).hoursPerDay, 24);
     assert.equal(mode(id).milesPerDay, mode(id).milesPerHour * 24);
   }
@@ -72,8 +74,8 @@ test("duration counts days of marching, not calendar days", () => {
   assert.equal(formatTravelTime(24 * 5, mode("foot")), "5 днів");
   assert.equal(formatTravelTime(24 * 11, mode("foot")), "11 днів");
   // Ходовий день корабля — ціла доба, тому та сама відстань дається дешевше.
-  assert.equal(formatTravelTime(48, mode("rosinant")), "12 год");
-  assert.equal(formatTravelTime(96, mode("rosinant")), "1 день");
+  assert.equal(formatTravelTime(48, mode("galley")), "12 год");
+  assert.equal(formatTravelTime(96, mode("galley")), "1 день");
   assert.equal(formatTravelTime(200, mode("sailing-ship")), "4 дні 4 год");
 });
 
@@ -95,12 +97,30 @@ test("plural picks the Ukrainian form", () => {
   );
 });
 
-test("estimates hang a duration on each visible mode and skip the hidden ones", () => {
+test("estimates hang a duration on every mode of the table", () => {
   const rows = travelEstimates(48);
-  assert.equal(rows.length, TRAVEL_MODES.filter((mode) => !mode.hidden).length);
+  assert.equal(rows.length, TRAVEL_MODES.length);
   assert.equal(rows.find((row) => row.id === "foot").duration, "2 дні");
-  assert.equal(rows.find((row) => row.id === "rosinant").duration, "12 год");
-  // Партія ходить «Росінантом», тож решта суден не показується.
-  assert.deepEqual(rows.filter((row) => row.hoursPerDay === 24).map((row) => row.label), ["Росінант"]);
-  assert.equal(rows.some((row) => row.id === "sailing-ship" || row.id === "longship"), false);
+  assert.equal(rows.find((row) => row.id === "galley").duration, "12 год");
+});
+
+test("a campaign hides book rows and adds its own, in its own order", () => {
+  const rosinant = { id: "rosinant", label: "Росінант", milesPerHour: 4, milesPerDay: 96, hoursPerDay: 24, note: "швидкість галери" };
+  const modes = travelModes({ hide: ["sailing-ship", "longship", "galley"], extra: [rosinant] });
+  assert.deepEqual(modes.map((row) => row.id), ["foot-slow", "foot", "foot-fast", "mount", "wagon", "rosinant"]);
+  assert.deepEqual(travelModes().map((row) => row.id), TRAVEL_MODES.map((row) => row.id));
+  // Свій рядок із id книжкового замінює його.
+  const faster = travelModes({ extra: [{ ...rosinant, id: "mount", label: "Бойовий кінь" }] });
+  assert.equal(faster.filter((row) => row.id === "mount").length, 1);
+  assert.equal(faster.find((row) => row.id === "mount").label, "Бойовий кінь");
+});
+
+test("a campaign's own travel row is checked field by field", () => {
+  const good = { id: "griffon", label: "Грифон", milesPerHour: 8, milesPerDay: 64, hoursPerDay: 8 };
+  assert.deepEqual(validateTravelMode(good), { ...good, note: "" });
+  assert.throws(() => validateTravelMode({ ...good, milesPerHour: 0 }), /griffon: milesPerHour має бути додатним числом/);
+  assert.throws(() => validateTravelMode({ ...good, hoursPerDay: 25 }), /hoursPerDay має бути цілим числом від 1 до 24/);
+  assert.throws(() => validateTravelMode({ ...good, label: "" }), /label має бути непорожнім рядком/);
+  assert.throws(() => validateTravelMode({ ...good, id: undefined }), /id має бути непорожнім рядком/);
+  assert.throws(() => validateTravelMode("кінь"), /має бути об'єктом/);
 });

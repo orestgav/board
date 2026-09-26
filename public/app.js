@@ -32,7 +32,7 @@ import { canonicalYouTubeUrl, musicTitle, oEmbedUrl, parseMusicStart, playbackUr
 import { centeredViewOnRect, locationBorderScreenWidth, locationHeaderHeight, maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, rebasedView, rectWithin, rectsOverlap, worldViewportRect, zoomedViewAt } from "./view.js";
 import { elementToPng, urlToPng, writeImageToClipboard } from "./snapshot.js";
 import { BOARD_THUMBNAIL_SIZE, PORTRAIT_THUMBNAIL_SIZE, createThumbnails, wantsFullImage } from "./thumbnails.js";
-import { CALIBRATION_MILES, milesLabel, parseScale, plural as pluralForm, routeMiles, scaleFromCalibration, travelEstimates } from "./travel.js";
+import { CALIBRATION_MILES, milesLabel, parseScale, plural as pluralForm, routeMiles, scaleFromCalibration, travelEstimates, travelModes } from "./travel.js";
 
 const MIN_NODE_SIZE = Number.EPSILON;
 const MIN_ZOOM_VIEWPORT_COVERAGE = 0.7;
@@ -68,7 +68,6 @@ const ENTITY_KINDS = {
   location: {
     icon: "location_on",
     variant: "frame",
-    members: ["npc", "предмети"], // мітки рядків у секції звʼязків локації
     command: "Додати локацію",
     pickerTitle: "Локація з репозиторію",
     searchPlaceholder: "Назва або slug локації…",
@@ -120,6 +119,10 @@ const connectionScreen = document.querySelector("#connection-screen");
 const connectionHint = document.querySelector("#connection-hint");
 const openCampaignButton = document.querySelector("#open-campaign");
 const changeCampaignButton = document.querySelector("#change-campaign");
+const cancelCampaignButton = document.querySelector("#cancel-campaign");
+const openCampaignLabel = document.querySelector("#open-campaign-label");
+const recentCampaigns = document.querySelector("#recent-campaigns");
+const campaignNameLabel = document.querySelector("#campaign-name");
 const addEntityButton = document.querySelector("#add-entity");
 const addLocationButton = document.querySelector("#add-location");
 const addNpcButton = document.querySelector("#add-npc");
@@ -219,22 +222,62 @@ let viewSettleTimer = null;
 let viewIndex = new Map();
 // Справжня товщина рамки кожного вузла за id — див. renderedIndex.
 const nodeBorders = new Map();
-const thumbnails = createThumbnails({
-  readCached: (path) => storage.cachedThumbnail(path),
-  saveCached: (path, blob) => storage.saveThumbnail(blob, path),
-  readOriginal: async (path) => (await fetch(await storage.mediaUrl(path, false))).blob(),
-  shrink: shrinkImage,
-});
+// Мініатюри памʼятаються за шляхом файла, а шляхи в різних кампаніях
+// збігаються, тож кожна кампанія дістає власний набір.
+function newThumbnails() {
+  return createThumbnails({
+    readCached: (path) => storage.cachedThumbnail(path),
+    saveCached: (path, blob) => storage.saveThumbnail(blob, path),
+    readOriginal: async (path) => (await fetch(await storage.mediaUrl(path, false))).blob(),
+    shrink: shrinkImage,
+  });
+}
+let thumbnails = newThumbnails();
 // Масштаб карти переживає перезавантаження, сам маршрут — ні: він потрібен
 // рівно на ту розмову, у якій його проклали.
-const ROUTE_SCALE_KEY = "crown-board.route-scale";
-let routeScale = parseScale(localStorage.getItem(ROUTE_SCALE_KEY));
+let routeScale = null;
 let routeMode = null;
 let routePoints = [];
 let routePointer = null;
-let layersOpen = localStorage.getItem("crown-board.layers-open") === "true";
-const storedView = localStorage.getItem("crown-board.viewport");
-let view = loadView();
+
+// localStorage буває недоступним (приватне вікно, заборонені дані сайту) —
+// тоді канва просто нічого не памʼятає між відкриттями.
+function readStorage(key) {
+  try { return localStorage.getItem(key); } catch { return null; }
+}
+function writeStorage(key, value) {
+  try { localStorage.setItem(key, value); } catch {}
+}
+function removeStorage(key) {
+  try { localStorage.removeItem(key); } catch {}
+}
+
+// Позиція полотна й масштаб лінійки — свої в кожної кампанії, під ключем із
+// board.config.json (`id`) або назвою теки. Колись вони були спільні, під
+// ключами crown-board.*; їх забирає перша кампанія, відкрита після оновлення.
+let campaignStateKey = null;
+const LEGACY_CAMPAIGN_KEYS = { viewport: "crown-board.viewport", "route-scale": "crown-board.route-scale" };
+
+function campaignSetting(name) {
+  const key = `board.${campaignStateKey}.${name}`;
+  const own = readStorage(key);
+  if (own !== null) return own;
+  const legacyKey = LEGACY_CAMPAIGN_KEYS[name];
+  const legacy = legacyKey ? readStorage(legacyKey) : null;
+  if (legacy === null) return null;
+  writeStorage(key, legacy);
+  removeStorage(legacyKey);
+  return legacy;
+}
+
+function setCampaignSetting(name, value) {
+  if (campaignStateKey !== null) writeStorage(`board.${campaignStateKey}.${name}`, value);
+}
+
+// Відкрита панель шарів — звичка ДМа, а не кампанії, тож вона спільна.
+const LAYERS_KEY = "board.layers-open";
+let layersOpen = (readStorage(LAYERS_KEY) ?? readStorage("crown-board.layers-open")) === "true";
+let view = loadView(null);
 
 function setLayersOpen(open, persist = true) {
   layersOpen = open;
@@ -243,24 +286,28 @@ function setLayersOpen(open, persist = true) {
   toggleLayersButton.title = open ? "Закрити шари" : "Відкрити шари";
   toggleLayersButton.setAttribute("aria-label", toggleLayersButton.title);
   toggleLayersButton.setAttribute("aria-expanded", String(open));
-  if (persist) localStorage.setItem("crown-board.layers-open", String(open));
+  if (persist) {
+    writeStorage(LAYERS_KEY, String(open));
+    removeStorage("crown-board.layers-open");
+  }
   if (open) renderLayers();
 }
 
 setLayersOpen(layersOpen, false);
 
-function loadView() {
+function loadView(stored) {
+  const fallback = { x: innerWidth / 2 - WORLD_SIZE / 2, y: innerHeight / 2 - WORLD_SIZE / 2, scale: 1 };
   try {
-    const loaded = { x: innerWidth / 2 - WORLD_SIZE / 2, y: innerHeight / 2 - WORLD_SIZE / 2, scale: 1, ...JSON.parse(storedView) };
+    const loaded = { ...fallback, ...JSON.parse(stored) };
     if (!Number.isFinite(loaded.x) || !Number.isFinite(loaded.y) || !Number.isFinite(loaded.scale) || loaded.scale <= 0) throw new Error("Invalid viewport");
     return loaded;
   } catch {
-    return { x: innerWidth / 2 - WORLD_SIZE / 2, y: innerHeight / 2 - WORLD_SIZE / 2, scale: 1 };
+    return fallback;
   }
 }
 
 function persistView() {
-  localStorage.setItem("crown-board.viewport", JSON.stringify(view));
+  setCampaignSetting("viewport", JSON.stringify(view));
 }
 
 function clamp(value, min, max) { return Math.min(max, Math.max(min, value)); }
@@ -856,7 +903,7 @@ function renderNode(node, isRoot = false) {
       // Аркуш — окремий шар, щоб підібраний кегль не чіпав полів самого тіла.
       const sheet = document.createElement("div");
       sheet.className = "statblock-sheet";
-      sheet.innerHTML = statblockMarkup(entity);
+      sheet.innerHTML = statblockMarkup(entity, { hiddenSections: boardConfig.entities.statblockHiddenSections });
       // Арт вантажиться вже після підбору кегля, тож рамка під нього має
       // фіксований розмір у стилях — інакше картинка знову б дала скрол.
       const art = sheet.querySelector(".sb-art > img");
@@ -1807,7 +1854,8 @@ function entityNode(entity, left, top, rect, size = entityKind(entity)?.size ?? 
 // у її секції звʼязків, у цьому порядку. Посилання на неіндексовані типи
 // (наприклад players/) на полотно не кладемо, але про них повідомляємо.
 function containerNode(entity, kind, point, rect) {
-  const slugs = [...new Set(kind.members.flatMap((label) => entity.links[label] ?? []))];
+  // Мітки рядків («NPC», «Предмети») задає кампанія: entities.locationMembers.
+  const slugs = [...new Set(boardConfig.entities.locationMembers.flatMap((label) => entity.links[label] ?? []))];
   const members = slugs.map((slug) => entitiesBySlug.get(slug)).filter(Boolean);
   const missing = slugs.filter((slug) => !entitiesBySlug.has(slug));
   if (missing.length) showToast(`Немає в індексі карток: ${missing.join(", ")}`);
@@ -1830,7 +1878,7 @@ function addEntity(entity) {
   const point = insertPoint ?? defaultInsertPoint();
   const { parent, rect } = nearestPointParent(layout, point);
   const kind = entityKind(entity);
-  const node = kind?.members ? containerNode(entity, kind, point, rect) : entityNode(entity, point.x, point.y, rect);
+  const node = kind?.variant === "frame" ? containerNode(entity, kind, point, rect) : entityNode(entity, point.x, point.y, rect);
   executeCommand(kind?.command ?? "Додати картку", () => {
     (parent ? parent.children : layout.children).push(node);
     setSelection([node.id]);
@@ -2837,7 +2885,7 @@ function addRoutePoint(point) {
     return showToast("Точки збіглися — постав другу далі від першої");
   }
   routeScale = scale;
-  localStorage.setItem(ROUTE_SCALE_KEY, String(scale));
+  setCampaignSetting("route-scale", String(scale));
   setRouteMode("route");
   showToast("Масштаб запамʼятано. Тепер клацай точки маршруту.");
 }
@@ -2889,7 +2937,7 @@ function renderRoutePopup(spots) {
   routeTotal.textContent = milesLabel(miles);
   const legs = routePoints.length - 1;
   routeLegs.textContent = `${routePoints.length} ${pluralForm(routePoints.length, "точка", "точки", "точок")} · ${legs} ${pluralForm(legs, "відрізок", "відрізки", "відрізків")}`;
-  routeRows.innerHTML = travelEstimates(miles).map((row) => `<tr>
+  routeRows.innerHTML = travelEstimates(miles, travelModes(boardConfig.travel)).map((row) => `<tr>
     <td>${row.label}${row.note ? `<small>${row.note}</small>` : ""}</td>
     <td>${row.milesPerDay}</td>
     <td>${row.duration}</td>
@@ -3144,7 +3192,7 @@ document.addEventListener("copy", (event) => {
 });
 
 document.addEventListener("paste", (event) => {
-  if (!layout || entityPicker.open || entityDetails.open || musicDialog.open || sceneRenameDialog.open) return;
+  if (!layout || !connectionScreen.hidden || entityPicker.open || entityDetails.open || musicDialog.open || sceneRenameDialog.open) return;
   if (event.target.matches?.("input, textarea, [contenteditable=true]")) return;
   const images = supportedImages(event.clipboardData?.files);
   const text = event.clipboardData?.getData("text/plain") ?? "";
@@ -3159,6 +3207,8 @@ document.addEventListener("paste", (event) => {
 });
 
 window.addEventListener("keydown", (event) => {
+  // Поки обирають кампанію, дошка під екраном вибору клавіш не чує.
+  if (!connectionScreen.hidden) return;
   if (!nodeContextMenu.hidden && event.key === "Escape") {
     event.preventDefault();
     closeContextMenu();
@@ -3403,9 +3453,23 @@ entitySearch.addEventListener("keydown", (event) => {
 
 async function loadBoard() {
   const state = await storage.loadBoard();
-  boardConfig = state.config;
   setStatus("Індексація карток…", "dirty");
   const [loadedEntities, loadedNotes] = await Promise.all([storage.loadEntities(), storage.loadNotes()]);
+  // Кампанія починається з чистого аркуша: мініатюри, підібрані кеглі, позиція
+  // полотна й масштаб лінійки — її власні, а не тієї, що була відкрита до неї.
+  boardConfig = state.config;
+  campaignStateKey = state.campaignKey;
+  thumbnails = newThumbnails();
+  textRatioByBox.clear();
+  nodeBorders.clear();
+  hpAmountByNode.clear();
+  statblockScrollByNode.clear();
+  scene.replaceChildren();
+  lastLayersSignature = null;
+  setRouteMode(null);
+  routeScale = parseScale(campaignSetting("route-scale"));
+  const storedView = campaignSetting("viewport");
+  view = loadView(storedView);
   entities = loadedEntities;
   entitiesBySlug = new Map(entities.map((entity) => [entity.slug, entity]));
   notesByRef = new Map(loadedNotes.map((note) => [note.reference, note]));
@@ -3418,7 +3482,8 @@ async function loadBoard() {
   setSelection([]);
   undoStack = [];
   redoStack = [];
-  document.querySelector("#campaign-name").textContent = state.campaign;
+  campaignNameLabel.textContent = state.campaign;
+  document.title = `${state.campaign} — дошка`;
   connectionScreen.hidden = true;
   render();
   applyView();
@@ -3426,24 +3491,126 @@ async function loadBoard() {
   setStatus("Збережено");
 }
 
-async function connectCampaign(chooseNew = false) {
-  openCampaignButton.disabled = true;
-  connectionHint.textContent = "Очікую вибір папки…";
+// Дошка, з якої вже пішли: сховище дивиться в іншу теку, тож від старої
+// розкладки не має лишитися нічого, що могло б туди записатися.
+function closeBoard() {
+  clearTimeout(saveTimer);
+  saveTimer = null;
+  clearTimeout(hitPointEdit?.timer);
+  hitPointEdit = null;
+  dirty = false;
+  interaction = null;
+  editingNoteId = null;
+  layout = null;
+  setSelection([]);
+  undoStack = [];
+  redoStack = [];
+  scene.replaceChildren();
+  layerTree.replaceChildren();
+  emptyState.hidden = true;
+  setRouteMode(null);
+  campaignNameLabel.textContent = "Кампанію не відкрито";
+  document.title = "Дошка кампанії";
+  setStatus("Оберіть кампанію");
+}
+
+// Перш ніж перейти до іншої кампанії, поточна має лягти на диск: інакше її
+// незбережене або пропало б, або поїхало б у чужу теку.
+async function settleBoard() {
+  if (conflicted) {
+    showToast("Спершу виріши конфлікт canvas.json у цій кампанії");
+    return false;
+  }
+  flushSave();
+  const started = Date.now();
+  while (hasUnsavedWork() && !conflicted && Date.now() - started < 10_000) {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  if (conflicted || hasUnsavedWork()) {
+    showToast("Поточну кампанію не вдалося зберегти — перехід скасовано");
+    return false;
+  }
+  return true;
+}
+
+function formatOpenedAt(openedAt) {
+  if (!openedAt) return "";
+  return new Date(openedAt).toLocaleDateString("uk", { day: "numeric", month: "long" });
+}
+
+// Нещодавні кампанії — одним кліком, без пошуку теки в системному вікні.
+async function renderRecentCampaigns() {
+  const recent = await storage.recent();
+  recentCampaigns.hidden = recent.length === 0;
+  openCampaignLabel.textContent = recent.length ? "Інша тека…" : "Обрати теку кампанії";
+  recentCampaigns.replaceChildren(...recent.map((entry) => {
+    const row = document.createElement("div");
+    row.className = "recent-campaign";
+    const open = document.createElement("button");
+    open.type = "button";
+    open.className = "recent-open";
+    open.dataset.campaign = entry.id;
+    const name = document.createElement("strong");
+    name.textContent = entry.name;
+    const details = document.createElement("small");
+    const opened = formatOpenedAt(entry.openedAt);
+    details.textContent = opened ? `${entry.folder} · ${opened}` : entry.folder;
+    open.append(name, details);
+    open.addEventListener("click", () => connectCampaign({ id: entry.id }));
+    const forget = document.createElement("button");
+    forget.type = "button";
+    forget.className = "recent-forget";
+    forget.title = `Забути «${entry.name}» (тека лишиться на диску)`;
+    forget.setAttribute("aria-label", forget.title);
+    forget.append(iconElement("close"));
+    forget.addEventListener("click", async () => {
+      await storage.forget(entry.id);
+      await renderRecentCampaigns();
+    });
+    row.append(open, forget);
+    return row;
+  }));
+}
+
+async function showConnectionScreen({ hint = null } = {}) {
+  // Спершу свіжий список, потім екран: інакше на мить проступив би список із
+  // минулого разу в старому порядку — і клік міг би влучити не в ту кампанію.
+  await renderRecentCampaigns();
+  // Повернутися можна лише туди, де вже щось відкрито.
+  cancelCampaignButton.hidden = !layout;
+  if (hint !== null) connectionHint.textContent = hint;
+  connectionScreen.hidden = false;
+}
+
+function setConnectionBusy(busy) {
+  for (const button of connectionScreen.querySelectorAll("button")) button.disabled = busy;
+}
+
+// `{ id }` — одна з нещодавніх кампаній, без нього — системний вибір теки.
+async function connectCampaign(target = {}) {
+  if (layout && !(await settleBoard())) return;
+  setConnectionBusy(true);
+  connectionHint.textContent = target.id ? "Відкриваю кампанію…" : "Очікую вибір теки…";
   try {
-    await storage.connect(chooseNew);
+    await storage.connect(target);
+    closeBoard();
     await loadBoard();
+    connectionHint.textContent = "";
   } catch (error) {
-    if (error.name !== "AbortError") {
+    if (error.name === "AbortError") connectionHint.textContent = "Вибір скасовано.";
+    else {
       connectionHint.textContent = error.message;
       showToast(error.message);
-    } else connectionHint.textContent = "Вибір скасовано.";
+    }
   } finally {
-    openCampaignButton.disabled = false;
+    setConnectionBusy(false);
+    if (!connectionScreen.hidden) await showConnectionScreen();
   }
 }
 
-openCampaignButton.addEventListener("click", () => connectCampaign(false));
-changeCampaignButton.addEventListener("click", () => connectCampaign(true));
+openCampaignButton.addEventListener("click", () => connectCampaign());
+changeCampaignButton.addEventListener("click", () => showConnectionScreen({ hint: "" }));
+cancelCampaignButton.addEventListener("click", () => { connectionScreen.hidden = true; });
 
 for (const element of document.querySelectorAll("[data-icon]")) {
   element.prepend(iconElement(element.dataset.icon));
@@ -3453,16 +3620,15 @@ try {
   storage = trackStorageWrites(await createStorage());
   if (storage.kind !== "directory") {
     changeCampaignButton.disabled = true;
-    changeCampaignButton.title = "Кампанія";
+    changeCampaignButton.title = "Сервер відкрито на одну кампанію (--base)";
   }
   if (await storage.restore()) await loadBoard();
   else {
-    connectionScreen.hidden = false;
+    await showConnectionScreen();
     setStatus("Оберіть кампанію");
   }
 } catch (error) {
-  connectionScreen.hidden = false;
-  connectionHint.textContent = error.message;
+  await showConnectionScreen({ hint: error.message }).catch(() => {});
   setStatus("Помилка завантаження", "error");
   showToast(error.message);
 }
