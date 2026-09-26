@@ -201,14 +201,18 @@ describe("canvas in a browser, local server mode", { skip: !chrome && "Chrome н
     const { page, campaign } = await open(context);
     await page.clickAt(EMPTY);
     await page.press("Ctrl+k");
-    await page.waitFor(() => document.querySelector("#entity-picker").open);
+    // Поле пошуку фокусується кадром пізніше: без цього на повільному раннері
+    // текст і Enter ідуть повз нього.
+    await page.waitFor(() => document.querySelector("#entity-picker").open && document.activeElement?.id === "entity-search");
     await page.type("Лампа");
     await page.waitFor(() => document.querySelectorAll(".entity-result").length === 1);
     await page.press("Enter");
     await page.until(async () => allNodes(await campaign.canvas(), (node) => node.entity === "lamp").length === 1, { message: "картка не лягла" });
 
     await page.click("#add-location");
-    await page.waitFor(() => document.querySelector("#entity-picker").open);
+    // Поле пошуку фокусується кадром пізніше: без цього на повільному раннері
+    // текст і Enter ідуть повз нього.
+    await page.waitFor(() => document.querySelector("#entity-picker").open && document.activeElement?.id === "entity-search");
     await page.type("Порт");
     await page.press("Enter");
     await page.until(async () => {

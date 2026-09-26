@@ -1750,6 +1750,7 @@ async function createNoteAt(point) {
         y: (point.y - rect.y) / rect.height * 100,
         width: 320, height: 190, locked: false, children: [],
       };
+      centeredAt(node, rect);
       enlargeForZoom(node, point, rect);
       (parent ? parent.children : layout.children).push(node);
       setSelection([id]);
@@ -1797,6 +1798,13 @@ function enlargeForZoom(node, point, area) {
   node.x = (point.x + (left - point.x) * factor - area.x) / area.width * 100;
   node.y = (point.y + (top - point.y) * factor - area.y) / area.height * 100;
   scaleSizes(node, factor);
+  return node;
+}
+
+// Картка лягає серединою під курсор — так само, як токен і вставлена копія.
+function centeredAt(node, area) {
+  node.x -= node.width / 2 / area.width * 100;
+  node.y -= node.height / 2 / area.height * 100;
   return node;
 }
 
@@ -1912,7 +1920,7 @@ function addEntity(entity) {
   const point = insertPoint ?? defaultInsertPoint();
   const { parent, rect } = nearestPointParent(layout, point, RENDERED);
   const kind = entityKind(entity);
-  const node = kind?.variant === "frame" ? containerNode(entity, kind, point, rect) : entityNode(entity, point.x, point.y, rect);
+  const node = kind?.variant === "frame" ? containerNode(entity, kind, point, rect) : centeredAt(entityNode(entity, point.x, point.y, rect), rect);
   enlargeForZoom(node, point, rect);
   executeCommand(kind?.command ?? "Додати картку", () => {
     (parent ? parent.children : layout.children).push(node);
@@ -2015,6 +2023,7 @@ function addMusic() {
     width: MUSIC_CARD.width, height: MUSIC_CARD.height, locked: false, children: [],
     ...(start ? { start } : {}),
   };
+  centeredAt(node, rect);
   enlargeForZoom(node, point, rect);
   executeCommand("Додати музику", () => {
     (parent ? parent.children : layout.children).push(node);
