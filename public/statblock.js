@@ -19,6 +19,43 @@ const SECTION_ORDER = ["Риси", "Дії", "Бонусні дії", "Реак�
 const STAT_ENTRY = /^\*\*[^*\n]+\.\*\*/;
 const SAVE = /^([A-Za-zА-Яа-я]{3})\s*([+\-−]?\d+)/;
 
+// Ключове в рисах і діях, яке ДМ шукає очима посеред бою: характеристика
+// рятунку з його СЛ, бонус до влучання, кістки шкоди з типом і стани.
+const LETTER = "\\p{L}";
+const WORD_START = `(?<![${LETTER}\\d])`;
+const WORD_END = `(?![${LETTER}])`;
+const ABILITY = "(?:Сил[иа]|Спритн[а-яі]*|Статур[иа]|Витривал[а-яі]*|Інтелект[уа]?|Мудр[а-яі]*|Харизм[иа]"
+  + "|STR|DEX|CON|INT|WIS|CHA|Strength|Dexterity|Constitution|Intelligence|Wisdom|Charisma)";
+const DC = "(?:DC|СЛ|СК)\\s*\\d+";
+const DAMAGE_TYPE = "(?:колюч|рубл|рубаюч|дробил|вогнян|холод|кислот|отрутн|психічн|некротичн|промен|випромін|сяйв|громов"
+  + "|блискав|електр|силов|piercing|slashing|bludgeoning|fire|cold|acid|poison|psychic|necrotic|radiant|thunder|lightning|force)[\\p{L}]*";
+const ROLL = "\\d+\\s*[кd]\\s*\\d+(?:\\s*[+−-]\\s*\\d+)?";
+const DICE = `(?:\\d+\\s*)?(?:\\(${ROLL}\\)|${ROLL})`;
+const APOSTROPHE = "(?:'|’|&#39;)";
+const CONDITION = "(?:схоплен|зачарован|наляка|переляка|осліплен|оглух|паралізован|скам" + APOSTROPHE + "ян|отруєн|знерухомлен"
+  + "|недієздатн|невидим|непритомн|приголомшен|оглушен|виснажен|переваг)[\\p{L}]*|лежить ниць|збит[\\p{L}]* з ніг"
+  + "|(?:з|має|мають|отримує|дає)\\s+перешкод[\\p{L}]*"
+  + "|(?:grappled|restrained|prone|charmed|frightened|blinded|deafened|paralyzed|petrified|poisoned|stunned|incapacitated"
+  + "|invisible|unconscious|exhaustion|advantage|disadvantage)";
+const KEY_TERMS = new RegExp([
+  // «Мудрості (DC 15)», «Сили або Спритності СЛ 13», «WIS Save DC 14», «Constitution Saving Throw: DC 14».
+  `${ABILITY}(?:\\s+або\\s+${ABILITY})?(?:\\s+(?:Saving Throw|save)\\s*:?)?\\s*(?:\\(\\s*${DC}\\s*\\)|(?:зі\\s+)?${DC})`,
+  // Характеристика рятунку без СЛ: «рятунковий кидок Статури проти…».
+  `(?<=(?:рятунков[\\p{L}]*\\s+кид[\\p{L}]*|ряткид[\\p{L}]*|кид[\\p{L}]*\\s+рятунку)\\s+)${ABILITY}`,
+  // Решта складностей: «СЛ вислизання 14», «Escape DC 14».
+  `(?:СЛ\\s+вислизання\\s+\\d+|(?:escape\\s+)?${DC})`,
+  `[+−-]\\d+\\s+(?:до\\s+(?:влучання|атаки)|to hit)`,
+  `${DICE}(?:\\s+${DAMAGE_TYPE})?`,
+  CONDITION,
+].map((pattern) => `${WORD_START}(?:${pattern})${WORD_END}`).join("|"), "giu");
+
+// Працює по готовому HTML абзацу: теги й сутності не чіпає, обгортає лише текст.
+export function highlightKeyTerms(html) {
+  return String(html ?? "").split(/(<[^>]*>)/).map((part) => (part.startsWith("<")
+    ? part
+    : part.replace(KEY_TERMS, (match) => `<b class="sb-key">${match}</b>`))).join("");
+}
+
 function filled(value) {
   return value !== undefined && value !== null && String(value).trim() !== "" && String(value).trim() !== "—";
 }
@@ -86,7 +123,7 @@ export function statblockMarkup(entity, { hiddenSections = DEFAULT_HIDDEN_SECTIO
   const line = typeLine(meta);
   const abilities = ABILITIES.map(([field]) => `<td>${escapeHtml(filled(meta[field]) ? meta[field] : "+0")}</td>`).join("");
   const sections = statblockSections(entity.body, hiddenSections).map((section) => `<h3>${escapeHtml(SECTION_TITLES[section.title] ?? section.title.toLocaleUpperCase("uk"))}</h3>`
-    + section.paragraphs.map((paragraph) => `<p>${renderInline(paragraph)}</p>`).join("")).join("");
+    + section.paragraphs.map((paragraph) => `<p>${highlightKeyTerms(renderInline(paragraph))}</p>`).join("")).join("");
 
   // Підзаголовок у тій самій колонці, що й AC–Initiative: так арт праворуч
   // тягнеться на всю висоту шапки статблока.

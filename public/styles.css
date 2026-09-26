@@ -227,6 +227,7 @@ svg.icon { width: 20px; height: 20px; }
 .statblock-body p { margin: .58em 0; font-size: 12em; line-height: 1.45; }
 .statblock-body h3 ~ p strong { font-style: italic; }
 .statblock-body h3 ~ p em { color: var(--stat-muted); }
+.statblock-body .sb-key { color: #fff; font-style: normal; font-weight: 700; }
 .statblock-body .md-link { color: #8ddbd5; text-decoration-color: rgba(141, 219, 213, .45); }
 .node.locked > .statblock-body { pointer-events: none; }
 /* Музика — червонувата картка заввишки з саму шапку: назва треку й «плей». */
