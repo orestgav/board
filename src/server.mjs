@@ -15,10 +15,10 @@ import {
   splitNoteReference,
   updateNoteBlock,
 } from "../public/notes.js";
-import { canonicalYouTubeUrl, isMusicStart } from "../public/music.js";
-import { isTokenColor } from "../public/token.js";
+import { emptyLayout, parseLayout, validateLayout } from "../public/layout.js";
 
-export const LAYOUT_VERSION = 1;
+export { LAYOUT_VERSION, emptyLayout, validateLayout } from "../public/layout.js";
+
 const STATIC_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../public");
 const MIME_TYPES = new Map([
   [".css", "text/css; charset=utf-8"],
@@ -50,88 +50,6 @@ function revisionOf(source) {
   return `"${createHash("sha256").update(source).digest("base64url")}"`;
 }
 
-export function emptyLayout() {
-  return { formatVersion: LAYOUT_VERSION, children: [] };
-}
-
-export function validateLayout(layout) {
-  if (!layout || typeof layout !== "object" || Array.isArray(layout)) throw new Error("Розкладка має бути об'єктом");
-  if (layout.formatVersion !== LAYOUT_VERSION) {
-    const relation = Number(layout.formatVersion) > LAYOUT_VERSION ? "новіша за редактор" : "має непідтримувану версію";
-    throw new Error(`Розкладка ${relation}: ${layout.formatVersion ?? "відсутня"}`);
-  }
-  if (!Array.isArray(layout.children)) throw new Error("children має бути масивом");
-
-  const ids = new Set();
-  const visit = (node) => {
-    if (!node || typeof node !== "object" || Array.isArray(node)) throw new Error("Кожен вузол має бути об'єктом");
-    if (typeof node.id !== "string" || !node.id) throw new Error("Кожен вузол мусить мати id");
-    if (ids.has(node.id)) throw new Error(`Повторний id вузла: ${node.id}`);
-    ids.add(node.id);
-    if (!["frame", "scene", "image", "entity", "note", "music", "token"].includes(node.type)) throw new Error(`Непідтримуваний тип вузла: ${node.type}`);
-    for (const field of ["x", "y", "width", "height"]) {
-      if (!Number.isFinite(node[field])) throw new Error(`${node.id}.${field} має бути числом`);
-    }
-    if (node.width <= 0 || node.height <= 0) throw new Error(`${node.id}: вузол має мати додатний розмір`);
-    if (["frame", "scene"].includes(node.type) && typeof node.title !== "string") throw new Error(`${node.id}.title має бути рядком`);
-    if (node.type === "image") {
-      const imagePath = typeof node.image === "string" ? node.image.replaceAll("\\", "/") : "";
-      if (!imagePath.toLowerCase().endsWith(".webp") || imagePath.startsWith("/") || imagePath.split("/").includes("..")) {
-        throw new Error(`${node.id}.image має бути безпечним відносним шляхом до WebP`);
-      }
-    }
-    if (["entity", "token"].includes(node.type) && (typeof node.entity !== "string" || !node.entity)) {
-      throw new Error(`${node.id}.entity має бути непорожнім slug`);
-    }
-    // Колір кільця токена — лише з палітри; червоний за замовчуванням без поля.
-    if (node.type === "token" && node.color !== undefined && !isTokenColor(node.color)) {
-      throw new Error(`${node.id}.color має бути кольором із палітри токенів`);
-    }
-    // Поточні HP статблока: у кожної копії істоти свої, тож живуть у вузлі.
-    // Мінус — нормальне значення: так видно, наскільки істоту перебили.
-    if (node.hp !== undefined && !Number.isFinite(node.hp)) {
-      throw new Error(`${node.id}.hp має бути числом`);
-    }
-    // Кілька однакових істот на одній картці: у кожної свої HP й назва. Поки
-    // істота одна, вузол лишається на node.hp і масиву не має.
-    if (node.creatures !== undefined) {
-      if (!Array.isArray(node.creatures) || !node.creatures.length) {
-        throw new Error(`${node.id}.creatures має бути непорожнім масивом`);
-      }
-      for (const creature of node.creatures) {
-        if (!creature || typeof creature !== "object" || Array.isArray(creature)) {
-          throw new Error(`${node.id}.creatures: кожна істота має бути об'єктом`);
-        }
-        if (creature.hp !== undefined && !Number.isFinite(creature.hp)) {
-          throw new Error(`${node.id}.creatures: hp істоти має бути числом`);
-        }
-        if (creature.name !== undefined && typeof creature.name !== "string") {
-          throw new Error(`${node.id}.creatures: назва істоти має бути рядком`);
-        }
-      }
-    }
-    // Схований опис картки NPC; показаний — за замовчуванням, без поля.
-    if (node.hideSummary !== undefined && typeof node.hideSummary !== "boolean") {
-      throw new Error(`${node.id}.hideSummary має бути булевим`);
-    }
-    // Розмитий, як під спойлером, текст нотатки; видимий — без поля.
-    if (node.hideText !== undefined && typeof node.hideText !== "boolean") {
-      throw new Error(`${node.id}.hideText має бути булевим`);
-    }
-    if (node.type === "music") {
-      if (!canonicalYouTubeUrl(node.url)) throw new Error(`${node.id}.url має бути лінком на ролік YouTube`);
-      if (node.title !== undefined && typeof node.title !== "string") throw new Error(`${node.id}.title має бути рядком`);
-      // Секунда, з якої «плей» запускає трек; з початку — без поля.
-      if (node.start !== undefined && !isMusicStart(node.start)) throw new Error(`${node.id}.start має бути цілим числом секунд від 0`);
-    }
-    if (node.type === "note") splitNoteReference(node.note);
-    if (!Array.isArray(node.children)) throw new Error(`${node.id}.children має бути масивом`);
-    node.children.forEach(visit);
-  };
-  layout.children.forEach(visit);
-  return layout;
-}
-
 async function readConfig(base) {
   const configPath = join(base, "board.config.json");
   let config;
@@ -148,7 +66,7 @@ async function readConfig(base) {
 async function readLayout(layoutPath) {
   try {
     const source = await readFile(layoutPath, "utf8");
-    return { layout: validateLayout(JSON.parse(source)), revision: revisionOf(source) };
+    return { layout: parseLayout(source, basename(layoutPath)), revision: revisionOf(source) };
   } catch (error) {
     if (error.code !== "ENOENT") throw error;
     const layout = emptyLayout();

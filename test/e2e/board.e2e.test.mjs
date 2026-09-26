@@ -240,6 +240,26 @@ describe("canvas in a browser, local server mode", { skip: !chrome && "Chrome н
     assert.deepEqual(page.errors, []);
   });
 
+  test("pasting nodes this canvas would not accept keeps the good ones and says so", async (context) => {
+    const { page, campaign } = await open(context);
+    await page.clickAt(EMPTY);
+    await page.evaluate(() => {
+      const frame = (id, fields = {}) => ({ id, type: "frame", title: "Вставлена", x: 0, y: 0, width: 200, height: 120, children: [], ...fields });
+      const payload = { format: "crown-board/nodes@1", notes: {}, items: [
+        { world: { x: 1200, y: 1200 }, node: frame("good") },
+        { world: { x: 1300, y: 1200 }, node: frame("alien", { type: "hologram" }) },
+      ] };
+      const data = new DataTransfer();
+      data.setData("text/plain", JSON.stringify(payload));
+      document.querySelector("#viewport").dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true }));
+    });
+    await page.until(async () => allNodes(await campaign.canvas(), (node) => node.title === "Вставлена").length === 1, { message: "добрий вузол не вставився" });
+    assert.match(await toast(page), /Не вставлено 1 вузол/);
+    assert.equal(allNodes(await campaign.canvas(), (node) => node.type === "hologram").length, 0);
+    assert.equal(await status(page), "Збережено");
+    assert.deepEqual(page.errors, []);
+  });
+
   test("an outside change to canvas.json stops autosave and offers both ways out", async (context) => {
     const { page, campaign } = await open(context);
     const setHp = async (value) => {

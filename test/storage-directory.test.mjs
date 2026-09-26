@@ -164,3 +164,22 @@ test("without a remembered folder the board asks to choose one", async () => {
   // де теку ще ні разу не обирали, — канва покаже екран вибору.
   assert.equal(await createDirectoryStorage().restore(), false);
 });
+
+test("a broken or newer canvas.json stops the folder from opening, with the reason", async () => {
+  const broken = await campaign({ layout: "{ half a file" });
+  await assert.rejects(broken.storage.loadBoard(), /board\/canvas\.json не читається як JSON/);
+
+  const newer = await campaign({ layout: JSON.stringify({ formatVersion: 2, children: [] }) });
+  await assert.rejects(newer.storage.loadBoard(), /board\/canvas\.json: Розкладка новіша за редактор: 2/);
+
+  const hollow = await campaign({ layout: JSON.stringify({ formatVersion: 1, children: [{ id: "a", type: "frame", title: "A", x: 0, y: 0, width: 1, height: 1 }] }) });
+  await assert.rejects(hollow.storage.loadBoard(), /a\.children має бути масивом/);
+});
+
+test("an invalid layout is never written into the folder", async () => {
+  const { root, storage } = await campaign();
+  const { revision } = await storage.loadBoard();
+  const bad = { formatVersion: 1, children: [{ id: "x", type: "hologram", x: 0, y: 0, width: 1, height: 1, children: [] }] };
+  await assert.rejects(storage.saveLayout(bad, revision), /Непідтримуваний тип вузла/);
+  assert.equal(await root.exists("board/canvas.json"), false);
+});

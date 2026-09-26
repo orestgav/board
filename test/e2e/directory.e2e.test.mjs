@@ -45,7 +45,7 @@ describe("canvas in a browser, local folder mode", { skip: !chrome && "Chrome н
     site?.server.close();
   });
 
-  async function open(context) {
+  async function open(context, { canvas: canvasText = `${JSON.stringify(layout(), null, 2)}\n`, expectBoard = true } = {}) {
     const page = await browser.newPage();
     context.after(async () => {
       await page.evaluate(async () => {
@@ -57,7 +57,7 @@ describe("canvas in a browser, local folder mode", { skip: !chrome && "Chrome н
     });
     await page.goto(site.url);
     await page.waitFor(() => !document.querySelector("#connection-screen").hidden, { message: "нема екрана вибору теки" });
-    const files = { ...FILES, "board/canvas.json": `${JSON.stringify(layout(), null, 2)}\n` };
+    const files = { ...FILES, "board/canvas.json": canvasText };
     const media = Object.fromEntries(MEDIA.map((path) => [path, TINY_WEBP.toString("base64")]));
     await page.evaluate(async (texts, images) => {
       const root = await (await navigator.storage.getDirectory()).getDirectoryHandle("campaign", { create: true });
@@ -84,7 +84,7 @@ describe("canvas in a browser, local folder mode", { skip: !chrome && "Chrome н
       });
     }, files, media);
     await page.reload();
-    await page.waitFor(() => document.querySelector("#save-status").textContent === "Збережено"
+    if (expectBoard) await page.waitFor(() => document.querySelector("#save-status").textContent === "Збережено"
       && document.querySelectorAll(".node").length > 0, { message: "тека не відкрилась" });
     const read = (path) => page.evaluate(async (target) => {
       let directory = await (await navigator.storage.getDirectory()).getDirectoryHandle("campaign");
@@ -153,5 +153,14 @@ describe("canvas in a browser, local folder mode", { skip: !chrome && "Chrome н
     await page.click("#conflict-overwrite");
     await page.until(async () => findNode(await canvas(), "guard-1").node.hp === 9, { message: "перезапис не спрацював" });
     assert.deepEqual(page.errors, []);
+  });
+
+  test("a broken canvas.json is not opened, and the reason is shown instead", async (context) => {
+    const broken = '{"formatVersion":1,"children":[{"id":"a"}]}';
+    const { page, read } = await open(context, { canvas: broken, expectBoard: false });
+    await page.waitFor(() => !document.querySelector("#connection-screen").hidden
+      && document.querySelector("#connection-hint").textContent.includes("board/canvas.json"), { message: "нема пояснення" });
+    assert.match(await page.evaluate(() => document.querySelector("#connection-hint").textContent), /board\/canvas\.json: Непідтримуваний тип вузла/);
+    assert.equal(await read("board/canvas.json"), broken);
   });
 });

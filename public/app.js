@@ -2627,6 +2627,9 @@ async function pasteFromMenu(spot) {
 
 async function pasteNodes(payload, point) {
   if (!payload) return showToast("У буфері немає нічого, що можна покласти на полотно");
+  if (payload.rejected) {
+    showToast(`Не вставлено ${payload.rejected} ${pluralForm(payload.rejected, "вузол", "вузли", "вузлів")}: вони не схожі на вузли цієї канви`);
+  }
   let { parent, rect } = nearestPointParent(layout, point);
   if (payload.items.some(({ node }) => node.type === "scene")) {
     parent = locationAtPoint(point);

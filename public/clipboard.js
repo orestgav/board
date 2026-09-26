@@ -2,6 +2,8 @@
 // іншу вкладку канви; координати в ньому — абсолютні світові, бо вставити
 // гілку можуть у зовсім інший контейнер, де відсотки від старого батька
 // нічого не означають.
+import { validateNode } from "./layout.js";
+
 export const CLIPBOARD_FORMAT = "crown-board/nodes@1";
 
 export function clipboardPayload(entries, noteTextOf) {
@@ -22,32 +24,46 @@ function collectNotes(node, notes, noteTextOf) {
 }
 
 // У системному буфері може лежати будь-що — чужий JSON, обрізаний текст,
-// власноруч підправлена копія. Усе, що не схоже на вузол, відкидаємо: інакше
-// сміття доїде до canvas.json.
+// власноруч підправлена копія, копія з новішої версії канви. Вузол, що не
+// проходить ту саму перевірку, що й canvas.json, відкидаємо разом з його
+// гілкою: інакше сміття доїде до розкладки, і її вже не вдасться зберегти.
+// `rejected` — скільки вузлів так відпало, щоб канва могла про це сказати.
 export function parseClipboard(text) {
   if (typeof text !== "string" || !text.includes(CLIPBOARD_FORMAT)) return null;
   let raw;
   try { raw = JSON.parse(text); } catch { return null; }
   if (raw?.format !== CLIPBOARD_FORMAT || !Array.isArray(raw.items)) return null;
-  const items = raw.items.map(sanitizeItem).filter(Boolean);
+  const counter = { rejected: 0 };
+  const items = raw.items.map((item) => sanitizeItem(item, counter)).filter(Boolean);
   if (!items.length) return null;
   const notes = {};
   for (const [reference, value] of Object.entries(raw.notes ?? {})) {
     if (typeof value === "string") notes[reference] = value;
   }
-  return { format: CLIPBOARD_FORMAT, items, notes };
+  return { format: CLIPBOARD_FORMAT, items, notes, rejected: counter.rejected };
 }
 
-function sanitizeNode(raw) {
-  if (!raw || typeof raw !== "object" || typeof raw.type !== "string") return null;
-  if (!["x", "y", "width", "height"].every((key) => Number.isFinite(raw[key]))) return null;
-  return { ...raw, children: Array.isArray(raw.children) ? raw.children.map(sanitizeNode).filter(Boolean) : [] };
+function countNodes(raw) {
+  return 1 + (Array.isArray(raw?.children) ? raw.children.reduce((sum, child) => sum + countNodes(child), 0) : 0);
 }
 
-function sanitizeItem(raw) {
-  const node = sanitizeNode(raw?.node);
-  if (!node || !Number.isFinite(raw.world?.x) || !Number.isFinite(raw.world?.y)) return null;
-  return { world: { x: raw.world.x, y: raw.world.y }, node };
+function sanitizeNode(raw, counter) {
+  try {
+    validateNode(raw);
+  } catch {
+    counter.rejected += countNodes(raw);
+    return null;
+  }
+  return { ...raw, children: raw.children.map((child) => sanitizeNode(child, counter)).filter(Boolean) };
+}
+
+function sanitizeItem(raw, counter) {
+  if (!Number.isFinite(raw?.world?.x) || !Number.isFinite(raw?.world?.y)) {
+    counter.rejected += countNodes(raw?.node);
+    return null;
+  }
+  const node = sanitizeNode(raw.node, counter);
+  return node ? { world: { x: raw.world.x, y: raw.world.y }, node } : null;
 }
 
 export function clipboardBounds(items) {

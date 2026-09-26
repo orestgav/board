@@ -3,6 +3,7 @@ const STORE_NAME = "handles";
 const HANDLE_KEY = "campaign";
 
 import { entityRecord, finalizeEntities } from "./entities.js";
+import { emptyLayout, parseLayout, validateLayout } from "./layout.js";
 import {
   appendNoteBlock,
   newNoteDocument,
@@ -13,10 +14,6 @@ import {
   splitNoteReference,
   updateNoteBlock,
 } from "./notes.js";
-
-function emptyLayout() {
-  return { formatVersion: 1, children: [] };
-}
 
 function emptyLayoutSource() {
   return `${JSON.stringify(emptyLayout(), null, 2)}\n`;
@@ -243,9 +240,11 @@ export function createDirectoryStorage({ root: initialRoot = null } = {}) {
       try { source = await readText(root, config.layout); }
       catch (error) {
         if (error.name !== "NotFoundError") throw error;
-        source = `${JSON.stringify(emptyLayout(), null, 2)}\n`;
+        source = emptyLayoutSource();
       }
-      return { campaign: root.name, config, layout: JSON.parse(source), revision: await revisionOf(source) };
+      // Зламаний чи новіший за редактор canvas.json зупиняє відкриття з
+      // поясненням — інакше канва впала б деінде або перезаписала його по-своєму.
+      return { campaign: root.name, config, layout: parseLayout(source, config.layout), revision: await revisionOf(source) };
     },
     async loadEntities() {
       if (!root || !config) throw new Error("Спочатку відкрий папку кампанії");
@@ -331,6 +330,8 @@ export function createDirectoryStorage({ root: initialRoot = null } = {}) {
       return revisionOf(await readTextIfExists(root, config.layout) ?? emptyLayoutSource());
     },
     async saveLayout(layout, expectedRevision) {
+      // Биту розкладку на диск не пускаємо: тека — єдина копія дошки.
+      validateLayout(layout);
       const currentSource = await readTextIfExists(root, config.layout) ?? emptyLayoutSource();
       if ((await revisionOf(currentSource)) !== expectedRevision) throw new LayoutConflictError();
       const source = `${JSON.stringify(layout, null, 2)}\n`;

@@ -3,7 +3,7 @@ import test from "node:test";
 import { CLIPBOARD_FORMAT, clipboardBounds, clipboardPayload, noteTargets, parseClipboard, placedItems, withoutNodes } from "../public/clipboard.js";
 
 function node(fields) {
-  return { id: "a", type: "frame", x: 0, y: 0, width: 100, height: 50, locked: false, children: [], ...fields };
+  return { id: "a", type: "frame", title: "Рамка", x: 0, y: 0, width: 100, height: 50, locked: false, children: [], ...fields };
 }
 
 const WORLD = { x: 0, y: 0, width: 10_000, height: 10_000 };
@@ -84,4 +84,24 @@ test("вузли без карти прибираються разом із вм
   const left = withoutNodes(nodes, new Set([orphan, nested]));
   assert.deepEqual(left.map((item) => item.id), ["f1"]);
   assert.deepEqual(left[0].children.map((item) => item.id), ["keep"]);
+});
+
+test("розбір відкидає вузли, яких не прийняв би canvas.json, і рахує їх", () => {
+  const raw = { format: CLIPBOARD_FORMAT, items: [
+    { world: { x: 0, y: 0 }, node: node({ id: "ok", children: [node({ id: "hologram", type: "hologram", children: [node({ id: "inside" })] })] }) },
+    { world: { x: 0, y: 0 }, node: node({ id: "img", type: "image", image: "../../secret.webp" }) },
+    { world: { x: 0, y: 0 }, node: node({ id: "npc", type: "entity" }) },
+    { world: { x: "тут", y: 0 }, node: node({ id: "lost" }) },
+  ] };
+  const parsed = parseClipboard(JSON.stringify(raw));
+  assert.deepEqual(parsed.items.map((item) => item.node.id), ["ok"]);
+  assert.deepEqual(parsed.items[0].node.children, []);
+  assert.equal(parsed.rejected, 5);
+});
+
+test("чиста копія власної дошки нічого не втрачає", () => {
+  const payload = clipboardPayload([{ node: node({ children: [node({ id: "n", type: "note", note: "map-a#n1" })] }), rect: { x: 0, y: 0 } }], () => "текст");
+  const parsed = parseClipboard(JSON.stringify(payload));
+  assert.equal(parsed.rejected, 0);
+  assert.equal(parsed.items[0].node.children[0].note, "map-a#n1");
 });
