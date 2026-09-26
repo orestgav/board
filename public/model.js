@@ -210,6 +210,17 @@ export function nearestAncestor(layout, id, predicate) {
   return lineage(layout, id).find(predicate) ?? null;
 }
 
+// Усі вузли гілок — самі корені разом із вмістом на будь-якій глибині, — що
+// справджують умову. Контейнер тягне й видаляє вміст разом із собою, тож те,
+// що лежить у файлах (нотатки), доводиться шукати й усередині нього.
+export function collectNodes(nodes, predicate, result = []) {
+  for (const node of nodes) {
+    if (predicate(node)) result.push(node);
+    collectNodes(node.children, predicate, result);
+  }
+  return result;
+}
+
 // Контейнер тягне вміст за собою, тож із виділення прибираємо все, що лежить
 // усередині іншого виділеного вузла: інакше дитина зсунулася б двічі.
 export function outermostIds(layout, ids) {

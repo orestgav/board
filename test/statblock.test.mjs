@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   creatureHitPoints,
   creatureLabel,
+  parseHitPoints,
   creatureList,
   maxHitPoints,
   metaLine,
@@ -164,4 +165,16 @@ test("поточні HP істоти не перевищують максиму�
   assert.equal(creatureHitPoints({ hp: -8 }, 40), -8);
   assert.equal(creatureHitPoints({}, 40), 40);
   assert.equal(creatureHitPoints(undefined, 40), 40);
+});
+
+test("typed hit points accept whole numbers, negatives and the typographic minus", () => {
+  assert.equal(parseHitPoints("12"), 12);
+  assert.equal(parseHitPoints(" 7 "), 7);
+  assert.equal(parseHitPoints("-3"), -3);
+  assert.equal(parseHitPoints("−3"), -3);
+  assert.equal(parseHitPoints("0"), 0);
+  assert.equal(parseHitPoints(""), null);
+  assert.equal(parseHitPoints("d"), null);
+  assert.equal(parseHitPoints("1.5"), null);
+  assert.equal(parseHitPoints("12abc"), null);
 });

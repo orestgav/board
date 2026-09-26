@@ -4,6 +4,7 @@ import {
   adoptLayout,
   allAbsoluteRects,
   cloneLayout,
+  collectNodes,
   containerGrid,
   deepestContainerAt,
   deepestNodeAt,
@@ -17,12 +18,12 @@ import {
   reparentNode,
   reorderNode,
 } from "./model.js";
-import { createStorage } from "./storage.js";
+import { LayoutConflictError, createStorage } from "./storage.js";
 import { clipboardPayload, noteTargets, parseClipboard, placedItems, withoutNodes } from "./clipboard.js";
 import { matchesEntity } from "./entities.js";
 import { iconElement } from "./icons.js";
 import { renderInline, renderMarkdown } from "./markdown.js";
-import { creatureHitPoints, creatureLabel, creatureList, maxHitPoints, statblockMarkup, writeCreatures } from "./statblock.js";
+import { creatureHitPoints, creatureLabel, creatureList, maxHitPoints, parseHitPoints, statblockMarkup, writeCreatures } from "./statblock.js";
 import { mapSlugFromPath } from "./notes.js";
 import { TOKEN_COLORS, TOKEN_SIZE, tokenColor, tokenInitial, tokenInk, writeTokenColor } from "./token.js";
 import { noteMarkup, toggleBold } from "./note-format.js";
@@ -151,6 +152,7 @@ const routePopup = document.querySelector("#route-popup");
 const routeTotal = document.querySelector("#route-total");
 const routeLegs = document.querySelector("#route-legs");
 const routeRows = document.querySelector("#route-rows");
+const conflictBar = document.querySelector("#conflict-bar");
 
 let storage;
 let layout;
@@ -161,6 +163,14 @@ let selectedIds = new Set();
 let saveTimer = null;
 let saving = false;
 let saveAgain = false;
+// Розкладка змінена, але ще не на диску. Разом із записами файлів нотаток і
+// недокрученими HP це те, що пропало б із закриттям вкладки.
+let dirty = false;
+let pendingWrites = 0;
+// canvas.json змінився поза канвою: автозбереження спиняється, доки ДМ не
+// вирішить, чиї зміни лишити, — інакше кожна правка знову впиралася б у той
+// самий конфлікт.
+let conflicted = false;
 let interaction = null;
 let spacePressed = false;
 let undoStack = [];
@@ -1159,9 +1169,8 @@ function hitPointTracker(node, entity, maximum, creatures, index) {
   current.addEventListener("keydown", (event) => { if (event.key === "Enter") current.blur(); });
   current.addEventListener("change", () => {
     commitHitPoints();
-    const raw = current.value.trim().replace("−", "-");
-    const typed = /^-?d+$/.test(raw) ? Number(raw) : NaN;
-    if (!Number.isFinite(typed)) {
+    const typed = parseHitPoints(current.value);
+    if (typed === null) {
       current.value = String(currentHitPoints(node, index, maximum));
       return;
     }
@@ -2448,13 +2457,16 @@ async function endInteraction(event) {
     reparentNode(layout, node.id, parent?.id ?? null);
   }
   const relocations = [];
-  for (const node of moved) {
-    if (node.type !== "note") continue;
+  // Рамка чи сцена везе свої нотатки з собою, тож під іншою картою їм так само
+  // треба переїхати у файл цієї карти, як і нотатці, яку тягнули саму.
+  for (const node of collectNodes(moved, (candidate) => candidate.type === "note")) {
     const before = noteMapContext(finished.before, node.id);
     const after = noteMapContext(layout, node.id);
     if (!after) {
       cancelMove(finished);
-      return showToast("Нотатка має залишатися всередині карти");
+      return showToast(moved.includes(node)
+        ? "Нотатка має залишатися всередині карти"
+        : "Усередині є нотатки, а вони мають залишатися всередині карти");
     }
     if (before?.slug !== after.slug) {
       relocations.push({ node, before: before && { slug: before.slug, name: before.name }, after: { slug: after.slug, name: after.name } });
@@ -2519,7 +2531,11 @@ async function restoreNotes(lifecycles) {
 async function deleteSelected() {
   const targets = selectedRoots().filter((node) => !node.locked);
   if (!targets.length) return;
-  const notes = targets.filter((node) => node.type === "note");
+  // Контейнер іде з дошки разом із вмістом, тож і нотатки всередині нього
+  // стираються з файлів — інакше лишилися б у markdown без жодного вузла.
+  // Нотатку, якої у файлах і так нема («Не знайдено…»), стирати нема чого:
+  // через неї видалення не мусить падати.
+  const notes = collectNodes(targets, (node) => node.type === "note" && notesByRef.has(node.note));
   const lifecycles = [];
   if (notes.length) {
     setStatus(plural(notes.length, "Видалення нотатки…", `Видалення нотаток (${notes.length})…`), "dirty");
@@ -2538,7 +2554,7 @@ async function deleteSelected() {
     }
   }
   const ids = targets.map((node) => node.id);
-  const label = plural(ids.length, notes.length ? "Видалити нотатку" : "Видалити вузол", "Видалити вузли");
+  const label = plural(ids.length, targets[0].type === "note" ? "Видалити нотатку" : "Видалити вузол", "Видалити вузли");
   executeCommand(label, () => {
     for (const id of ids) {
       const entry = findEntry(layout, id);
@@ -2892,6 +2908,8 @@ function setStatus(text, state = "") {
 }
 
 function changed() {
+  dirty = true;
+  if (conflicted) return showConflict();
   setStatus("Є незбережені зміни", "dirty");
   if (saving) saveAgain = true;
   clearTimeout(saveTimer);
@@ -2900,21 +2918,104 @@ function changed() {
 
 async function save() {
   clearTimeout(saveTimer);
+  saveTimer = null;
+  if (conflicted) return;
   if (saving) { saveAgain = true; return; }
   saving = true;
+  // Зміни, що прийдуть під час запису, знову позначать розкладку брудною.
+  dirty = false;
   setStatus("Збереження…", "dirty");
   try {
     const result = await storage.saveLayout(layout, revision);
     revision = result.revision;
     if (!saveAgain) setStatus("Збережено");
   } catch (error) {
+    dirty = true;
     saveAgain = false;
-    setStatus("Помилка збереження", "error");
-    showToast(error.message);
+    if (error instanceof LayoutConflictError) showConflict();
+    else {
+      setStatus("Помилка збереження", "error");
+      showToast(error.message);
+    }
   } finally {
     saving = false;
     if (saveAgain) { saveAgain = false; await save(); }
   }
+}
+
+function hasUnsavedWork() {
+  return dirty || saving || pendingWrites > 0 || Boolean(hitPointEdit);
+}
+
+// Вкладку закривають або ховають — відкладене збереження робимо просто зараз,
+// не чекаючи дебаунсу. Недокручені колесом HP спершу стають командою.
+function flushSave() {
+  if (!layout) return;
+  commitHitPoints();
+  if (dirty && !saving && !conflicted) save();
+}
+
+// Запис на диск асинхронний, і закриття вкладки його не чекає. Тож поки щось
+// не дописано, браузер перепитує: ця пауза й дає збереженню завершитися.
+function trackWrite(task) {
+  pendingWrites += 1;
+  return Promise.resolve().then(task).finally(() => { pendingWrites -= 1; });
+}
+
+// Нотатки й картинки пишуться у файли одразу, повз автозбереження розкладки,
+// тож їхні записи рахуємо окремо.
+function trackStorageWrites(target) {
+  for (const method of ["createNote", "updateNote", "moveNote", "deleteNote", "restoreNote", "saveMedia"]) {
+    const original = target[method].bind(target);
+    target[method] = (...args) => trackWrite(() => original(...args));
+  }
+  return target;
+}
+
+function showConflict() {
+  conflicted = true;
+  clearTimeout(saveTimer);
+  saveTimer = null;
+  setStatus("Конфлікт: canvas.json змінено ззовні", "error");
+  conflictBar.hidden = false;
+}
+
+function resolveConflict() {
+  conflicted = false;
+  conflictBar.hidden = true;
+}
+
+// «Взяти з диска»: дошка перечитується наново, а незбережене на ній
+// відкидається — разом з історією undo, що вела до нього.
+async function reloadFromDisk() {
+  resolveConflict();
+  clearTimeout(hitPointEdit?.timer);
+  hitPointEdit = null;
+  interaction = null;
+  editingNoteId = null;
+  dirty = false;
+  setStatus("Перечитування…", "dirty");
+  try {
+    await loadBoard();
+  } catch (error) {
+    showConflict();
+    showToast(error.message);
+  }
+}
+
+// «Перезаписати своїм»: беремо ревізію того, що зараз на диску, і пишемо
+// поверх неї розкладку з дошки. Чужа правка canvas.json при цьому пропадає.
+async function overwriteDisk() {
+  resolveConflict();
+  setStatus("Збереження…", "dirty");
+  try {
+    revision = await storage.currentRevision();
+  } catch (error) {
+    showConflict();
+    return showToast(error.message);
+  }
+  dirty = true;
+  await save();
 }
 
 function showToast(message) {
@@ -3100,6 +3201,17 @@ window.addEventListener("keydown", (event) => {
 window.addEventListener("keyup", (event) => { if (event.code === "Space") spacePressed = false; });
 window.addEventListener("blur", () => { spacePressed = false; });
 window.addEventListener("resize", requestView);
+window.addEventListener("beforeunload", (event) => {
+  flushSave();
+  if (!hasUnsavedWork()) return;
+  event.preventDefault();
+  event.returnValue = "";
+});
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") flushSave();
+});
+document.querySelector("#conflict-reload").addEventListener("click", reloadFromDisk);
+document.querySelector("#conflict-overwrite").addEventListener("click", overwriteDisk);
 
 document.querySelector("#add-frame").addEventListener("click", addFrame);
 document.querySelector("#empty-add").addEventListener("click", addFrame);
@@ -3294,6 +3406,10 @@ async function loadBoard() {
   notesByRef = new Map(loadedNotes.map((note) => [note.reference, note]));
   layout = state.layout;
   revision = state.revision;
+  clearTimeout(saveTimer);
+  saveTimer = null;
+  dirty = false;
+  resolveConflict();
   setSelection([]);
   undoStack = [];
   redoStack = [];
@@ -3329,7 +3445,7 @@ for (const element of document.querySelectorAll("[data-icon]")) {
 }
 
 try {
-  storage = await createStorage();
+  storage = trackStorageWrites(await createStorage());
   if (storage.kind !== "directory") {
     changeCampaignButton.disabled = true;
     changeCampaignButton.title = "Кампанія";

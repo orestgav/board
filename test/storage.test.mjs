@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { pathParts, revisionOf, webPName } from "../public/storage.js";
+import { LayoutConflictError, pathParts, revisionOf, webPName } from "../public/storage.js";
 
 test("local storage paths cannot escape the selected campaign", () => {
   assert.deepEqual(pathParts("board/canvas.json"), ["board", "canvas.json"]);
@@ -16,4 +16,11 @@ test("dropped file names become safe WebP names", () => {
 test("layout revisions are stable and content-sensitive", async () => {
   assert.equal(await revisionOf("same"), await revisionOf("same"));
   assert.notEqual(await revisionOf("same"), await revisionOf("other"));
+});
+
+test("a layout conflict is its own error type, recognisable by the board", () => {
+  const conflict = new LayoutConflictError();
+  assert.ok(conflict instanceof Error);
+  assert.equal(conflict.name, "LayoutConflictError");
+  assert.match(conflict.message, /поза канвою/);
 });

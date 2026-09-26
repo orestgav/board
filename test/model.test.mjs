@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { absoluteRect, adoptLayout, allAbsoluteRects, containerGrid, deepestContainerAt, findEntry, nearestAncestor, nodeIndex, nodesInRect, outermostIds, reparentNode, reorderNode } from "../public/model.js";
+import { absoluteRect, adoptLayout, allAbsoluteRects, collectNodes, containerGrid, deepestContainerAt, findEntry, nearestAncestor, nodeIndex, nodesInRect, outermostIds, reparentNode, reorderNode } from "../public/model.js";
 import { rectWithin } from "../public/view.js";
 
 const frame = (id, x, y, width = 400, height = 300, children = []) => ({ id, type: "frame", title: id, x, y, width, height, locked: false, children });
@@ -180,4 +180,14 @@ test("adopting a layout can move a node to another parent", () => {
   const adopted = adoptLayout(current, next);
   assert.equal(adopted.children[1].children[0], child);
   assert.deepEqual(adopted.children[0].children, []);
+});
+
+test("collectNodes finds matching nodes inside containers at any depth", () => {
+  const note = (id) => ({ id, type: "note", children: [] });
+  const tree = [
+    { id: "frame", type: "frame", children: [note("n1"), { id: "scene", type: "scene", children: [note("n2")] }] },
+    note("n3"),
+  ];
+  assert.deepEqual(collectNodes(tree, (node) => node.type === "note").map((node) => node.id), ["n1", "n2", "n3"]);
+  assert.deepEqual(collectNodes([], () => true), []);
 });

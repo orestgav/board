@@ -18,6 +18,20 @@ function emptyLayout() {
   return { formatVersion: 1, children: [] };
 }
 
+function emptyLayoutSource() {
+  return `${JSON.stringify(emptyLayout(), null, 2)}\n`;
+}
+
+// canvas.json змінився поза канвою (AI, git pull, інша вкладка). Це не збій
+// запису, а питання до ДМа — чиї зміни лишити, — тож канва розпізнає його
+// окремо від решти помилок.
+export class LayoutConflictError extends Error {
+  constructor(message = "canvas.json змінився поза канвою") {
+    super(message);
+    this.name = "LayoutConflictError";
+  }
+}
+
 export async function revisionOf(source) {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(source));
   const bytes = [...new Uint8Array(digest)];
@@ -309,14 +323,14 @@ function createDirectoryStorage() {
       await writeFile(root, path, appendNoteBlock(source, anchor, text));
       return { reference, text: text.trim() };
     },
+    // Ревізія того, що зараз на диску, без розбору: «перезаписати своїм» має
+    // спрацювати й тоді, коли чужа правка лишила файл зламаним.
+    async currentRevision() {
+      return revisionOf(await readTextIfExists(root, config.layout) ?? emptyLayoutSource());
+    },
     async saveLayout(layout, expectedRevision) {
-      let currentSource;
-      try { currentSource = await readText(root, config.layout); }
-      catch (error) {
-        if (error.name !== "NotFoundError") throw error;
-        currentSource = `${JSON.stringify(emptyLayout(), null, 2)}\n`;
-      }
-      if ((await revisionOf(currentSource)) !== expectedRevision) throw new Error("canvas.json змінився поза канвою. Перезавантаж сторінку, щоб не втратити зміни.");
+      const currentSource = await readTextIfExists(root, config.layout) ?? emptyLayoutSource();
+      if ((await revisionOf(currentSource)) !== expectedRevision) throw new LayoutConflictError();
       const source = `${JSON.stringify(layout, null, 2)}\n`;
       await writeFile(root, config.layout, source);
       return { revision: await revisionOf(source) };
@@ -406,8 +420,15 @@ function createServerStorage() {
         method: "PUT", headers: { "content-type": "application/json", "if-match": revision }, body: JSON.stringify(layout),
       });
       const result = await response.json();
+      if (response.status === 409) throw new LayoutConflictError(result.error);
       if (!response.ok) throw new Error(result.error || "Не вдалося зберегти");
       return result;
+    },
+    async currentRevision() {
+      const response = await fetch("/api/board", { cache: "no-store" });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Не вдалося прочитати canvas.json");
+      return result.revision;
     },
     async saveMedia(blob, kind, originalName) {
       const response = await fetch("/api/media", {

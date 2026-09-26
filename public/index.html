@@ -193,6 +193,14 @@
         <button data-media-kind="cancel" class="quiet">Скасувати</button>
       </div>
     </div>
+    <div id="conflict-bar" class="conflict-bar" role="alert" hidden>
+      <strong>canvas.json змінився поза канвою</strong>
+      <span>Останні зміни дошки ще не збережено. Чиї лишити?</span>
+      <div>
+        <button id="conflict-reload" type="button" title="Перечитати дошку з диска; незбережене на ній пропаде">Взяти з диска</button>
+        <button id="conflict-overwrite" type="button" title="Записати дошку поверх файла; чужа правка canvas.json пропаде">Перезаписати своїм</button>
+      </div>
+    </div>
     <div id="toast" class="toast" role="alert" hidden></div>
     <script type="module" src="./app.js"></script>
   </body>

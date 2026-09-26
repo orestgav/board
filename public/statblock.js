@@ -136,6 +136,13 @@ export function creatureHitPoints(creature, maximum) {
   return Number.isFinite(creature?.hp) ? Math.min(creature.hp, maximum) : maximum;
 }
 
+// Що вписали в поле HP: ціле число, можна з мінусом — і з типографським «−»,
+// який підставляють деякі розкладки. Решта — не число, тож null.
+export function parseHitPoints(raw) {
+  const text = String(raw ?? "").trim().replace("−", "-");
+  return /^-?\d+$/.test(text) ? Number(text) : null;
+}
+
 // Назва, що збігається з номером за замовчуванням, у файл не пишеться: інакше
 // після видалення сусіда «Істота 3» лишилася б другою в списку.
 export function writeCreatures(node, creatures) {
