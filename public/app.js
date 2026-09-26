@@ -2342,6 +2342,13 @@ function onResizePointerDown(event) {
     // у пікселях, бо відсотки від розміру пропорційно розтягувалися б.
     children: node.children.map((child) => ({
       node: child, offsetX: child.x * node.width / 100, offsetY: child.y * node.height / 100,
+      originX: child.x, originY: child.y,
+    })),
+    // З Ctrl увесь вміст масштабується разом із батьком, тож памʼятаємо
+    // вихідні розміри всіх нащадків, а не лише прямих дітей.
+    descendants: descendantsOf(node).map((descendant) => ({
+      node: descendant, originWidth: descendant.width, originHeight: descendant.height,
+      keepAspect: ["image", "token"].includes(descendant.type),
     })),
     node, before: cloneLayout(layout), beforeSelection: selectionIds(),
   };
@@ -2464,11 +2471,27 @@ function onPointerMove(event) {
   if (west) interaction.node.x = (interaction.originX + interaction.originWidth - width) / interaction.parentWidth * 100;
   if (north) interaction.node.y = (interaction.originY + interaction.originHeight - height) / interaction.parentHeight * 100;
   updateNodeGeometry(interaction.node);
+  // Ctrl можна натиснути чи відпустити посеред протяжки: щоразу рахуємо
+  // від вихідного стану, тож режими перемикаються без накопичення похибки.
+  const scaleContent = event.ctrlKey || event.metaKey;
+  const scaleX = width / interaction.originWidth;
+  const scaleY = height / interaction.originHeight;
   for (const child of interaction.children) {
-    child.node.x = child.offsetX / width * 100;
-    child.node.y = child.offsetY / height * 100;
-    updateNodeGeometry(child.node);
+    child.node.x = scaleContent ? child.originX : child.offsetX / width * 100;
+    child.node.y = scaleContent ? child.originY : child.offsetY / height * 100;
   }
+  for (const descendant of interaction.descendants) {
+    const uniform = Math.min(scaleX, scaleY);
+    const factorX = scaleContent ? (descendant.keepAspect ? uniform : scaleX) : 1;
+    const factorY = scaleContent ? (descendant.keepAspect ? uniform : scaleY) : 1;
+    descendant.node.width = descendant.originWidth * factorX;
+    descendant.node.height = descendant.originHeight * factorY;
+    updateNodeGeometry(descendant.node);
+  }
+}
+
+function descendantsOf(node) {
+  return node.children.flatMap((child) => [child, ...descendantsOf(child)]);
 }
 
 // Нотатка лежить у файлі карти-предка, тож переїзд між картами — це
