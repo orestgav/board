@@ -15,6 +15,7 @@ import {
   nodeIndex,
   nodesInRect,
   outermostIds,
+  parentRect,
   reparentNode,
   reorderNode,
 } from "./model.js";
@@ -225,6 +226,10 @@ let viewSettleTimer = null;
 let viewIndex = new Map();
 // Справжня товщина рамки кожного вузла за id — див. renderedIndex.
 const nodeBorders = new Map();
+// Геометрія такою, як її видно на сторінці. Усе, що кладе вузол під курсор
+// чи шукає вузол під ним, рахує саме так: у моделі без рамок картка на карті
+// світу лягала б за десятки тисяч одиниць від курсора.
+const RENDERED = { inset: (node) => nodeBorders.get(node.id) ?? 0 };
 // Мініатюри памʼятаються за шляхом файла, а шляхи в різних кампаніях
 // збігаються, тож кожна кампанія дістає власний набір.
 function newThumbnails() {
@@ -368,7 +373,7 @@ function isLocationNode(node) {
 }
 
 function locationAtPoint(point, excludeId = null) {
-  const target = deepestContainerAt(layout, point, excludeId);
+  const target = deepestContainerAt(layout, point, excludeId, RENDERED);
   if (!target) return null;
   return isLocationNode(target) ? target : nearestAncestor(layout, target.id, isLocationNode);
 }
@@ -500,7 +505,7 @@ function drawView() {
 // округлює її до пікселя і ще й обмежує зверху — у вузла на всю карту світу
 // em за сорок тисяч, а рамка лише десять тисяч.
 function renderedIndex() {
-  return nodeIndex(layout, { inset: (node) => nodeBorders.get(node.id) ?? 0 });
+  return nodeIndex(layout, RENDERED);
 }
 
 function measureBorder(element) {
@@ -1379,7 +1384,7 @@ function renderLayers() {
 }
 
 function centerNode(id) {
-  const rect = absoluteRect(layout, id);
+  const rect = absoluteRect(layout, id, RENDERED);
   if (!rect) return;
   setSelection([id]);
   view = centeredViewOnRect(view, rect, viewport.clientWidth, viewport.clientHeight);
@@ -1608,6 +1613,7 @@ function addFrame() {
       y: (center.y - height / 2) / WORLD_SIZE * 100,
       width, height, locked: false, children: [],
     };
+    enlargeForZoom(node, center, parentRect(layout, null));
     layout.children.push(node);
     setSelection([node.id]);
   });
@@ -1615,7 +1621,8 @@ function addFrame() {
 
 function addScene(location, point) {
   if (!isLocationNode(location)) return;
-  const rect = absoluteRect(layout, location.id);
+  const rect = absoluteRect(layout, location.id, RENDERED);
+  const area = parentRect(layout, location, RENDERED);
   const horizontalInset = Math.min(16, location.width * .1);
   const header = locationHeaderHeight(location.width, location.height);
   const verticalInset = Math.min(16, Math.max(0, location.height - header) * .1);
@@ -1630,8 +1637,8 @@ function addScene(location, point) {
   while (titles.has(`Сцена ${number}`)) number += 1;
   const sceneNode = {
     id: crypto.randomUUID(), type: "scene", title: `Сцена ${number}`,
-    x: left / location.width * 100,
-    y: top / location.height * 100,
+    x: (rect.x + left - area.x) / area.width * 100,
+    y: (rect.y + top - area.y) / area.height * 100,
     width, height, locked: false, children: [],
   };
   executeCommand("Додати сцену", () => {
@@ -1727,14 +1734,14 @@ function noteMapContext(tree, noteId) {
 }
 
 async function createNoteAt(point) {
-  const parent = deepestNodeAt(layout, point, { includeLocked: true });
+  const parent = deepestNodeAt(layout, point, { includeLocked: true, ...RENDERED });
   const map = mapContext(layout, parent?.id ?? null);
   if (!map) return showToast("Нотатку можна створити лише всередині карти");
   setStatus("Створення нотатки…", "dirty");
   try {
     const note = await storage.createNote(map.slug, map.name, "");
     notesByRef.set(note.reference, note);
-    const rect = parent ? absoluteRect(layout, parent.id) : { x: 0, y: 0, width: WORLD_SIZE, height: WORLD_SIZE };
+    const rect = parentRect(layout, parent, RENDERED);
     const id = crypto.randomUUID();
     executeCommand("Створити нотатку", () => {
       const node = {
@@ -1743,6 +1750,7 @@ async function createNoteAt(point) {
         y: (point.y - rect.y) / rect.height * 100,
         width: 320, height: 190, locked: false, children: [],
       };
+      enlargeForZoom(node, point, rect);
       (parent ? parent.children : layout.children).push(node);
       setSelection([id]);
       editingNoteId = id;
@@ -1773,6 +1781,29 @@ async function finishNoteEdit(node, text) {
 function defaultInsertPoint() {
   const bounds = viewport.getBoundingClientRect();
   return screenToWorld(bounds.left + bounds.width / 2, bounds.top + bounds.height / 2);
+}
+
+// Свіжа картка на віддаленій карті світу завбільшки кілька пікселів: 320
+// одиниць там — ніщо. Тож на віддаленні вона росте разом із вмістом навколо
+// точки вставки, аж поки на екрані не стане свого звичайного розміру. Більшою
+// за половину батька не стає, а на наближенні лишається як є. Вставлена копія
+// зберігає розмір оригіналу — її це не стосується.
+function enlargeForZoom(node, point, area) {
+  const roomy = Math.min(area.width / node.width, area.height / node.height) / 2;
+  const factor = Math.max(1, Math.min(1 / view.scale, roomy));
+  if (!Number.isFinite(factor) || factor === 1) return node;
+  const left = area.x + node.x * area.width / 100;
+  const top = area.y + node.y * area.height / 100;
+  node.x = (point.x + (left - point.x) * factor - area.x) / area.width * 100;
+  node.y = (point.y + (top - point.y) * factor - area.y) / area.height * 100;
+  scaleSizes(node, factor);
+  return node;
+}
+
+function scaleSizes(node, factor) {
+  node.width *= factor;
+  node.height *= factor;
+  node.children.forEach((child) => scaleSizes(child, factor));
 }
 
 function openEntityPicker(type = null, { token = false } = {}) {
@@ -1879,9 +1910,10 @@ function containerNode(entity, kind, point, rect) {
 function addEntity(entity) {
   if (pickerMakesToken) return addToken(entity);
   const point = insertPoint ?? defaultInsertPoint();
-  const { parent, rect } = nearestPointParent(layout, point);
+  const { parent, rect } = nearestPointParent(layout, point, RENDERED);
   const kind = entityKind(entity);
   const node = kind?.variant === "frame" ? containerNode(entity, kind, point, rect) : entityNode(entity, point.x, point.y, rect);
+  enlargeForZoom(node, point, rect);
   executeCommand(kind?.command ?? "Додати картку", () => {
     (parent ? parent.children : layout.children).push(node);
     setSelection([node.id]);
@@ -1892,13 +1924,14 @@ function addEntity(entity) {
 // Токен стає центром під курсор: це фішка, яку ставлять на клітинку карти.
 function addToken(entity) {
   const point = insertPoint ?? defaultInsertPoint();
-  const { parent, rect } = nearestPointParent(layout, point);
+  const { parent, rect } = nearestPointParent(layout, point, RENDERED);
   const node = {
     id: crypto.randomUUID(), type: "token", entity: entity.slug,
     x: (point.x - TOKEN_SIZE.width / 2 - rect.x) / rect.width * 100,
     y: (point.y - TOKEN_SIZE.height / 2 - rect.y) / rect.height * 100,
     width: TOKEN_SIZE.width, height: TOKEN_SIZE.height, locked: false, children: [],
   };
+  enlargeForZoom(node, point, rect);
   executeCommand("Додати токен", () => {
     (parent ? parent.children : layout.children).push(node);
     setSelection([node.id]);
@@ -1974,7 +2007,7 @@ function addMusic() {
   clearTimeout(musicLookupTimer);
   musicLookup += 1;
   const point = insertPoint ?? defaultInsertPoint();
-  const { parent, rect } = nearestPointParent(layout, point);
+  const { parent, rect } = nearestPointParent(layout, point, RENDERED);
   const node = {
     id: crypto.randomUUID(), type: "music", url, title: musicTitle(musicTitleInput.value, url),
     x: (point.x - rect.x) / rect.width * 100,
@@ -1982,6 +2015,7 @@ function addMusic() {
     width: MUSIC_CARD.width, height: MUSIC_CARD.height, locked: false, children: [],
     ...(start ? { start } : {}),
   };
+  enlargeForZoom(node, point, rect);
   executeCommand("Додати музику", () => {
     (parent ? parent.children : layout.children).push(node);
     setSelection([node.id]);
@@ -2279,8 +2313,7 @@ function onNodePointerDown(event) {
 function beginMove(event) {
   const movers = selectedRoots().filter((node) => !node.locked).map((node) => {
     const entry = findEntry(layout, node.id);
-    const parentWidth = entry.parent?.width ?? WORLD_SIZE;
-    const parentHeight = entry.parent?.height ?? WORLD_SIZE;
+    const { width: parentWidth, height: parentHeight } = parentRect(layout, entry.parent, RENDERED);
     return {
       node, parentWidth, parentHeight, element: nodeElement(node.id),
       originX: node.x * parentWidth / 100, originY: node.y * parentHeight / 100,
@@ -2299,8 +2332,7 @@ function onResizePointerDown(event) {
   const node = findNode(layout, event.currentTarget.dataset.id);
   if (!node || node.locked) return;
   const entry = findEntry(layout, node.id);
-  const parentWidth = entry.parent?.width ?? WORLD_SIZE;
-  const parentHeight = entry.parent?.height ?? WORLD_SIZE;
+  const { width: parentWidth, height: parentHeight } = parentRect(layout, entry.parent, RENDERED);
   interaction = {
     type: "resize", pointerId: event.pointerId, startX: event.clientX, startY: event.clientY,
     originX: node.x * parentWidth / 100, originY: node.y * parentHeight / 100,
@@ -2497,9 +2529,9 @@ async function endInteraction(event) {
 
   const moved = finished.movers.map((mover) => mover.node).filter((node) => findEntry(layout, node.id));
   const placements = moved.map((node) => {
-    const rect = absoluteRect(layout, node.id);
+    const rect = absoluteRect(layout, node.id, RENDERED);
     const point = { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
-    const parent = node.type === "scene" ? locationAtPoint(point, node.id) : deepestContainerAt(layout, point, node.id);
+    const parent = node.type === "scene" ? locationAtPoint(point, node.id) : deepestContainerAt(layout, point, node.id, RENDERED);
     return { node, parent };
   });
   if (placements.some(({ node, parent }) => node.type === "scene" && !parent)) {
@@ -2507,7 +2539,7 @@ async function endInteraction(event) {
     return showToast("Сцена має залишатися всередині локації");
   }
   for (const { node, parent } of placements) {
-    reparentNode(layout, node.id, parent?.id ?? null);
+    reparentNode(layout, node.id, parent?.id ?? null, RENDERED);
   }
   const relocations = [];
   // Рамка чи сцена везе свої нотатки з собою, тож під іншою картою їм так само
@@ -2563,9 +2595,9 @@ function nudgeSelected(dx, dy) {
   if (!nodes.length) return;
   executeCommand(plural(nodes.length, "Посунути вузол", "Посунути вузли"), () => {
     for (const node of nodes) {
-      const entry = findEntry(layout, node.id);
-      node.x += dx / (entry.parent?.width ?? WORLD_SIZE) * 100;
-      node.y += dy / (entry.parent?.height ?? WORLD_SIZE) * 100;
+      const area = parentRect(layout, findEntry(layout, node.id).parent, RENDERED);
+      node.x += dx / area.width * 100;
+      node.y += dy / area.height * 100;
     }
   });
 }
@@ -2634,7 +2666,7 @@ function copySelection(clipboardData = null) {
   const roots = selectedRoots();
   if (!roots.length) return false;
   const payload = clipboardPayload(
-    roots.map((node) => ({ node, rect: absoluteRect(layout, node.id) })),
+    roots.map((node) => ({ node, rect: absoluteRect(layout, node.id, RENDERED) })),
     (reference) => notesByRef.get(reference)?.text,
   );
   internalClipboard = payload;
@@ -2681,11 +2713,11 @@ async function pasteNodes(payload, point) {
   if (payload.rejected) {
     showToast(`Не вставлено ${payload.rejected} ${pluralForm(payload.rejected, "вузол", "вузли", "вузлів")}: вони не схожі на вузли цієї канви`);
   }
-  let { parent, rect } = nearestPointParent(layout, point);
+  let { parent, rect } = nearestPointParent(layout, point, RENDERED);
   if (payload.items.some(({ node }) => node.type === "scene")) {
     parent = locationAtPoint(point);
     if (!parent) return showToast("Сцену можна вставити лише всередині локації");
-    rect = absoluteRect(layout, parent.id);
+    rect = parentRect(layout, parent, RENDERED);
   }
   let nodes = placedItems(payload, point, rect);
   const targets = noteTargets(nodes, mapContext(layout, parent?.id ?? null), (node) => isMapNode(node) ? mapDescriptor(node) : null);
@@ -2772,8 +2804,8 @@ async function processDrop(kind) {
   try {
     const media = [];
     for (const file of drop.files) media.push(await uploadImage(file, kind));
-    const parent = deepestNodeAt(layout, drop.point, { includeLocked: true });
-    const parentRect = parent ? absoluteRect(layout, parent.id) : { x: 0, y: 0, width: WORLD_SIZE, height: WORLD_SIZE };
+    const parent = deepestNodeAt(layout, drop.point, { includeLocked: true, ...RENDERED });
+    const area = parentRect(layout, parent, RENDERED);
     executeCommand("Додати зображення", () => {
       const destination = parent ? parent.children : layout.children;
       const created = [];
@@ -2785,10 +2817,11 @@ async function processDrop(kind) {
         const offset = index * 28;
         const node = {
           id: crypto.randomUUID(), type: "image", image: item.path,
-          x: (drop.point.x + offset - parentRect.x) / parentRect.width * 100,
-          y: (drop.point.y + offset - parentRect.y) / parentRect.height * 100,
+          x: (drop.point.x + offset - area.x) / area.width * 100,
+          y: (drop.point.y + offset - area.y) / area.height * 100,
           width, height, locked: false, children: [],
         };
+        enlargeForZoom(node, drop.point, area);
         destination.push(node);
         created.push(node.id);
       });
@@ -3110,7 +3143,7 @@ viewport.addEventListener("pointerdown", (event) => {
   // інакше велика заблокована карта перекриває запуск рамки виділення.
   } else if (event.button === 0 && (event.target === viewport || event.target === grid || event.target === scene || event.target.matches?.(".node.locked"))) {
     if (event.altKey) {
-      const node = deepestNodeAt(layout, screenToWorld(event.clientX, event.clientY), { includeLocked: true });
+      const node = deepestNodeAt(layout, screenToWorld(event.clientX, event.clientY), { includeLocked: true, ...RENDERED });
       select(node?.id ?? null);
     } else beginMarquee(event);
   }

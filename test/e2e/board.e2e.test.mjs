@@ -186,7 +186,10 @@ describe("canvas in a browser, local server mode", { skip: !chrome && "Chrome н
     const { page, campaign } = await open(context);
     await page.click('.node-header[data-id="frame-1"]');
     await page.press("Shift+ArrowRight");
-    await page.until(async () => findNode(await campaign.canvas(), "frame-1").node.x === 5 + 10 / 1200 * 100, { message: "нудж не спрацював" });
+    // Відсотки дитини рахуються від місця всередині рамки карти.
+    const border = await page.evaluate(() => Number.parseFloat(getComputedStyle(document.querySelector('.node[data-id="map-a"]')).borderLeftWidth));
+    const expected = 5 + 10 / (1200 - border * 2) * 100;
+    await page.until(async () => Math.abs(findNode(await campaign.canvas(), "frame-1").node.x - expected) < 1e-9, { message: "нудж не спрацював" });
     await page.press("Ctrl+Shift+[");
     await page.until(async () => findNode(await campaign.canvas(), "map-a").node.children[0].id === "frame-1");
     await page.press("Ctrl+Shift+]");

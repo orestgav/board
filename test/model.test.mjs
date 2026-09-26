@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { absoluteRect, adoptLayout, allAbsoluteRects, collectNodes, containerGrid, deepestContainerAt, findEntry, nearestAncestor, nodeIndex, nodesInRect, outermostIds, reparentNode, reorderNode } from "../public/model.js";
+import { absoluteRect, adoptLayout, allAbsoluteRects, collectNodes, containerGrid, deepestContainerAt, findEntry, nearestAncestor, nearestPointParent, nodeIndex, nodesInRect, outermostIds, reparentNode, reorderNode } from "../public/model.js";
 import { rectWithin } from "../public/view.js";
 
 const frame = (id, x, y, width = 400, height = 300, children = []) => ({ id, type: "frame", title: id, x, y, width, height, locked: false, children });
@@ -190,4 +190,32 @@ test("collectNodes finds matching nodes inside containers at any depth", () => {
   ];
   assert.deepEqual(collectNodes(tree, (node) => node.type === "note").map((node) => node.id), ["n1", "n2", "n3"]);
   assert.deepEqual(collectNodes([], () => true), []);
+});
+
+// На сторінці діти стоять усередині рамки батька. Вставка, пошук під курсором
+// і перенесення мусять рахувати так само, як рендер, інакше на карті світу з
+// рамкою в десятки тисяч одиниць картка лягає далеко від курсора.
+test("geometry with a border inset matches the rendered node index", () => {
+  const inset = (node) => (node.id === "world" ? 1000 : node.id === "city" ? 10 : 0);
+  const layout = { formatVersion: 1, children: [
+    frame("world", 0, 0, 100_000, 80_000, [frame("city", 40, 60, 20_000, 10_000, [frame("card", 30, 70, 320, 190)])]),
+  ] };
+  const index = nodeIndex(layout, { inset });
+  for (const id of ["world", "city", "card"]) assert.deepEqual(absoluteRect(layout, id, { inset }), index.get(id).rect);
+
+  const card = index.get("card").rect;
+  const point = { x: card.x + 1, y: card.y + 1 };
+  assert.equal(nearestPointParent(layout, point, { inset }).parent.id, "card");
+
+  const city = layout.children[0].children[0];
+  const { rect } = nearestPointParent(layout, { x: index.get("city").rect.x + 50, y: index.get("city").rect.y + 50 }, { inset });
+  const x = (point.x - rect.x) / rect.width * 100;
+  const y = (point.y - rect.y) / rect.height * 100;
+  city.children.push(frame("placed", x, y, 50, 50));
+  const placed = absoluteRect(layout, "placed", { inset });
+  assert.ok(Math.abs(placed.x - point.x) < 1e-6 && Math.abs(placed.y - point.y) < 1e-6);
+
+  assert.equal(reparentNode(layout, "placed", "world", { inset }), true);
+  const moved = absoluteRect(layout, "placed", { inset });
+  assert.ok(Math.abs(moved.x - point.x) < 1e-6 && Math.abs(moved.y - point.y) < 1e-6);
 });

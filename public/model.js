@@ -23,12 +23,28 @@ export function findNode(layout, id) {
   return findEntry(layout, id)?.node ?? null;
 }
 
-export function parentRect(layout, parent) {
-  if (!parent) return { x: 0, y: 0, width: WORLD_SIZE, height: WORLD_SIZE };
-  return absoluteRect(layout, parent.id);
+const WORLD_RECT = { x: 0, y: 0, width: WORLD_SIZE, height: WORLD_SIZE };
+const NO_INSET = () => 0;
+
+// Місце під дітей у прямокутнику батька: на сторінці вони стоять усередині
+// його рамки, і відсотки браузер рахує від того, що лишилося всередині.
+function innerArea(rect, border) {
+  return {
+    x: rect.x + border,
+    y: rect.y + border,
+    width: Math.max(0, rect.width - border * 2),
+    height: Math.max(0, rect.height - border * 2),
+  };
 }
 
-export function absoluteRect(layout, id) {
+// Прямокутник, від якого відлічуються відсотки дітей `parent`.
+// `inset` — як у nodeIndex.
+export function parentRect(layout, parent, { inset = NO_INSET } = {}) {
+  if (!parent) return { ...WORLD_RECT };
+  return innerArea(absoluteRect(layout, parent.id, { inset }), inset(parent));
+}
+
+export function absoluteRect(layout, id, { inset = NO_INSET } = {}) {
   const path = [];
   let entry = findEntry(layout, id);
   if (!entry) return null;
@@ -38,16 +54,20 @@ export function absoluteRect(layout, id) {
     path.unshift(entry.node);
   }
 
-  let area = { x: 0, y: 0, width: WORLD_SIZE, height: WORLD_SIZE };
+  let area = WORLD_RECT;
+  let rect = null;
+  let parent = null;
   for (const node of path) {
-    area = {
+    if (parent) area = innerArea(rect, inset(parent));
+    rect = {
       x: area.x + node.x * area.width / 100,
       y: area.y + node.y * area.height / 100,
       width: node.width,
       height: node.height,
     };
+    parent = node;
   }
-  return area;
+  return rect;
 }
 
 export function isDescendant(layout, ancestorId, candidateId) {
@@ -62,14 +82,15 @@ function contains(rect, point) {
   return point.x >= rect.x && point.x <= rect.x + rect.width && point.y >= rect.y && point.y <= rect.y + rect.height;
 }
 
-export function deepestNodeAt(layout, point, { includeLocked = false, excludeId = null } = {}) {
+export function deepestNodeAt(layout, point, { includeLocked = false, excludeId = null, inset = NO_INSET } = {}) {
+  const index = nodeIndex(layout, { inset });
   let winner = null;
   let order = 0;
   walkNodes(layout.children, ({ node, depth }) => {
     order += 1;
     if (node.id === excludeId || (excludeId && isDescendant(layout, excludeId, node.id))) return;
     if (!includeLocked && node.locked) return;
-    const rect = absoluteRect(layout, node.id);
+    const { rect } = index.get(node.id);
     if (contains(rect, point) && (!winner || depth > winner.depth || (depth === winner.depth && order > winner.order))) {
       winner = { node, depth, order };
     }
@@ -77,20 +98,20 @@ export function deepestNodeAt(layout, point, { includeLocked = false, excludeId 
   return winner?.node ?? null;
 }
 
-export function deepestContainerAt(layout, point, excludeId) {
-  return deepestNodeAt(layout, point, { includeLocked: true, excludeId });
+export function deepestContainerAt(layout, point, excludeId, { inset = NO_INSET } = {}) {
+  return deepestNodeAt(layout, point, { includeLocked: true, excludeId, inset });
 }
 
-export function reparentNode(layout, id, newParentId) {
+export function reparentNode(layout, id, newParentId, { inset = NO_INSET } = {}) {
   const entry = findEntry(layout, id);
   if (!entry || id === newParentId || (newParentId && isDescendant(layout, id, newParentId))) return false;
   if ((entry.parent?.id ?? null) === (newParentId ?? null)) return false;
 
-  const absolute = absoluteRect(layout, id);
+  const absolute = absoluteRect(layout, id, { inset });
   const newParent = newParentId ? findNode(layout, newParentId) : null;
   if (newParentId && !newParent) return false;
   const destination = newParent ? newParent.children : layout.children;
-  const targetRect = parentRect(layout, newParent);
+  const targetRect = parentRect(layout, newParent, { inset });
   const [node] = entry.children.splice(entry.index, 1);
   node.x = (absolute.x - targetRect.x) / targetRect.width * 100;
   node.y = (absolute.y - targetRect.y) / targetRect.height * 100;
@@ -120,7 +141,7 @@ export function reorderNode(layout, id, operation) {
 // нуль, а на сторінці діти стоять усередині рамки батька. Рамка там у em, а
 // у вузла на всю карту світу вона завтовшки десятки тисяч одиниць, тож без
 // поправки прямокутник дитини відʼїжджав би від того, де її справді видно.
-export function nodeIndex(layout, { inset = () => 0 } = {}) {
+export function nodeIndex(layout, { inset = NO_INSET } = {}) {
   const index = new Map();
   const collect = (children, area) => {
     children.forEach((node) => {
@@ -131,16 +152,10 @@ export function nodeIndex(layout, { inset = () => 0 } = {}) {
         height: node.height,
       };
       index.set(node.id, { node, rect });
-      const border = inset(node);
-      collect(node.children, {
-        x: rect.x + border,
-        y: rect.y + border,
-        width: Math.max(0, rect.width - border * 2),
-        height: Math.max(0, rect.height - border * 2),
-      });
+      collect(node.children, innerArea(rect, inset(node)));
     });
   };
-  collect(layout.children, { x: 0, y: 0, width: WORLD_SIZE, height: WORLD_SIZE });
+  collect(layout.children, WORLD_RECT);
   return index;
 }
 
@@ -190,10 +205,10 @@ export function nodesInRect(layout, rect, overlaps, { includeLargest = false } =
   return rows.filter((row) => overlaps(row.rect, rect) || (includeLargest && row === largest));
 }
 
-export function nearestPointParent(layout, point) {
-  const parent = deepestNodeAt(layout, point, { includeLocked: true });
-  const rect = parent ? absoluteRect(layout, parent.id) : { x: 0, y: 0, width: WORLD_SIZE, height: WORLD_SIZE };
-  return { parent, rect };
+// `rect` — місце під дітей знайденого батька: від нього рахуються відсотки.
+export function nearestPointParent(layout, point, { inset = NO_INSET } = {}) {
+  const parent = deepestNodeAt(layout, point, { includeLocked: true, inset });
+  return { parent, rect: parentRect(layout, parent, { inset }) };
 }
 
 export function lineage(layout, id) {
