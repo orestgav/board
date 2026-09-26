@@ -123,6 +123,9 @@ const cancelCampaignButton = document.querySelector("#cancel-campaign");
 const openCampaignLabel = document.querySelector("#open-campaign-label");
 const recentCampaigns = document.querySelector("#recent-campaigns");
 const campaignNameLabel = document.querySelector("#campaign-name");
+const loadingScreen = document.querySelector("#loading-screen");
+const loadingTitle = document.querySelector("#loading-title");
+const loadingStep = document.querySelector("#loading-step");
 const addEntityButton = document.querySelector("#add-entity");
 const addLocationButton = document.querySelector("#add-location");
 const addNpcButton = document.querySelector("#add-npc");
@@ -3049,7 +3052,7 @@ async function reloadFromDisk() {
   dirty = false;
   setStatus("Перечитування…", "dirty");
   try {
-    await loadBoard();
+    await loadBoard({ title: "Перечитую дошку з диска…" });
   } catch (error) {
     showConflict();
     showToast(error.message);
@@ -3451,8 +3454,32 @@ entitySearch.addEventListener("keydown", (event) => {
   }
 });
 
-async function loadBoard() {
+// Відкриття кампанії триває секунди — індексуються сотні карток, — тож поки
+// воно йде, дошку закриває помітний шар зі спінером: видно, що клік
+// спрацював і клацати вдруге не треба.
+function showLoading(title, step = "") {
+  loadingTitle.textContent = title;
+  loadingStep.textContent = step;
+  loadingScreen.hidden = false;
+}
+
+function hideLoading() {
+  loadingScreen.hidden = true;
+}
+
+// `title` — що саме відкривається, якщо це вже відомо (назва зі списку).
+async function loadBoard({ title = "Відкриваю кампанію…" } = {}) {
+  showLoading(title, "Читаю розкладку…");
+  try {
+    await readBoard();
+  } finally {
+    hideLoading();
+  }
+}
+
+async function readBoard() {
   const state = await storage.loadBoard();
+  showLoading(`Відкриваю «${state.campaign}»…`, "Індексую картки й нотатки…");
   setStatus("Індексація карток…", "dirty");
   const [loadedEntities, loadedNotes] = await Promise.all([storage.loadEntities(), storage.loadNotes()]);
   // Кампанія починається з чистого аркуша: мініатюри, підібрані кеглі, позиція
@@ -3556,7 +3583,7 @@ async function renderRecentCampaigns() {
     const opened = formatOpenedAt(entry.openedAt);
     details.textContent = opened ? `${entry.folder} · ${opened}` : entry.folder;
     open.append(name, details);
-    open.addEventListener("click", () => connectCampaign({ id: entry.id }));
+    open.addEventListener("click", () => connectCampaign({ id: entry.id, name: entry.name }));
     const forget = document.createElement("button");
     forget.type = "button";
     forget.className = "recent-forget";
@@ -3586,17 +3613,23 @@ function setConnectionBusy(busy) {
   for (const button of connectionScreen.querySelectorAll("button")) button.disabled = busy;
 }
 
-// `{ id }` — одна з нещодавніх кампаній, без нього — системний вибір теки.
+// `{ id, name }` — одна з нещодавніх кампаній, без нього — системний вибір теки.
 async function connectCampaign(target = {}) {
-  if (layout && !(await settleBoard())) return;
+  if (layout && hasUnsavedWork()) showLoading(`Зберігаю «${campaignNameLabel.textContent}»…`, "Перед переходом до іншої кампанії");
+  if (layout && !(await settleBoard())) return hideLoading();
   setConnectionBusy(true);
-  connectionHint.textContent = target.id ? "Відкриваю кампанію…" : "Очікую вибір теки…";
+  const title = target.name ? `Відкриваю «${target.name}»…` : "Відкриваю кампанію…";
+  // Зі списку відкриття починається одразу; системне вікно вибору теки своє,
+  // тож шар зʼявляється вже після того, як теку обрали.
+  if (target.id) showLoading(title, "Перевіряю доступ до теки…");
+  else connectionHint.textContent = "Очікую вибір теки…";
   try {
-    await storage.connect(target);
+    await storage.connect({ id: target.id ?? null });
     closeBoard();
-    await loadBoard();
+    await loadBoard({ title });
     connectionHint.textContent = "";
   } catch (error) {
+    hideLoading();
     if (error.name === "AbortError") connectionHint.textContent = "Вибір скасовано.";
     else {
       connectionHint.textContent = error.message;

@@ -319,6 +319,18 @@ svg.icon { width: 20px; height: 20px; }
 .connection-screen button:hover { border-color: var(--gold-bright); }
 .connection-screen small { margin-top: 12px; color: #756e66; }
 .connection-mark .icon { width: 30px; height: 30px; }
+/* Поверх усього, навіть екрана вибору: поки кампанія відкривається, клацати
+   по ньому вдруге нема чого. */
+.loading-screen { position: absolute; z-index: 19; inset: 0; display: grid; place-content: center; justify-items: center; gap: 10px; padding: 24px; background: radial-gradient(circle at 50% 42%, #24201a 0, #151412 52%); text-align: center; cursor: progress; }
+.loading-screen[hidden] { display: none; }
+.loading-spinner { width: 44px; height: 44px; margin-bottom: 6px; border: 3px solid #3d352b; border-top-color: var(--gold-bright); border-radius: 50%; animation: loading-spin .9s linear infinite; }
+.loading-screen strong { max-width: min(520px, calc(100vw - 48px)); overflow: hidden; font: 22px Georgia, serif; text-overflow: ellipsis; white-space: nowrap; }
+.loading-screen small { min-height: 1.4em; color: var(--muted); font-size: 13px; }
+@keyframes loading-spin { to { transform: rotate(360deg); } }
+@keyframes loading-pulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) {
+  .loading-spinner { animation: loading-pulse 1.6s ease-in-out infinite; }
+}
 .connection-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 .connection-screen button.quiet { border-color: #4a4239; background: transparent; color: var(--muted); }
 .connection-screen button:disabled { cursor: progress; opacity: .6; }

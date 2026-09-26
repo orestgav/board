@@ -140,6 +140,8 @@ describe("canvas in a browser, local folder mode", { skip: !chrome && "Chrome н
       && document.querySelector("#connection-hint").textContent.includes("board/canvas.json"), { message: "нема пояснення" });
     assert.match(await page.evaluate(() => document.querySelector("#connection-hint").textContent), /board\/canvas\.json: Непідтримуваний тип вузла/);
     assert.equal(await read("board/canvas.json"), broken);
+    // Невдале відкриття не лишає спінер висіти над екраном вибору.
+    assert.equal(await page.evaluate(() => document.querySelector("#loading-screen").hidden), true);
     // Дошки не відкрито — повертатися нема куди, і кнопки не видно.
     assert.equal(await page.evaluate(() => document.querySelector("#cancel-campaign").offsetParent), null);
   });

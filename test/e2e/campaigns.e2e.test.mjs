@@ -55,6 +55,20 @@ describe("several campaigns in one board", { skip: !chrome && "Chrome не зн�
       await page.close();
       site.server.close();
     });
+    // Шар відкриття живе частку секунди, тож його покази записуються ще до
+    // старту дошки: кожен рядок — заголовок і крок, поки шар видно.
+    await page.send("Page.addScriptToEvaluateOnNewDocument", { source: `
+      window.__loading = [];
+      document.addEventListener("DOMContentLoaded", () => {
+        const screen = document.querySelector("#loading-screen");
+        const record = () => {
+          if (screen.hidden) return;
+          const row = screen.querySelector("#loading-title").textContent + " | " + screen.querySelector("#loading-step").textContent;
+          if (window.__loading.at(-1) !== row) window.__loading.push(row);
+        };
+        new MutationObserver(record).observe(screen, { attributes: true, childList: true, subtree: true, characterData: true });
+      });
+    ` });
     await page.goto(site.url);
     await page.evaluate(async (list, local) => {
       for (const [key, value] of Object.entries(local)) localStorage.setItem(key, value);
@@ -128,6 +142,21 @@ describe("several campaigns in one board", { skip: !chrome && "Chrome не зн�
     assert.equal(await setting(page, "crown-board.viewport"), null);
     assert.notEqual(await setting(page, "board.crown.viewport"), null);
     assert.equal(await page.evaluate(() => document.querySelector(".workspace").classList.contains("layers-open")), true);
+    assert.deepEqual(page.errors, []);
+  });
+
+  test("opening a campaign shows what is being opened until the board is ready", async (context) => {
+    const page = await open(context);
+    const startup = await page.evaluate(() => window.__loading);
+    assert.ok(startup.includes("Відкриваю «Crown»… | Індексую картки й нотатки…"), startup.join("; "));
+    assert.equal(await page.evaluate(() => document.querySelector("#loading-screen").hidden), true);
+
+    await page.evaluate(() => { window.__loading = []; });
+    await switchTo(page, "north", "Північ");
+    const switching = await page.evaluate(() => window.__loading);
+    assert.equal(switching[0], "Відкриваю «north»… | Перевіряю доступ до теки…");
+    assert.ok(switching.includes("Відкриваю «Північ»… | Індексую картки й нотатки…"), switching.join("; "));
+    assert.equal(await page.evaluate(() => document.querySelector("#loading-screen").hidden), true);
     assert.deepEqual(page.errors, []);
   });
 
