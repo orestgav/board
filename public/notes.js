@@ -92,8 +92,8 @@ export function removeNoteBlock(source, anchor) {
   for (let index = start + 1; index < lines.length; index += 1) {
     if (NOTE_MARKER.test(lines[index])) { end = index; break; }
   }
-  let removeStart = start;
-  while (removeStart > 0 && !lines[removeStart - 1].trim()) removeStart -= 1;
-  lines.splice(removeStart, end - removeStart);
+  // Блок іде разом зі своїми хвостовими порожніми рядками, а порожній рядок
+  // перед ним лишається: так сусіди й далі розділені, а не злипаються.
+  lines.splice(start, end - start);
   return `${lines.join("\n").replace(/\s*$/, "")}\n`;
 }

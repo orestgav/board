@@ -182,8 +182,10 @@ async function uniqueName(mediaDirectory, originalName) {
   return candidate;
 }
 
-function createDirectoryStorage() {
-  let root = null;
+// `root` — уже відкрита тека: так сховище можна зібрати поверх будь-якого
+// FileSystemDirectoryHandle (у тестах — поверх теки в пам'яті), без пікера.
+export function createDirectoryStorage({ root: initialRoot = null } = {}) {
+  let root = initialRoot;
   let rememberedRoot = null;
   let config = null;
   const objectUrls = new Map();

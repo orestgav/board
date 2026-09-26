@@ -1161,10 +1161,12 @@ function hitPointTracker(node, entity, maximum, creatures, index) {
     if (!event.deltaY) return;
     const step = (event.shiftKey ? 10 : 1) * (event.deltaY < 0 ? 1 : -1);
     const next = Math.min(currentHitPoints(node, index, maximum) + step, maximum);
+    // Знімок «до» — раніше за першу зміну: інакше перший клац колеса не
+    // потрапив би ні в історію, ні на диск.
+    beginHitPointEdit(node);
     setHitPoints(node, index, next);
     current.value = String(next);
     tracker.classList.toggle("hurt", hurt(next, maximum));
-    beginHitPointEdit(node);
   }, { passive: false });
   current.addEventListener("keydown", (event) => { if (event.key === "Enter") current.blur(); });
   current.addEventListener("change", () => {

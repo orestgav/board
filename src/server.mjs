@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { mkdir, readFile, readdir, rename, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -157,11 +157,33 @@ async function readLayout(layoutPath) {
   }
 }
 
+// Windows не дає перейменувати поверх файла, який саме зараз відкрив хтось
+// інший (антивірус, OneDrive, редактор, AI, що читає розкладку), — це коротка
+// мить, тож кілька спроб з паузою її переживають.
+const RENAME_RETRY_CODES = new Set(["EPERM", "EACCES", "EBUSY"]);
+const RENAME_ATTEMPTS = 10;
+
+export async function renameWithRetry(from, to, { attempts = RENAME_ATTEMPTS, delay = 25, renameFile = rename } = {}) {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await renameFile(from, to);
+    } catch (error) {
+      if (!RENAME_RETRY_CODES.has(error.code) || attempt >= attempts) throw error;
+      await new Promise((resolveDelay) => setTimeout(resolveDelay, delay * attempt));
+    }
+  }
+}
+
 async function atomicWrite(path, source) {
   await mkdir(dirname(path), { recursive: true });
   const temporary = join(dirname(path), `.${randomUUID()}.tmp`);
   await writeFile(temporary, source, { flag: "wx" });
-  await rename(temporary, path);
+  try {
+    await renameWithRetry(temporary, path);
+  } catch (error) {
+    await rm(temporary, { force: true }).catch(() => {});
+    throw error;
+  }
 }
 
 async function readBuffer(request, limit = 2_000_000) {
