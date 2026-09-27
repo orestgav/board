@@ -61,7 +61,11 @@
           <button id="empty-add">Створити рамку</button>
         </div>
         <div id="drop-overlay" class="drop-overlay" hidden>Відпусти, щоб додати зображення</div>
-        <div id="connection-screen" class="connection-screen">
+        <!-- Від першої миті видно «Завантаження…», а не екран вибору: поки
+             код дошки вантажиться, кнопка вибору ще нічого не робить, а
+             запамʼятована кампанія може відкритися сама. Екран вибору
+             показує app.js, коли стане ясно, що без нього не обійтися. -->
+        <div id="connection-screen" class="connection-screen" hidden>
           <span class="connection-mark" data-icon="folder_open" aria-hidden="true"></span>
           <h1>Відкрий кампанію</h1>
           <p>Канва отримає доступ лише до обраної теки. Файли не завантажуються на сайт.</p>
@@ -72,9 +76,9 @@
           </div>
           <small id="connection-hint">Потрібен desktop Chrome або Edge.</small>
         </div>
-        <div id="loading-screen" class="loading-screen" role="status" aria-live="polite" hidden>
+        <div id="loading-screen" class="loading-screen" role="status" aria-live="polite">
           <span class="loading-spinner" aria-hidden="true"></span>
-          <strong id="loading-title">Відкриваю кампанію…</strong>
+          <strong id="loading-title">Завантаження…</strong>
           <small id="loading-step"></small>
         </div>
       </section>
