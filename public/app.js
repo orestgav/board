@@ -3672,6 +3672,10 @@ async function showConnectionScreen({ hint = null } = {}) {
   cancelCampaignButton.hidden = !layout;
   if (hint !== null) connectionHint.textContent = hint;
   connectionScreen.hidden = false;
+  // Сторінка стартує під шаром «Завантаження…». Якщо браузер забув дозвіл на
+  // теку, запамʼятована кампанія сама не відкриється — і шар мусить зійти,
+  // інакше він назавжди закриє список, з якого цей дозвіл дають кліком.
+  hideLoading();
 }
 
 function setConnectionBusy(busy) {

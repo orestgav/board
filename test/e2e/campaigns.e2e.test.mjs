@@ -46,7 +46,9 @@ describe("several campaigns in one board", { skip: !chrome && "Chrome не зн�
   const name = (page) => page.evaluate(() => document.querySelector("#campaign-name").textContent);
   const setting = (page, key) => page.evaluate((storageKey) => localStorage.getItem(storageKey), key);
 
-  async function open(context, { campaigns = [CROWN, NORTH], storage = {} } = {}) {
+  // `forgotten` — браузер не памʼятає дозволу на теки (так буває після
+  // перезапуску): без кліку кампанія не відкривається, а клік дає дозвіл.
+  async function open(context, { campaigns = [CROWN, NORTH], storage = {}, forgotten = false } = {}) {
     // Свій сайт на окремому порту — це окремий origin, тож localStorage,
     // IndexedDB і файли OPFS у кожного тесту свої й порожні.
     const site = await staticSite();
@@ -100,7 +102,14 @@ describe("several campaigns in one board", { skip: !chrome && "Chrome не зн�
         };
       });
     }, campaigns.map((campaign) => ({ ...campaign, webp: TINY_WEBP.toString("base64") })), storage);
+    if (forgotten) {
+      await page.send("Page.addScriptToEvaluateOnNewDocument", { source: `
+        FileSystemHandle.prototype.queryPermission = async () => "prompt";
+        FileSystemHandle.prototype.requestPermission = async () => "granted";
+      ` });
+    }
     await page.reload();
+    if (forgotten) return page;
     await page.waitFor(() => document.querySelector("#save-status").textContent === "Збережено" && document.querySelectorAll(".node").length > 0, { message: "кампанія не відкрилась" });
     return page;
   }
@@ -157,6 +166,19 @@ describe("several campaigns in one board", { skip: !chrome && "Chrome не зн�
     assert.equal(switching[0], "Відкриваю «north»… | Перевіряю доступ до теки…");
     assert.ok(switching.includes("Відкриваю «Північ»… | Індексую картки й нотатки…"), switching.join("; "));
     assert.equal(await page.evaluate(() => document.querySelector("#loading-screen").hidden), true);
+    assert.deepEqual(page.errors, []);
+  });
+
+  test("without a remembered permission the loading layer gives way to the campaign list", async (context) => {
+    const page = await open(context, { forgotten: true });
+    await page.waitFor(() => !document.querySelector("#connection-screen").hidden, { message: "екран вибору не зʼявився" });
+    assert.equal(await page.evaluate(() => document.querySelector("#loading-screen").hidden), true);
+    assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll(".recent-open strong")].map((label) => label.textContent)), ["crown", "north"]);
+
+    await page.click(".recent-campaign:nth-child(1) .recent-open");
+    await page.waitFor(() => document.querySelector("#connection-screen").hidden
+      && document.querySelector("#save-status").textContent === "Збережено", { message: "кампанія не відкрилась після кліку" });
+    assert.equal(await name(page), "Crown");
     assert.deepEqual(page.errors, []);
   });
 
