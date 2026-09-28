@@ -1,7 +1,10 @@
-// Токен — кругла фішка істоти зі статблока: арт у колі або перша літера
-// назви, якщо арту нема. Колір кільця ДМ обирає з палітри; червоний — за
+// Токен — кругла фішка істоти зі статблока чи гравця: арт у колі або перша
+// літера назви, якщо арту нема. Колір кільця ДМ обирає з палітри; червоний — за
 // замовчуванням, тож у вузлі поле живе лише поки колір інший.
 export const TOKEN_SIZE = { width: 120, height: 120 };
+
+// Типи карток, з яких кнопка «Токен» робить фішку.
+export const TOKEN_ENTITY_TYPES = ["creature", "player"];
 
 export const TOKEN_COLORS = [
   ["#c0392b", "Червоний"], ["#7b1f24", "Бордовий"], ["#e67e22", "Помаранчевий"], ["#e0a526", "Бурштиновий"],
@@ -12,6 +15,13 @@ export const TOKEN_COLORS = [
 ];
 
 export const DEFAULT_TOKEN_COLOR = TOKEN_COLORS[0][0];
+
+// Свої фішки — гравців — лягають на полотно зеленими, решта червоними.
+export const PLAYER_TOKEN_COLOR = "#3f9a4c";
+
+export function initialTokenColor(entity) {
+  return entity?.type === "player" ? PLAYER_TOKEN_COLOR : DEFAULT_TOKEN_COLOR;
+}
 
 const KNOWN = new Set(TOKEN_COLORS.map(([color]) => color));
 

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { DEFAULT_TOKEN_COLOR, TOKEN_COLORS, tokenColor, tokenInitial, tokenInk, writeTokenColor } from "../public/token.js";
+import { DEFAULT_TOKEN_COLOR, PLAYER_TOKEN_COLOR, TOKEN_COLORS, initialTokenColor, tokenColor, tokenInitial, tokenInk, writeTokenColor } from "../public/token.js";
 
 test("token palette offers twenty distinct colors with red first", () => {
   assert.equal(TOKEN_COLORS.length, 20);
@@ -15,6 +15,14 @@ test("token color is stored only when it differs from the default", () => {
   writeTokenColor(node, DEFAULT_TOKEN_COLOR);
   assert.equal("color" in node, false);
   assert.equal(tokenColor({ color: "not-a-color" }), DEFAULT_TOKEN_COLOR);
+});
+
+test("player tokens start green, creature tokens red", () => {
+  assert.equal(initialTokenColor({ type: "player" }), PLAYER_TOKEN_COLOR);
+  assert.equal(initialTokenColor({ type: "creature" }), DEFAULT_TOKEN_COLOR);
+  assert.equal(TOKEN_COLORS.some(([color]) => color === PLAYER_TOKEN_COLOR), true);
+  const node = writeTokenColor({}, initialTokenColor({ type: "player" }));
+  assert.equal(tokenColor(node), PLAYER_TOKEN_COLOR);
 });
 
 test("token initial takes the first letter of the name", () => {

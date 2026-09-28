@@ -29,7 +29,7 @@ import { iconElement } from "./icons.js";
 import { renderInline, renderMarkdown } from "./markdown.js";
 import { creatureHitPoints, creatureLabel, creatureList, maxHitPoints, parseHitPoints, statblockMarkup, writeCreatures } from "./statblock.js";
 import { mapSlugFromPath } from "./notes.js";
-import { TOKEN_COLORS, TOKEN_SIZE, tokenColor, tokenInitial, tokenInk, writeTokenColor } from "./token.js";
+import { TOKEN_COLORS, TOKEN_ENTITY_TYPES, TOKEN_SIZE, initialTokenColor, tokenColor, tokenInitial, tokenInk, writeTokenColor } from "./token.js";
 import { noteMarkup, toggleBold } from "./note-format.js";
 import { NOTE_FONT_EM, STATBLOCK_FONT_EM, SUMMARY_FONT_EM, SUMMARY_MIN_RATIO, TEXT_MIN_RATIO, fitBoxKey, fittedFontSize, fittingRatio, notePadding, reservedFitRatio, textShape } from "./text-fit.js";
 import { canonicalYouTubeUrl, musicTitle, oEmbedUrl, parseMusicStart, playbackUrl } from "./music.js";
@@ -201,7 +201,7 @@ let historyBusy = false;
 const newNoteIds = new Set();
 let pendingNoteInput = null;
 let pickerSelection = 0;
-let pickerType = null;
+let pickerTypes = null;
 // Той самий пошук по бестіарію кладе на полотно або статблок, або токен.
 let pickerMakesToken = false;
 let insertPoint = null;
@@ -1828,11 +1828,12 @@ function scaleSizes(node, factor) {
 function openEntityPicker(type = null, { token = false } = {}) {
   if (!layout) return;
   insertPoint ??= defaultInsertPoint();
-  pickerType = type;
+  // Токен шукає і в бестіарії, і серед гравців.
+  pickerTypes = token ? new Set(TOKEN_ENTITY_TYPES) : type ? new Set([type]) : null;
   pickerMakesToken = token;
   pickerSelection = 0;
-  pickerTitle.textContent = token ? "Токен істоти з бестіарію" : ENTITY_KINDS[type]?.pickerTitle ?? "Картка з репозиторію";
-  entitySearch.placeholder = ENTITY_KINDS[type]?.searchPlaceholder ?? "Назва, slug або тип…";
+  pickerTitle.textContent = token ? "Токен істоти чи гравця" : ENTITY_KINDS[type]?.pickerTitle ?? "Картка з репозиторію";
+  entitySearch.placeholder = token ? "Назва або slug істоти чи гравця…" : ENTITY_KINDS[type]?.searchPlaceholder ?? "Назва, slug або тип…";
   entitySearch.value = "";
   renderEntityResults();
   entityPicker.showModal();
@@ -1843,7 +1844,7 @@ function openEntityPicker(type = null, { token = false } = {}) {
 // локації, NPC та істот ДМ бере кнопками «Локація», «NPC» і «Статблок».
 function filteredEntities() {
   return entities
-    .filter((entity) => (pickerType ? entity.type === pickerType : !ENTITY_KINDS[entity.type]) && matchesEntity(entity, entitySearch.value))
+    .filter((entity) => (pickerTypes ? pickerTypes.has(entity.type) : !ENTITY_KINDS[entity.type]) && matchesEntity(entity, entitySearch.value))
     .slice(0, 100);
 }
 
@@ -1950,6 +1951,7 @@ function addToken(entity) {
     y: (point.y - TOKEN_SIZE.height / 2 - rect.y) / rect.height * 100,
     width: TOKEN_SIZE.width, height: TOKEN_SIZE.height, locked: false, children: [],
   };
+  writeTokenColor(node, initialTokenColor(entity));
   enlargeForZoom(node, point, rect);
   executeCommand("Додати токен", () => {
     (parent ? parent.children : layout.children).push(node);

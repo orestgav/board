@@ -17,7 +17,7 @@ export const DEFAULT_BOARD_CONFIG = Object.freeze({
   media: { dir: "board/media", entityDir: "_media", cacheDir: "board/cache", format: "webp" },
   entities: {
     skipDirs: [".git", ".github", ".obsidian", "node_modules", "tools", "_templates"],
-    types: ["npc", "location", "faction", "item", "creature", "encounter", "world"],
+    types: ["npc", "location", "faction", "item", "creature", "player", "encounter", "world"],
     summarySection: "## На дошці",
     linksSection: "## Звʼязки",
     portraitField: "image",
