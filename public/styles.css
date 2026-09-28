@@ -198,7 +198,7 @@ svg.icon { width: 20px; height: 20px; }
 .statblock-hp.hurt .hp-current { color: #e0705f; }
 .hp-max { color: var(--stat-muted); font-size: 13em; font-variant-numeric: tabular-nums; }
 .hp-controls { display: flex; align-items: center; gap: 6em; margin-left: auto; }
-.hp-amount { width: 2.9em; height: 2.1em; padding: 0 .25em; border: .08em solid #40555c; border-radius: .4em; outline: none; background: #0d151a; color: #e8f2f1; font: 13em/1 inherit; font-variant-numeric: tabular-nums; text-align: center; }
+.hp-amount { width: 2.9em; height: 2.1em; padding: 0 .25em; border: .08em solid #40555c; border-radius: .4em; outline: none; background: #0d151a; color: #e8f2f1; font-family: inherit; font-size: 13em; line-height: 1; font-variant-numeric: tabular-nums; text-align: center; }
 .hp-amount:focus { border-color: var(--stat-accent); }
 .hp-button { display: grid; place-items: center; width: 1.7em; height: 1.7em; padding: 0; border: .07em solid; border-radius: .38em; font-size: 16em; line-height: 1; cursor: pointer; }
 .hp-button.heal { border-color: #4d7a4b; background: rgba(77, 122, 75, .24); color: #8fd08c; }
