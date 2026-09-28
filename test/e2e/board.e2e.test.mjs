@@ -182,6 +182,29 @@ describe("canvas in a browser, local server mode", { skip: !chrome && "Chrome н
     assert.deepEqual(page.errors, []);
   });
 
+  test("R turns an unlocked picture in 45° steps around its centre", async (context) => {
+    const { page, campaign } = await open(context);
+    const map = async () => findNode(await campaign.canvas(), "map-b").node;
+    await page.click('.node[data-id="map-b"]', { modifiers: 1 });
+    await page.press("r");
+    await saved(page);
+    assert.equal("rotation" in await map(), false, "заблоковану картинку не повертаємо");
+    await page.press("Ctrl+l");
+    await page.press("r");
+    await page.until(async () => (await map()).rotation === 45, { message: "картинка не повернулась" });
+    const turned = await map();
+    assert.equal(turned.aspect, 1.5);
+    assert.ok(Math.abs(turned.width - 2000 / Math.SQRT2) < 1e-6);
+    assert.equal(turned.width, turned.height);
+    assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('.node-image[data-id="map-b"]')).transform === "none"), false);
+    await page.press("Shift+r");
+    await page.until(async () => !("rotation" in await map()), { message: "Shift+R не повернув назад" });
+    const back = await map();
+    assert.ok(Math.abs(back.width - 1200) < 1e-6 && Math.abs(back.height - 800) < 1e-6);
+    assert.ok(Math.abs(back.x - 55) < 1e-9);
+    assert.deepEqual(page.errors, []);
+  });
+
   test("arrow keys nudge the selection and z-order keys restack it", async (context) => {
     const { page, campaign } = await open(context);
     await page.click('.node-header[data-id="frame-1"]');

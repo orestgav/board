@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { absoluteRect, adoptLayout, allAbsoluteRects, collectNodes, containerGrid, deepestContainerAt, findEntry, nearestAncestor, nearestPointParent, nodeIndex, nodesInRect, outermostIds, reparentNode, reorderNode } from "../public/model.js";
+import { absoluteRect, adoptLayout, allAbsoluteRects, collectNodes, containerGrid, deepestContainerAt, findEntry, nearestAncestor, nearestPointParent, nodeIndex, nodesInRect, outermostIds, reparentNode, reorderNode, rotateImageNode, rotatedImageShare } from "../public/model.js";
 import { rectWithin } from "../public/view.js";
 
 const frame = (id, x, y, width = 400, height = 300, children = []) => ({ id, type: "frame", title: id, x, y, width, height, locked: false, children });
@@ -218,4 +218,53 @@ test("geometry with a border inset matches the rendered node index", () => {
   assert.equal(reparentNode(layout, "placed", "world", { inset }), true);
   const moved = absoluteRect(layout, "placed", { inset });
   assert.ok(Math.abs(moved.x - point.x) < 1e-6 && Math.abs(moved.y - point.y) < 1e-6);
+});
+
+const image = (fields = {}) => ({ id: "map", type: "image", image: "board/media/maps/m.webp", x: 10, y: 10, width: 400, height: 200, children: [], ...fields });
+const WORLD = { width: 10_000, height: 10_000 };
+const close = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-6, `${actual} ≠ ${expected}`);
+
+test("a quarter turn swaps the frame around the same centre", () => {
+  const node = image();
+  assert.equal(rotateImageNode(node, 90, { area: WORLD }), true);
+  close(node.width, 200);
+  close(node.height, 400);
+  close(node.x * 100 + node.width / 2, 10 * 100 + 200);
+  close(node.y * 100 + node.height / 2, 10 * 100 + 100);
+  assert.equal(node.rotation, 90);
+  assert.equal(node.aspect, 2);
+});
+
+test("at 45° the frame bounds the picture, and the picture keeps its proportions", () => {
+  const node = image();
+  rotateImageNode(node, 45, { area: WORLD });
+  close(node.width, 600 / Math.SQRT2);
+  close(node.height, 600 / Math.SQRT2);
+  const share = rotatedImageShare(node.aspect, node.rotation);
+  close(node.width * share.width, 400);
+  close(node.height * share.height, 200);
+});
+
+test("a full circle of steps restores the node and drops the rotation fields", () => {
+  const node = image({ children: [image({ id: "token", x: 10, y: 20, width: 20, height: 20 })] });
+  for (let step = 0; step < 8; step += 1) rotateImageNode(node, 45, { area: WORLD, inset: 2 });
+  close(node.x, 10);
+  close(node.width, 400);
+  close(node.height, 200);
+  close(node.children[0].x, 10);
+  close(node.children[0].y, 20);
+  assert.equal("rotation" in node, false);
+  assert.equal("aspect" in node, false);
+});
+
+test("content turns with the picture around its centre", () => {
+  // Жетон у правому верхньому куті після чверті оберту — у правому нижньому.
+  const node = image({ children: [image({ id: "token", x: 90, y: 0, width: 40, height: 20 })] });
+  rotateImageNode(node, 90, { area: WORLD });
+  const [token] = node.children;
+  close(token.x * node.width / 100 + token.width / 2, 200 - 10);
+  close(token.y * node.height / 100 + token.height / 2, 400 - 20);
+  rotateImageNode(node, -90, { area: WORLD });
+  close(token.x, 90);
+  close(token.y, 0);
 });

@@ -243,6 +243,62 @@ export function outermostIds(layout, ids) {
   return [...chosen].filter((id) => !lineage(layout, id).slice(1).some((ancestor) => chosen.has(ancestor.id)));
 }
 
+// Поворот картинки. Вузол лишається прямокутником уздовж осей — рамкою
+// навколо повернутої картинки, — тож вибір, рамка виділення й вкладення
+// працюють як завжди. Сама картинка всередині тримає свої пропорції
+// (`aspect`, ширина до висоти без повороту): під 45° з рамки їх уже не
+// вийняти, бо вона квадратна за будь-яких пропорцій.
+export const ROTATION_STEP = 45;
+
+function turn(degrees) {
+  const radians = degrees * Math.PI / 180;
+  return { cos: Math.abs(Math.cos(radians)), sin: Math.abs(Math.sin(radians)) };
+}
+
+// Частки рамки, які займає неповернута картинка: від них CSS її й малює.
+export function rotatedImageShare(aspect, degrees) {
+  const { cos, sin } = turn(degrees);
+  return { width: aspect / (aspect * cos + sin), height: 1 / (aspect * sin + cos) };
+}
+
+// `area` — місце під дітей батька вузла, `inset` — рамка самого вузла (як у
+// nodeIndex). Центр лишається на місці, а вміст — жетони на карті — обертається
+// навколо нього разом із картинкою, щоб не зʼїхати з намальованого місця.
+export function rotateImageNode(node, delta, { area, inset = 0 }) {
+  const from = node.rotation ?? 0;
+  const to = ((from + delta) % 360 + 360) % 360;
+  if (to === from) return false;
+  const aspect = node.aspect ?? node.width / node.height;
+  const pictureWidth = node.width * rotatedImageShare(aspect, from).width;
+  const pictureHeight = pictureWidth / aspect;
+  const { cos, sin } = turn(to);
+  const width = pictureWidth * cos + pictureHeight * sin;
+  const height = pictureWidth * sin + pictureHeight * cos;
+
+  const inner = { width: Math.max(0, node.width - inset * 2), height: Math.max(0, node.height - inset * 2) };
+  const nextInner = { width: Math.max(0, width - inset * 2), height: Math.max(0, height - inset * 2) };
+  const radians = delta * Math.PI / 180;
+  for (const child of node.children) {
+    const dx = child.x * inner.width / 100 + child.width / 2 - inner.width / 2;
+    const dy = child.y * inner.height / 100 + child.height / 2 - inner.height / 2;
+    const x = dx * Math.cos(radians) - dy * Math.sin(radians);
+    const y = dx * Math.sin(radians) + dy * Math.cos(radians);
+    child.x = nextInner.width ? (nextInner.width / 2 + x - child.width / 2) / nextInner.width * 100 : child.x;
+    child.y = nextInner.height ? (nextInner.height / 2 + y - child.height / 2) / nextInner.height * 100 : child.y;
+  }
+
+  node.x += (node.width - width) / 2 / area.width * 100;
+  node.y += (node.height - height) / 2 / area.height * 100;
+  node.width = width;
+  node.height = height;
+  if (to) Object.assign(node, { rotation: to, aspect });
+  else {
+    delete node.rotation;
+    delete node.aspect;
+  }
+  return true;
+}
+
 // Сітка дочірніх карток усередині контейнера: спершу ширина за кількістю
 // колонок, далі висота із запасом на шапку. Шапка вужчає разом із висотою,
 // тому перший прохід бере найбільшу можливу (height = Infinity) — так вміст

@@ -1,4 +1,5 @@
 import {
+  ROTATION_STEP,
   WORLD_SIZE,
   absoluteRect,
   adoptLayout,
@@ -18,6 +19,8 @@ import {
   parentRect,
   reparentNode,
   reorderNode,
+  rotateImageNode,
+  rotatedImageShare,
 } from "./model.js";
 import { LayoutConflictError, createStorage } from "./storage.js";
 import { clipboardPayload, noteTargets, parseClipboard, placedItems, withoutNodes } from "./clipboard.js";
@@ -1002,6 +1005,14 @@ function renderNode(node, isRoot = false) {
     image.draggable = false;
     showMedia(image, node.image, { node, size: BOARD_THUMBNAIL_SIZE, persist: true });
     image.addEventListener("pointerdown", onNodePointerDown);
+    if (node.rotation) {
+      // Частки рамки від розміру не залежать, тож протяжка кутом їх не чіпає.
+      const share = rotatedImageShare(node.aspect, node.rotation);
+      element.classList.add("rotated");
+      image.style.setProperty("--image-width", `${share.width * 100}%`);
+      image.style.setProperty("--image-height", `${share.height * 100}%`);
+      image.style.setProperty("--image-rotation", `${node.rotation}deg`);
+    }
     element.append(image);
   } else {
     element.append(nodeHeader(node, { icon: "crop_square" }));
@@ -2208,6 +2219,7 @@ function openContextMenu(node, clientX, clientY) {
   contextMenuItem("copy-image").hidden = !imageCopyKind(node);
   contextMenuItem("add-scene").hidden = !isLocationNode(node);
   contextMenuItem("rename").hidden = !["scene", "music"].includes(node?.type);
+  for (const action of ["rotate-right", "rotate-left"]) contextMenuItem(action).hidden = node?.type !== "image";
   contextMenuItem("details").hidden = !node || node.type === "scene";
   const summaryToggle = contextMenuItem("toggle-summary");
   summaryToggle.hidden = !canToggleSummary(node);
@@ -2244,7 +2256,7 @@ function openContextMenu(node, clientX, clientY) {
       button.disabled = false;
       button.title = "";
     }
-    for (const action of ["rename", "add-creature", "remove-creature"]) {
+    for (const action of ["rename", "rotate-right", "rotate-left", "add-creature", "remove-creature"]) {
       const button = contextMenuItem(action);
       button.disabled = node.locked;
       button.title = node.locked ? "Спочатку розблокуйте елемент" : "";
@@ -2614,6 +2626,25 @@ function toggleLock() {
     ? plural(nodes.length, "Заблокувати вузол", "Заблокувати вузли")
     : plural(nodes.length, "Розблокувати вузол", "Розблокувати вузли");
   executeCommand(label, () => { for (const node of nodes) node.locked = locking; });
+}
+
+// Повертаються лише картинки з виділення, і лише не заблоковані: так R на
+// змішаному виділенні не чіпає решти вузлів.
+function rotatableImages() {
+  return selectedNodes().filter((node) => node.type === "image" && !node.locked);
+}
+
+function rotateSelected(steps) {
+  const nodes = rotatableImages();
+  if (!nodes.length) return;
+  executeCommand(plural(nodes.length, "Повернути картинку", "Повернути картинки"), () => {
+    for (const node of nodes) {
+      rotateImageNode(node, steps * ROTATION_STEP, {
+        area: parentRect(layout, findEntry(layout, node.id).parent, RENDERED),
+        inset: RENDERED.inset(node),
+      });
+    }
+  });
 }
 
 function changeZ(operation) {
@@ -3320,6 +3351,10 @@ window.addEventListener("keydown", (event) => {
     const step = event.shiftKey ? 10 : 1;
     nudgeSelected(event.key === "ArrowLeft" ? -step : event.key === "ArrowRight" ? step : 0, event.key === "ArrowUp" ? -step : event.key === "ArrowDown" ? step : 0);
   } else if (event.key.toLowerCase() === "f" && !command) addFrame();
+  else if (event.code === "KeyR" && !command && !event.altKey && rotatableImages().length) {
+    event.preventDefault();
+    rotateSelected(event.shiftKey ? -1 : 1);
+  }
 });
 window.addEventListener("keyup", (event) => { if (event.code === "Space") spacePressed = false; });
 window.addEventListener("blur", () => { spacePressed = false; });
@@ -3464,6 +3499,8 @@ nodeContextMenu.addEventListener("click", async (event) => {
   if (action === "add-scene") addScene(node, spot?.world);
   else if (action === "rename") renameNode(node);
   else if (action === "lock") toggleLock();
+  else if (action === "rotate-right") rotateSelected(1);
+  else if (action === "rotate-left") rotateSelected(-1);
   else if (action === "copy") copySelection();
   else if (action === "copy-image") copyAsImage(node);
   else if (action === "delete") await deleteSelected();

@@ -9,6 +9,7 @@ import { isTokenColor } from "./token.js";
 // розкладку, формату якої ще не знає.
 export const LAYOUT_VERSION = 1;
 const NODE_TYPES = ["frame", "scene", "image", "entity", "note", "music", "token"];
+const ROTATIONS = [45, 90, 135, 180, 225, 270, 315];
 
 export function emptyLayout() {
   return { formatVersion: LAYOUT_VERSION, children: [] };
@@ -30,6 +31,14 @@ export function validateNode(node) {
     if (!imagePath.toLowerCase().endsWith(".webp") || imagePath.startsWith("/") || imagePath.split("/").includes("..")) {
       throw new Error(`${node.id}.image має бути безпечним відносним шляхом до WebP`);
     }
+  }
+  // Поворот картинки кроком 45° за годинниковою; без повороту — без полів.
+  // Пропорції неповернутої картинки йдуть у парі з поворотом: з рамки під
+  // 45° їх не відновити.
+  if (node.rotation !== undefined || node.aspect !== undefined) {
+    if (node.type !== "image") throw new Error(`${node.id}: повертати можна лише картинку`);
+    if (!ROTATIONS.includes(node.rotation)) throw new Error(`${node.id}.rotation має бути одним із ${ROTATIONS.join(", ")}`);
+    if (!Number.isFinite(node.aspect) || node.aspect <= 0) throw new Error(`${node.id}.aspect має бути додатним числом`);
   }
   if (["entity", "token"].includes(node.type) && (typeof node.entity !== "string" || !node.entity)) {
     throw new Error(`${node.id}.entity має бути непорожнім slug`);

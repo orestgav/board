@@ -29,3 +29,12 @@ test("parsing names the file and says what is wrong", () => {
   assert.throws(() => parseLayout('{"formatVersion":0,"children":[]}', "board/canvas.json"), /board\/canvas\.json: Розкладка має непідтримувану версію: 0/);
   assert.throws(() => parseLayout('{"formatVersion":1}'), /canvas\.json: children має бути масивом/);
 });
+
+test("only a picture turns, in 45° steps, and keeps its proportions with it", () => {
+  const image = (fields = {}) => ({ id: "i", type: "image", image: "board/media/m.webp", x: 0, y: 0, width: 10, height: 10, children: [], ...fields });
+  assert.equal(validateNode(image({ rotation: 135, aspect: 1.5 })).rotation, 135);
+  assert.throws(() => validateNode(image({ rotation: 30, aspect: 1.5 })), /rotation має бути одним із/);
+  assert.throws(() => validateNode(image({ rotation: 0, aspect: 1.5 })), /rotation має бути одним із/);
+  assert.throws(() => validateNode(image({ rotation: 90 })), /aspect має бути додатним числом/);
+  assert.throws(() => validateNode(frame({ rotation: 90, aspect: 1 })), /повертати можна лише картинку/);
+});
