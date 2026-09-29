@@ -131,6 +131,20 @@ test("ресурси: класові, безкоштовні заклинанн�
   ]);
 });
 
+test("ресурси: заряди предмета з відновленням словом («LongRest»), витратні — ні", () => {
+  const state = normalizeCharacter(fixture((data) => {
+    data.inventory.push(
+      { id: 30, quantity: 1, equipped: true, isAttuned: true, containerEntityId: data.id, limitedUse: { maxUses: 1, numberUsed: 1, resetType: "LongRest" },
+        definition: { name: "Кільце Вогняного Серця", weight: 0, canEquip: true, canAttune: true, magic: true } },
+      { id: 31, quantity: 1, containerEntityId: data.id, limitedUse: { maxUses: 1, numberUsed: 0, resetType: "Consumable" },
+        definition: { name: "Потрібний сувій", weight: 0 } },
+    );
+  }));
+  const ring = state.resources.find((entry) => entry.name === "Кільце Вогняного Серця");
+  assert.deepEqual([ring.used, ring.max, ring.reset, ring.source], [1, 1, 2, "item"]);
+  assert.equal(state.resources.some((entry) => entry.name === "Потрібний сувій"), false);
+});
+
 test("limitedUseMax: модифікатор (не менше 1), бонус вправності, оператори", () => {
   const scores = { str: 10, dex: 10, con: 10, int: 10, wis: 8, cha: 16 };
   assert.equal(limitedUseMax({ maxUses: 0, statModifierUsesId: 6 }, scores, 2), 3);

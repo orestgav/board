@@ -30,6 +30,8 @@ export const CONDITION_LABELS = {
 const EXHAUSTION = 4;
 
 export const RESET_LABELS = { 1: "короткий відпочинок", 2: "довгий відпочинок", 3: "світанок", 4: "інше" };
+// Сувої мають «Consumable» — їх тут немає, і вони не стають ресурсом.
+const ITEM_RESETS = { ShortRest: 1, LongRest: 2, Dawn: 3, Other: 4 };
 
 // characterValues.typeId, які нам потрібні.
 const VALUE = {
@@ -323,10 +325,17 @@ function resources(data, scores, pb, features) {
     }
   }
   // Заряди предметів (жезли, персні). Сувої й зілля — витратні, це не ресурс.
+  // У предметів DDB пише відновлення словом («LongRest»), а не числом.
   for (const item of data.inventory ?? []) {
-    if (!item.limitedUse || item.definition?.isConsumable || typeof item.limitedUse.resetType === "string") continue;
+    if (!item.limitedUse || item.definition?.isConsumable) continue;
+    const reset = typeof item.limitedUse.resetType === "string" ? ITEM_RESETS[item.limitedUse.resetType] : item.limitedUse.resetType;
+    if (reset === undefined) continue;
     const max = limitedUseMax(item.limitedUse, scores, pb);
-    add({ ...resource(itemName(data, item), item.limitedUse, max, "item"), used: Math.min(max, number(item.limitedUse.numberUsed ?? item.chargesUsed)) });
+    add({
+      ...resource(itemName(data, item), item.limitedUse, max, "item"),
+      used: Math.min(max, number(item.limitedUse.numberUsed ?? item.chargesUsed)),
+      reset,
+    });
   }
   return result;
 }
