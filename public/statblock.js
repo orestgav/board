@@ -90,9 +90,11 @@ export function savingThrows(raw) {
   return cells;
 }
 
+// Розмір стоїть окремо від типу: у полі він завжди в одній формі
+// («Середній», «Гігантський»), тож перед типом іншого роду не узгоджувався б.
 export function typeLine(meta) {
-  const kind = [meta.size, meta.kind, filled(meta.subtype) ? `(${meta.subtype})` : ""].filter(filled).join(" ");
-  return [kind, meta.alignment].filter(filled).join(", ");
+  const kind = [meta.kind, filled(meta.subtype) ? `(${meta.subtype})` : ""].filter(filled).join(" ");
+  return [kind, meta.size, meta.alignment].filter(filled).join(", ");
 }
 
 // Рядок під таблицею характеристик: спорядження, навички, чуття, мови, CR.

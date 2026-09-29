@@ -17,7 +17,7 @@ import {
 const ALISIA = {
   name: "Алісія Дан Торн",
   meta: {
-    type: "creature", name: "Алісія Дан Торн", size: "Medium", kind: "Undead", subtype: "Vampire",
+    type: "creature", name: "Алісія Дан Торн", size: "Середній", kind: "Undead", subtype: "Vampire",
     alignment: "Chaotic Evil", ac: "15 (швидкість і спритність)", hp: "110 (13d8 + 52)",
     speed: "40 фт, Climb 40 фт", initiative: "+7", str: "+3", dex: "+4", con: "+4", int: "+2", wis: "+2", cha: "+3",
     saves: "DEX +7, CON +7, WIS +5, CHA +4", skills: "Perception +5", senses: "Darkvision 120 ft.",
@@ -56,8 +56,8 @@ test("рятункові кидки розкладаються по клітин
 });
 
 test("рядок типу збирається лише з заповнених полів", () => {
-  assert.equal(typeLine(ALISIA.meta), "Medium Undead (Vampire), Chaotic Evil");
-  assert.equal(typeLine({ size: "Gargantuan", kind: "істота пекла", subtype: "—" }), "Gargantuan істота пекла");
+  assert.equal(typeLine(ALISIA.meta), "Undead (Vampire), Середній, Chaotic Evil");
+  assert.equal(typeLine({ size: "Гігантський", kind: "істота пекла", subtype: "—" }), "істота пекла, Гігантський");
   assert.equal(typeLine({}), "");
 });
 
@@ -88,7 +88,7 @@ test("описові секції не потрапляють у статбло�
 
 test("розмітка картки повторює статблок бестіарію", () => {
   const markup = statblockMarkup(ALISIA);
-  assert.match(markup, /<em>Medium Undead \(Vampire\), Chaotic Evil<\/em>/);
+  assert.match(markup, /<em>Undead \(Vampire\), Середній, Chaotic Evil<\/em>/);
   assert.match(markup, /<strong>HP<\/strong> 110 \(13d8 \+ 52\)/);
   assert.match(markup, /<tr class="sb-save"><th>SAVE<\/th><td>—<\/td><td>\+7<\/td>/);
   assert.match(markup, /<h3>ACTIONS<\/h3><p><strong>Bite\.<\/strong> <em>Melee Weapon Attack<\/em>/);
