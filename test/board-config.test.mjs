@@ -81,3 +81,15 @@ test("the Crown campaign config is accepted as it is", async (context) => {
   assert.equal(config.frontmatter, "tools/frontmatter.mjs");
   assert.equal(config.media.entityDir, "_media");
 });
+
+test("party: вимкнена без proxy, адреса лише https або локальний http", () => {
+  const broken = (party) => () => normalizeBoardConfig({ boardConfigVersion: 1, party });
+  assert.deepEqual(normalizeBoardConfig({ boardConfigVersion: 1 }).party, { proxy: null, interval: 15, idField: "ddb_id" });
+  const party = normalizeBoardConfig({ boardConfigVersion: 1, party: { proxy: "https://ddb.example.workers.dev/", interval: 10 } }).party;
+  assert.deepEqual(party, { proxy: "https://ddb.example.workers.dev", interval: 10, idField: "ddb_id" });
+  assert.equal(normalizeBoardConfig({ boardConfigVersion: 1, party: { proxy: "http://127.0.0.1:4180" } }).party.proxy, "http://127.0.0.1:4180");
+  assert.throws(broken({ proxy: "http://ddb.example.com" }), /party\.proxy має бути https-адресою/);
+  assert.throws(broken({ proxy: "не адреса" }), /party\.proxy має бути адресою/);
+  assert.throws(broken({ interval: 2 }), /party\.interval має бути не менше 5 секунд/);
+  assert.throws(broken({ idField: "" }), /party\.idField має бути непорожнім рядком/);
+});

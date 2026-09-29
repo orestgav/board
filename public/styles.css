@@ -19,6 +19,7 @@ svg.icon { width: 20px; height: 20px; }
 .hud { position: absolute; z-index: 16; top: 14px; display: flex; gap: 8px; }
 .hud-left { left: 14px; align-items: center; transition: left .18s ease; }
 .workspace.layers-open .hud-left { left: 252px; }
+.workspace.party-open .hud-left { left: 272px; }
 .hud-right { right: 14px; flex-direction: column; align-items: flex-end; }
 .hud-row { display: flex; align-items: center; gap: 8px; }
 .hud-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 40px; padding: 0 13px; border: 1px solid #514a42; border-radius: 9px; background: #292622; color: #d8d0c6; box-shadow: 0 8px 22px rgba(0,0,0,.32); cursor: pointer; font-size: 13px; }
@@ -26,6 +27,7 @@ svg.icon { width: 20px; height: 20px; }
 .hud-button:hover:not(:disabled) { border-color: #8b7550; background: #36312b; }
 .hud-button:active:not(:disabled) { transform: translateY(1px); }
 .hud-button:disabled { opacity: .35; cursor: default; }
+.hud-button[hidden] { display: none; }
 .hud-button.campaign { max-width: min(320px, 34vw); }
 .hud-button.campaign span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hud-status { max-width: 260px; overflow: hidden; padding: 5px 9px; border: 1px solid rgba(80,74,67,.5); border-radius: 6px; background: rgba(24,22,20,.82); color: var(--muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
@@ -53,6 +55,98 @@ svg.icon { width: 20px; height: 20px; }
 .layer-actions button { display: grid; place-items: center; width: 34px; height: 29px; padding: 0; border: 1px solid #3d3934; border-radius: 5px; background: #292622; color: #aaa298; cursor: pointer; }
 .layer-actions button:hover { border-color: #695f52; color: var(--text); }
 .layer-actions svg.icon { width: 17px; height: 17px; }
+/* Партія: ліва панель із живими листами D&D Beyond. */
+.party { position: absolute; z-index: 14; left: 0; top: 0; bottom: 0; width: 260px; overflow: hidden; border-right: 1px solid var(--line); background: rgba(27,25,23,.97); box-shadow: 14px 0 34px rgba(0,0,0,.3); transform: translateX(-100%); transition: transform .18s ease; }
+.workspace.party-open .party { transform: translateX(0); }
+.party-heading { align-items: center; gap: 8px; padding-top: 10px; }
+.party-heading strong { flex: 1; }
+.party-age { color: #746d64; font-size: 10px; }
+.party-heading button { display: grid; place-items: center; width: 27px; height: 27px; padding: 0; border: 1px solid #3d3934; border-radius: 5px; background: #292622; color: #aaa298; cursor: pointer; }
+.party-heading button:hover { border-color: #695f52; color: var(--text); }
+.party-heading svg.icon { width: 16px; height: 16px; }
+.party-list { height: calc(100% - 48px); padding: 8px; overflow: auto; }
+.party-card { display: grid; gap: 5px; margin-bottom: 7px; padding: 7px 8px 8px; border: 1px solid #36322d; border-radius: 7px; background: #211f1c; font-size: 11px; cursor: pointer; }
+.party-card:hover, .party-card:focus-visible { border-color: #6b5c45; outline: none; background: #26231f; }
+.party-card.empty { cursor: default; }
+.party-card.stale { opacity: .72; }
+.party-card header { display: flex; align-items: baseline; gap: 6px; }
+.party-name { flex: 1; min-width: 0; overflow: hidden; color: #eee6da; font: 13px Georgia, serif; text-overflow: ellipsis; white-space: nowrap; }
+.party-inspiration { color: var(--gold-bright); font-size: 12px; }
+.party-ac { padding: 1px 5px; border: 1px solid #4a443c; border-radius: 4px; color: #d8d0c6; font-size: 10px; font-weight: 600; }
+.party-hp { position: relative; height: 15px; overflow: hidden; border-radius: 4px; background: #151412; box-shadow: inset 0 0 0 1px #3a352f; }
+.party-hp i { position: absolute; top: 0; bottom: 0; }
+.party-hp-healthy { background: #4f9a5c; }
+.party-hp-wounded { background: #b98a3c; }
+.party-hp-critical { background: #b94a3e; }
+.party-hp-temp { background: #4c8fc4; background-image: repeating-linear-gradient(135deg, rgba(255,255,255,.14) 0 3px, transparent 3px 6px); }
+/* Щойно втрачене чи здобуте: 15 с тримається, наприкінці згасає. */
+.party-hp-ghost { animation: party-ghost 15s linear forwards; }
+.party-hp-damage { background: #ffc2b8; }
+.party-hp-heal { background: rgba(190, 255, 170, .55); }
+@keyframes party-ghost { 0%, 85% { opacity: 1; } 100% { opacity: 0; } }
+.party-hp-text { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 10px; font-weight: 600; text-shadow: 0 1px 2px rgba(0,0,0,.85); }
+.party-hp-text b { margin-left: 3px; color: #cfe7fb; }
+.party-slots, .party-resources { display: flex; flex-wrap: wrap; gap: 3px 9px; }
+.party-slot, .party-resource { display: inline-flex; align-items: center; gap: 4px; min-width: 0; color: #a59e95; }
+.party-slot small { color: #8b8378; font-size: 9px; }
+.party-slot.pact small { color: #b69be0; }
+.party-resource { max-width: 100%; }
+.party-resource > span:first-child { max-width: 130px; overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.party-pips { display: inline-flex; gap: 2px; }
+.party-pips i { width: 7px; height: 7px; border: 1px solid #7d6d52; border-radius: 50%; }
+.party-pips i.on { border-color: var(--gold); background: var(--gold); }
+.party-slot.pact .party-pips i { border-color: #7d6a9c; }
+.party-slot.pact .party-pips i.on { border-color: #b69be0; background: #b69be0; }
+.party-count { color: #d8d0c6; font-size: 10px; }
+.party-card footer { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; }
+.party-badge { padding: 1px 5px; border-radius: 3px; font-size: 9.5px; }
+.party-badge.condition { background: #4a2f2a; color: #ffb7a8; }
+.party-badge.death { background: #2e2433; color: #e3cdea; }
+.party-saves { display: inline-flex; gap: 4px; letter-spacing: 1px; }
+.party-saves .ok { color: #8fd49a; }
+.party-saves .bad { color: #ff8c7d; }
+.party-load { margin-left: auto; color: #8b8378; font-size: 10px; }
+.party-load.heavy { color: var(--gold-bright); }
+.party-load.over { color: #ff8c7d; font-weight: 600; }
+.party-error, .party-waiting { color: #d98b7e; font-size: 10px; line-height: 1.35; }
+.party-waiting { color: var(--muted); }
+.party-details h2 { margin: 24px 0 8px; color: #f0e6d8; font: 400 18px Georgia, serif; }
+.party-details h3 { margin: 14px 0 5px; color: #cfc6ba; font-size: 12px; font-weight: 600; }
+.party-details h3 small, .party-details small { color: #8b8378; font-weight: 400; }
+.party-details-links { float: right; display: flex; gap: 8px; margin: 4px 44px 0 0; font-size: 12px; }
+.party-details-links button, .party-details-links a { padding: 4px 9px; border: 1px solid #4a443c; border-radius: 5px; background: #292622; color: #d8d0c6; font: inherit; text-decoration: none; cursor: pointer; }
+.party-details-links button:hover, .party-details-links a:hover { border-color: #8b7550; color: var(--text); }
+.party-details-hp .party-hp { height: 22px; margin-top: 4px; }
+.party-details-hp .party-hp-text { font-size: 12px; }
+.party-details-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+.party-details-badges .party-badge { font-size: 11px; }
+.party-facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 16px; margin: 18px 0 0; }
+.party-facts div.wide { grid-column: span 3; }
+.party-facts dt { color: #8b8378; font-size: 10px; letter-spacing: .04em; text-transform: uppercase; }
+.party-facts dd { margin: 2px 0 0; color: #eee6da; font-size: 15px; }
+.party-abilities { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-top: 16px; }
+.party-abilities div { display: grid; justify-items: center; padding: 6px 0; border: 1px solid #3a352f; border-radius: 6px; background: #1a1816; }
+.party-abilities small { color: #8b8378; font-size: 9px; letter-spacing: .06em; }
+.party-abilities b { font-size: 17px; font-weight: 600; }
+.party-abilities span { color: #8b8378; font-size: 10px; }
+.party-details .party-slots { gap: 6px 14px; font-size: 12px; }
+.party-details .party-pips i { width: 10px; height: 10px; }
+.party-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.party-table th { padding: 4px 8px 4px 0; color: #d3cbc1; font-weight: 400; text-align: left; }
+.party-table td { padding: 4px 0 4px 10px; color: #a59e95; white-space: nowrap; }
+.party-table tr + tr { border-top: 1px solid #2c2925; }
+.party-items td:last-child { width: 64px; text-align: right; }
+.party-mark { margin-left: 5px; color: #8fc0ec; font-size: 11px; }
+.party-mark.magic { color: #b69be0; }
+.party-weight { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; color: #a59e95; font-size: 12px; }
+.party-weight > div { flex: 1; height: 8px; overflow: hidden; border-radius: 4px; background: #151412; box-shadow: inset 0 0 0 1px #3a352f; }
+.party-weight i { display: block; height: 100%; background: #4f9a5c; }
+.party-weight.heavy i { background: #b98a3c; }
+.party-weight.over i { background: #b94a3e; }
+.party-weight.over span { color: #ff8c7d; }
+.party-spells { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0; padding: 0; list-style: none; color: #d3cbc1; font-size: 12.5px; }
+.party-spells li.unprepared { color: #7d766d; }
+.party-muted { color: #8b8378; font-size: 12.5px; }
 .viewport { position: relative; width: 100%; min-width: 0; height: 100%; overflow: hidden; outline: none; cursor: default; touch-action: none; }
 .viewport.panning { cursor: grabbing; }
 .grid { position: absolute; inset: 0; pointer-events: none; background-color: #151412; background-image: radial-gradient(circle, rgba(206, 190, 168, .22) 1px, transparent 1.2px); }
@@ -521,6 +615,8 @@ svg.icon { width: 20px; height: 20px; }
   .hud-button.campaign { max-width: 40vw; }
   .layers { width: min(260px, calc(100vw - 72px)); }
   .workspace.layers-open .hud-left { left: min(272px, calc(100vw - 60px)); }
+  .party { width: min(280px, calc(100vw - 72px)); }
+  .workspace.party-open .hud-left { left: min(292px, calc(100vw - 60px)); }
   .canvas-actions { right: 10px; }
 }
 
@@ -534,4 +630,4 @@ svg.icon { width: 20px; height: 20px; }
 :root { --hud-zoom: 1; }
 @media (max-height: 860px), (max-width: 1400px) { :root { --hud-zoom: .8; } }
 @media (max-height: 680px) { :root { --hud-zoom: .68; } }
-.hud, .canvas-actions, .layers { zoom: var(--hud-zoom); }
+.hud, .canvas-actions, .layers, .party { zoom: var(--hud-zoom); }

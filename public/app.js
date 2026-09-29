@@ -37,6 +37,7 @@ import { canonicalYouTubeUrl, musicTitle, oEmbedUrl, parseMusicStart, playbackUr
 import { centeredViewOnRect, locationBorderScreenWidth, locationHeaderHeight, maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, rebasedView, rectWithin, rectsOverlap, worldViewportRect, zoomedViewAt } from "./view.js";
 import { elementToPng, urlToPng, writeImageToClipboard } from "./snapshot.js";
 import { BOARD_THUMBNAIL_SIZE, PORTRAIT_THUMBNAIL_SIZE, createThumbnails, wantsFullImage } from "./thumbnails.js";
+import { ageLabel, createPartyMonitor, partyCardMarkup, partyDetailsMarkup, partyMembers } from "./party.js";
 import { CALIBRATION_MILES, milesLabel, parseScale, plural as pluralForm, routeMiles, scaleFromCalibration, travelEstimates, travelModes } from "./travel.js";
 
 const MIN_NODE_SIZE = Number.EPSILON;
@@ -109,6 +110,9 @@ const grid = document.querySelector("#grid");
 const marquee = document.querySelector("#marquee");
 const workspace = document.querySelector(".workspace");
 const toggleLayersButton = document.querySelector("#toggle-layers");
+const togglePartyButton = document.querySelector("#toggle-party");
+const partyList = document.querySelector("#party-list");
+const partyAge = document.querySelector("#party-age");
 const canvasActions = document.querySelector(".canvas-actions");
 const status = document.querySelector("#save-status");
 const emptyState = document.querySelector("#empty-state");
@@ -300,6 +304,7 @@ let layersOpen = (readStorage(LAYERS_KEY) ?? readStorage("crown-board.layers-ope
 let view = loadView(null);
 
 function setLayersOpen(open, persist = true) {
+  if (open && partyOpen) setPartyOpen(false, persist);
   layersOpen = open;
   workspace.classList.toggle("layers-open", open);
   toggleLayersButton.replaceChildren(iconElement(open ? "chevron_left" : "layers"));
@@ -311,6 +316,26 @@ function setLayersOpen(open, persist = true) {
     removeStorage("crown-board.layers-open");
   }
   if (open) renderLayers();
+}
+
+// Партія й шари ділять ліву панель: відкрита лише одна з них.
+const PARTY_KEY = "board.party-open";
+let partyOpen = false;
+let partyMonitor = null;
+let partyRenderTimer = null;
+let partyAgeTimer = null;
+
+function setPartyOpen(open, persist = true) {
+  if (open && layersOpen) setLayersOpen(false, persist);
+  partyOpen = open && Boolean(partyMonitor);
+  workspace.classList.toggle("party-open", partyOpen);
+  togglePartyButton.replaceChildren(iconElement(partyOpen ? "chevron_left" : "groups"));
+  togglePartyButton.title = partyOpen ? "Закрити партію" : "Відкрити партію";
+  togglePartyButton.setAttribute("aria-label", togglePartyButton.title);
+  togglePartyButton.setAttribute("aria-expanded", String(partyOpen));
+  if (persist) writeStorage(PARTY_KEY, String(open));
+  syncPartyPolling();
+  if (partyOpen) renderParty();
 }
 
 setLayersOpen(layersOpen, false);
@@ -2267,6 +2292,86 @@ function showEntityDetails(entity, { trail = [] } = {}) {
   entityDetailsContent.parentElement.scrollTop = 0;
 }
 
+// Панель «Партія»: живі листи з D&D Beyond через посередника з конфігу.
+// Опитування йде лише поки панель відкрита, а вкладка видима.
+function setupParty() {
+  stopParty();
+  const config = boardConfig?.party;
+  togglePartyButton.hidden = !config?.proxy;
+  if (config?.proxy) {
+    partyMonitor = createPartyMonitor({
+      proxy: config.proxy,
+      interval: config.interval,
+      members: partyMembers(entities, config.idField),
+      onChange: renderParty,
+    });
+  }
+  setPartyOpen(Boolean(partyMonitor) && readStorage(PARTY_KEY) === "true", false);
+}
+
+function stopParty() {
+  partyMonitor?.stop();
+  partyMonitor = null;
+  clearTimeout(partyRenderTimer);
+  clearInterval(partyAgeTimer);
+  partyRenderTimer = null;
+  partyAgeTimer = null;
+  partyList.replaceChildren();
+  partyAge.textContent = "";
+}
+
+function syncPartyPolling() {
+  if (!partyMonitor) return;
+  const active = partyOpen && document.visibilityState !== "hidden";
+  if (active && !partyMonitor.running) {
+    partyMonitor.start().catch((error) => showToast(error.message));
+    clearInterval(partyAgeTimer);
+    partyAgeTimer = setInterval(() => renderPartyAge(), 5000);
+  } else if (!active && partyMonitor.running) {
+    partyMonitor.stop();
+    clearInterval(partyAgeTimer);
+    partyAgeTimer = null;
+  }
+}
+
+function renderPartyAge(now = Date.now()) {
+  if (!partyMonitor) return;
+  const times = [...partyMonitor.entries.values()].map((entry) => entry.fetchedAt).filter((time) => time !== null);
+  partyAge.textContent = times.length ? ageLabel(Math.max(...times), now) : "";
+}
+
+function renderParty() {
+  if (!partyMonitor) return;
+  const now = Date.now();
+  const { members, entries } = partyMonitor;
+  if (members.length) {
+    partyList.innerHTML = members.map((member) => partyCardMarkup(member, entries.get(member.slug), now)).join("");
+  } else {
+    const hint = document.createElement("div");
+    hint.className = "layer-empty";
+    hint.textContent = `Немає гравців з полем «${boardConfig.party.idField}» у фронтматері картки.`;
+    partyList.replaceChildren(hint);
+  }
+  renderPartyAge(now);
+  const openSlug = entityDetails.open ? entityDetailsContent.querySelector(".party-details")?.dataset.slug : null;
+  const openMember = members.find((member) => member.slug === openSlug);
+  if (openMember) entityDetailsContent.innerHTML = partyDetailsMarkup(openMember, entries.get(openMember.slug), now);
+  // Підсвічений шматок смуги HP згасає сам, але вузол треба прибрати.
+  clearTimeout(partyRenderTimer);
+  partyRenderTimer = null;
+  const until = Math.min(...[...entries.values()].map((entry) => entry.ghost?.until ?? Infinity));
+  if (Number.isFinite(until)) partyRenderTimer = setTimeout(renderParty, Math.max(0, until - now) + 50);
+}
+
+function showPartyDetails(slug) {
+  const member = partyMonitor?.members.find((entry) => entry.slug === slug);
+  if (!member) return;
+  resetDetailsTrail();
+  entityDetailsContent.innerHTML = partyDetailsMarkup(member, partyMonitor.entries.get(slug), Date.now());
+  if (!entityDetails.open) entityDetails.showModal();
+  entityDetailsContent.parentElement.scrollTop = 0;
+}
+
 function showImageDetails(node) {
   resetDetailsTrail();
   entityDetailsContent.replaceChildren();
@@ -3691,6 +3796,7 @@ window.addEventListener("beforeunload", (event) => {
 });
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") flushSave();
+  syncPartyPolling();
 });
 document.querySelector("#conflict-reload").addEventListener("click", reloadFromDisk);
 document.querySelector("#conflict-overwrite").addEventListener("click", overwriteDisk);
@@ -3740,6 +3846,20 @@ for (const [color, name] of TOKEN_COLORS) {
   tokenColorsMenu.append(swatch);
 }
 toggleLayersButton.addEventListener("click", () => setLayersOpen(!layersOpen));
+togglePartyButton.addEventListener("click", () => setPartyOpen(!partyOpen));
+document.querySelector("#party-refresh").addEventListener("click", () => {
+  partyMonitor?.refreshNow().catch((error) => showToast(error.message));
+});
+partyList.addEventListener("click", (event) => {
+  const card = event.target.closest(".party-card[role=button]");
+  if (card) showPartyDetails(card.dataset.slug);
+});
+partyList.addEventListener("keydown", (event) => {
+  const card = event.target.closest(".party-card[role=button]");
+  if (!card || (event.key !== "Enter" && event.key !== " ")) return;
+  event.preventDefault();
+  showPartyDetails(card.dataset.slug);
+});
 for (const overlay of [canvasActions, ...document.querySelectorAll(".hud")]) {
   overlay.addEventListener("pointerdown", (event) => event.stopPropagation());
 }
@@ -3786,6 +3906,12 @@ entityDetails.addEventListener("keydown", (event) => {
   }
 });
 entityDetailsContent.addEventListener("click", (event) => {
+  const player = event.target.closest(".party-details [data-entity-slug]");
+  if (player) {
+    const entity = entitiesBySlug.get(player.dataset.entitySlug);
+    if (entity) showEntityDetails(entity);
+    return;
+  }
   const link = event.target.closest(".md-link-live");
   if (link) followDetailsLink(linkedDocument(link.dataset.slug));
 });
@@ -3984,6 +4110,7 @@ async function readBoard() {
   render();
   applyView();
   if (layout.children.length && !storedView) fitAll();
+  setupParty();
   setStatus("Збережено");
 }
 
@@ -4003,6 +4130,9 @@ function closeBoard() {
   redoStack = [];
   scene.replaceChildren();
   layerTree.replaceChildren();
+  stopParty();
+  togglePartyButton.hidden = true;
+  setPartyOpen(false, false);
   emptyState.hidden = true;
   setRouteMode(null);
   campaignNameLabel.textContent = "Кампанію не відкрито";

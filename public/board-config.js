@@ -30,6 +30,9 @@ export const DEFAULT_BOARD_CONFIG = Object.freeze({
   // Клітинка бойової карти в одиницях полотна — одна на всю дошку. Токен
   // Середньої істоти займає рівно її, більші — кілька.
   grid: { cell: 120 },
+  // Панель «Партія»: живі листи D&D Beyond через посередника (worker/ddb-proxy.js).
+  // Без proxy панелі немає. ID листа — у фронтматері картки гравця, поле idField.
+  party: { proxy: null, interval: 15, idField: "ddb_id" },
 });
 
 function fail(field, message) {
@@ -66,6 +69,17 @@ function positive(value, field, fallback) {
   return value;
 }
 
+// Адреса посередника: https, або http лише для цього ж компʼютера.
+function proxyUrl(value, field) {
+  if (value === undefined || value === null) return null;
+  let url;
+  try { url = new URL(text(value, field, null)); }
+  catch { fail(field, `має бути адресою: ${value}`); }
+  const local = ["127.0.0.1", "localhost"].includes(url.hostname);
+  if (url.protocol !== "https:" && !(url.protocol === "http:" && local)) fail(field, "має бути https-адресою (http — лише 127.0.0.1)");
+  return url.href.replace(/\/+$/, "");
+}
+
 function strings(value, field, fallback) {
   if (value === undefined) return [...fallback];
   if (!Array.isArray(value) || value.some((item) => typeof item !== "string" || !item.trim())) fail(field, "має бути масивом непорожніх рядків");
@@ -83,6 +97,7 @@ export function normalizeBoardConfig(raw) {
   const entities = object(raw.entities, "entities");
   const travel = object(raw.travel, "travel");
   const grid = object(raw.grid, "grid");
+  const party = object(raw.party, "party");
 
   const prefix = notes.prefix === undefined ? defaults.notes.prefix : notes.prefix;
   if (typeof prefix !== "string" || !/^[a-z0-9-]*$/.test(prefix)) fail("notes.prefix", "має складатися з латинських літер, цифр і дефісів");
@@ -97,6 +112,9 @@ export function normalizeBoardConfig(raw) {
     if (ids.has(mode.id)) fail("travel.extra", `має повторний id: ${mode.id}`);
     ids.add(mode.id);
   }
+
+  const interval = positive(party.interval, "party.interval", defaults.party.interval);
+  if (interval < 5) fail("party.interval", "має бути не менше 5 секунд");
 
   const mediaDir = path(media.dir, "media.dir", defaults.media.dir);
   return {
@@ -132,6 +150,11 @@ export function normalizeBoardConfig(raw) {
       extra: modes,
     },
     grid: { cell: positive(grid.cell, "grid.cell", defaults.grid.cell) },
+    party: {
+      proxy: proxyUrl(party.proxy, "party.proxy"),
+      interval,
+      idField: text(party.idField, "party.idField", defaults.party.idField),
+    },
   };
 }
 

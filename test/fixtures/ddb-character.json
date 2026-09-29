@@ -1,0 +1,2995 @@
+{
+ "data": {
+  "id": 1000,
+  "name": "Тестовий персонаж",
+  "stats": [
+   {
+    "id": 1,
+    "name": null,
+    "value": 8
+   },
+   {
+    "id": 2,
+    "name": null,
+    "value": 15
+   },
+   {
+    "id": 3,
+    "name": null,
+    "value": 13
+   },
+   {
+    "id": 4,
+    "name": null,
+    "value": 12
+   },
+   {
+    "id": 5,
+    "name": null,
+    "value": 12
+   },
+   {
+    "id": 6,
+    "name": null,
+    "value": 13
+   }
+  ],
+  "bonusStats": [
+   {
+    "id": 1,
+    "name": null,
+    "value": null
+   },
+   {
+    "id": 2,
+    "name": null,
+    "value": null
+   },
+   {
+    "id": 3,
+    "name": null,
+    "value": null
+   },
+   {
+    "id": 4,
+    "name": null,
+    "value": null
+   },
+   {
+    "id": 5,
+    "name": null,
+    "value": null
+   },
+   {
+    "id": 6,
+    "name": null,
+    "value": null
+   }
+  ],
+  "overrideStats": [
+   {
+    "id": 1,
+    "name": null,
+    "value": null
+   },
+   {
+    "id": 2,
+    "name": null,
+    "value": null
+   },
+   {
+    "id": 3,
+    "name": null,
+    "value": null
+   },
+   {
+    "id": 4,
+    "name": null,
+    "value": null
+   },
+   {
+    "id": 5,
+    "name": null,
+    "value": null
+   },
+   {
+    "id": 6,
+    "name": null,
+    "value": null
+   }
+  ],
+  "baseHitPoints": 23,
+  "bonusHitPoints": null,
+  "overrideHitPoints": null,
+  "removedHitPoints": 3,
+  "temporaryHitPoints": 0,
+  "inspiration": true,
+  "conditions": [],
+  "deathSaves": {
+   "failCount": 0,
+   "successCount": 0,
+   "isStabilized": false
+  },
+  "spellSlots": [
+   {
+    "level": 1,
+    "used": 0,
+    "available": 0
+   },
+   {
+    "level": 2,
+    "used": 0,
+    "available": 0
+   },
+   {
+    "level": 3,
+    "used": 0,
+    "available": 0
+   },
+   {
+    "level": 4,
+    "used": 0,
+    "available": 0
+   },
+   {
+    "level": 5,
+    "used": 0,
+    "available": 0
+   },
+   {
+    "level": 6,
+    "used": 0,
+    "available": 0
+   },
+   {
+    "level": 7,
+    "used": 0,
+    "available": 0
+   },
+   {
+    "level": 8,
+    "used": 0,
+    "available": 0
+   },
+   {
+    "level": 9,
+    "used": 0,
+    "available": 0
+   }
+  ],
+  "pactMagic": [
+   {
+    "level": 1,
+    "used": 0,
+    "available": 0
+   },
+   {
+    "level": 2,
+    "used": 0,
+    "available": 0
+   },
+   {
+    "level": 3,
+    "used": 0,
+    "available": 0
+   },
+   {
+    "level": 4,
+    "used": 0,
+    "available": 0
+   },
+   {
+    "level": 5,
+    "used": 0,
+    "available": 0
+   }
+  ],
+  "currencies": {
+   "cp": 30,
+   "sp": 4,
+   "gp": 211,
+   "ep": 10,
+   "pp": 0
+  },
+  "currentXp": 2700,
+  "dateModified": "2026-09-26T13:15:27.312Z",
+  "preferences": {
+   "ignoreCoinWeight": true
+  },
+  "race": {
+   "sizeId": 4
+  },
+  "classes": [
+   {
+    "id": 212180525,
+    "level": 2,
+    "isStartingClass": true,
+    "hitDiceUsed": 0,
+    "definition": {
+     "name": "Rogue",
+     "canCastSpells": false,
+     "spellCastingAbilityId": null,
+     "hitDice": 8,
+     "spellRules": {
+      "multiClassSpellSlotDivisor": 3,
+      "multiClassSpellSlotRounding": 1,
+      "levelSpellSlots": [
+       [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       [
+        2,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       [
+        3,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       [
+        3,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       [
+        3,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       [
+        4,
+        2,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       [
+        4,
+        2,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       [
+        4,
+        2,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       [
+        4,
+        3,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       [
+        4,
+        3,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       [
+        4,
+        3,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       [
+        4,
+        3,
+        2,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       [
+        4,
+        3,
+        2,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       [
+        4,
+        3,
+        2,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       [
+        4,
+        3,
+        3,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       [
+        4,
+        3,
+        3,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       [
+        4,
+        3,
+        3,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       [
+        4,
+        3,
+        3,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       [
+        4,
+        3,
+        3,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0
+       ]
+      ]
+     }
+    },
+    "subclassDefinition": null,
+    "classFeatures": [
+     {
+      "definition": {
+       "id": 10292323,
+       "name": "Core Rogue Traits",
+       "requiredLevel": 1
+      }
+     },
+     {
+      "definition": {
+       "id": 10292324,
+       "name": "Expertise",
+       "requiredLevel": 1
+      }
+     },
+     {
+      "definition": {
+       "id": 10292325,
+       "name": "Sneak Attack",
+       "requiredLevel": 1
+      }
+     },
+     {
+      "definition": {
+       "id": 10292326,
+       "name": "Thieves’ Cant",
+       "requiredLevel": 1
+      }
+     },
+     {
+      "definition": {
+       "id": 10292327,
+       "name": "Weapon Mastery",
+       "requiredLevel": 1
+      }
+     },
+     {
+      "definition": {
+       "id": 10292328,
+       "name": "Cunning Action",
+       "requiredLevel": 2
+      }
+     },
+     {
+      "definition": {
+       "id": 10292329,
+       "name": "Rogue Subclass",
+       "requiredLevel": 3
+      }
+     },
+     {
+      "definition": {
+       "id": 10292330,
+       "name": "Steady Aim",
+       "requiredLevel": 3
+      }
+     },
+     {
+      "definition": {
+       "id": 10292331,
+       "name": "Ability Score Improvement",
+       "requiredLevel": 4
+      }
+     },
+     {
+      "definition": {
+       "id": 10292332,
+       "name": "Cunning Strike",
+       "requiredLevel": 5
+      }
+     },
+     {
+      "definition": {
+       "id": 10292333,
+       "name": "Uncanny Dodge",
+       "requiredLevel": 5
+      }
+     },
+     {
+      "definition": {
+       "id": 10292334,
+       "name": "6: Expertise",
+       "requiredLevel": 6
+      }
+     },
+     {
+      "definition": {
+       "id": 10292335,
+       "name": "Evasion",
+       "requiredLevel": 7
+      }
+     },
+     {
+      "definition": {
+       "id": 10292336,
+       "name": "Reliable Talent",
+       "requiredLevel": 7
+      }
+     },
+     {
+      "definition": {
+       "id": 10292337,
+       "name": "8: Ability Score Improvement",
+       "requiredLevel": 8
+      }
+     },
+     {
+      "definition": {
+       "id": 10292338,
+       "name": "10: Ability Score Improvement",
+       "requiredLevel": 10
+      }
+     },
+     {
+      "definition": {
+       "id": 10292339,
+       "name": "Improved Cunning Strike",
+       "requiredLevel": 11
+      }
+     },
+     {
+      "definition": {
+       "id": 10292340,
+       "name": "12: Ability Score Improvement",
+       "requiredLevel": 12
+      }
+     },
+     {
+      "definition": {
+       "id": 10292341,
+       "name": "Devious Strikes",
+       "requiredLevel": 14
+      }
+     },
+     {
+      "definition": {
+       "id": 10292342,
+       "name": "Slippery Mind",
+       "requiredLevel": 15
+      }
+     },
+     {
+      "definition": {
+       "id": 10292343,
+       "name": "16: Ability Score Improvement",
+       "requiredLevel": 16
+      }
+     },
+     {
+      "definition": {
+       "id": 10292344,
+       "name": "Elusive",
+       "requiredLevel": 18
+      }
+     },
+     {
+      "definition": {
+       "id": 10292345,
+       "name": "Epic Boon",
+       "requiredLevel": 19
+      }
+     },
+     {
+      "definition": {
+       "id": 10292346,
+       "name": "Stroke of Luck",
+       "requiredLevel": 20
+      }
+     }
+    ]
+   },
+   {
+    "id": 214537759,
+    "level": 2,
+    "isStartingClass": false,
+    "hitDiceUsed": 0,
+    "definition": {
+     "name": "Bard",
+     "canCastSpells": true,
+     "spellCastingAbilityId": 6,
+     "hitDice": 8,
+     "spellRules": {
+      "multiClassSpellSlotDivisor": 1,
+      "multiClassSpellSlotRounding": 1,
+      "levelSpellSlots": [
+       [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       [
+        2,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       [
+        3,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       [
+        4,
+        2,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       [
+        4,
+        3,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       [
+        4,
+        3,
+        2,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       [
+        4,
+        3,
+        3,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       [
+        4,
+        3,
+        3,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       [
+        4,
+        3,
+        3,
+        2,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       [
+        4,
+        3,
+        3,
+        3,
+        1,
+        0,
+        0,
+        0,
+        0
+       ],
+       [
+        4,
+        3,
+        3,
+        3,
+        2,
+        0,
+        0,
+        0,
+        0
+       ],
+       [
+        4,
+        3,
+        3,
+        3,
+        2,
+        1,
+        0,
+        0,
+        0
+       ],
+       [
+        4,
+        3,
+        3,
+        3,
+        2,
+        1,
+        0,
+        0,
+        0
+       ],
+       [
+        4,
+        3,
+        3,
+        3,
+        2,
+        1,
+        1,
+        0,
+        0
+       ],
+       [
+        4,
+        3,
+        3,
+        3,
+        2,
+        1,
+        1,
+        0,
+        0
+       ],
+       [
+        4,
+        3,
+        3,
+        3,
+        2,
+        1,
+        1,
+        1,
+        0
+       ],
+       [
+        4,
+        3,
+        3,
+        3,
+        2,
+        1,
+        1,
+        1,
+        0
+       ],
+       [
+        4,
+        3,
+        3,
+        3,
+        2,
+        1,
+        1,
+        1,
+        1
+       ],
+       [
+        4,
+        3,
+        3,
+        3,
+        3,
+        1,
+        1,
+        1,
+        1
+       ],
+       [
+        4,
+        3,
+        3,
+        3,
+        3,
+        2,
+        1,
+        1,
+        1
+       ],
+       [
+        4,
+        3,
+        3,
+        3,
+        3,
+        2,
+        2,
+        1,
+        1
+       ]
+      ]
+     }
+    },
+    "subclassDefinition": null,
+    "classFeatures": [
+     {
+      "definition": {
+       "id": 10292177,
+       "name": "Bardic Inspiration",
+       "requiredLevel": 1
+      }
+     },
+     {
+      "definition": {
+       "id": 10292178,
+       "name": "Core Bard Traits",
+       "requiredLevel": 1
+      }
+     },
+     {
+      "definition": {
+       "id": 10292179,
+       "name": "Spellcasting",
+       "requiredLevel": 1
+      }
+     },
+     {
+      "definition": {
+       "id": 10292180,
+       "name": "Expertise",
+       "requiredLevel": 2
+      }
+     },
+     {
+      "definition": {
+       "id": 10292181,
+       "name": "Jack of All Trades",
+       "requiredLevel": 2
+      }
+     },
+     {
+      "definition": {
+       "id": 10292182,
+       "name": "Bard Subclass",
+       "requiredLevel": 3
+      }
+     },
+     {
+      "definition": {
+       "id": 10292183,
+       "name": "Ability Score Improvement",
+       "requiredLevel": 4
+      }
+     },
+     {
+      "definition": {
+       "id": 10292184,
+       "name": "Font of Inspiration",
+       "requiredLevel": 5
+      }
+     },
+     {
+      "definition": {
+       "id": 10292185,
+       "name": "Countercharm",
+       "requiredLevel": 7
+      }
+     },
+     {
+      "definition": {
+       "id": 10292186,
+       "name": "8: Ability Score Improvement",
+       "requiredLevel": 8
+      }
+     },
+     {
+      "definition": {
+       "id": 10292187,
+       "name": "Magical Secrets",
+       "requiredLevel": 10
+      }
+     },
+     {
+      "definition": {
+       "id": 10292188,
+       "name": "12: Ability Score Improvement",
+       "requiredLevel": 12
+      }
+     },
+     {
+      "definition": {
+       "id": 10292189,
+       "name": "16: Ability Score Improvement",
+       "requiredLevel": 16
+      }
+     },
+     {
+      "definition": {
+       "id": 10292190,
+       "name": "Superior Inspiration",
+       "requiredLevel": 18
+      }
+     },
+     {
+      "definition": {
+       "id": 10292191,
+       "name": "Epic Boon",
+       "requiredLevel": 19
+      }
+     },
+     {
+      "definition": {
+       "id": 10292192,
+       "name": "Words of Creation",
+       "requiredLevel": 20
+      }
+     },
+     {
+      "definition": {
+       "id": 10292193,
+       "name": "Bardic Inspiration",
+       "requiredLevel": 5
+      }
+     },
+     {
+      "definition": {
+       "id": 10292194,
+       "name": "9: Expertise",
+       "requiredLevel": 9
+      }
+     }
+    ]
+   }
+  ],
+  "modifiers": {
+   "race": [
+    {
+     "type": "set-base",
+     "subType": "darkvision",
+     "value": 60,
+     "fixedValue": 60,
+     "statId": null,
+     "componentId": 13856109,
+     "availableToMulticlass": true,
+     "dice": null
+    },
+    {
+     "type": "advantage",
+     "subType": "saving-throws",
+     "value": null,
+     "fixedValue": null,
+     "statId": null,
+     "componentId": 13856111,
+     "availableToMulticlass": true,
+     "dice": null
+    },
+    {
+     "type": "proficiency",
+     "subType": "perception",
+     "value": null,
+     "fixedValue": null,
+     "statId": null,
+     "componentId": 13856112,
+     "availableToMulticlass": true,
+     "dice": null
+    },
+    {
+     "type": "immunity",
+     "subType": "magical-sleep",
+     "value": null,
+     "fixedValue": null,
+     "statId": null,
+     "componentId": 13856113,
+     "availableToMulticlass": true,
+     "dice": null
+    },
+    {
+     "type": "language",
+     "subType": "common",
+     "value": null,
+     "fixedValue": null,
+     "statId": null,
+     "componentId": 13856116,
+     "availableToMulticlass": true,
+     "dice": null
+    },
+    {
+     "type": "language",
+     "subType": "elvish",
+     "value": null,
+     "fixedValue": null,
+     "statId": null,
+     "componentId": 13856116,
+     "availableToMulticlass": true,
+     "dice": null
+    },
+    {
+     "type": "language",
+     "subType": "draconic",
+     "value": null,
+     "fixedValue": null,
+     "statId": null,
+     "componentId": 13856116,
+     "availableToMulticlass": true,
+     "dice": null
+    }
+   ],
+   "class": [
+    {
+     "type": "proficiency",
+     "subType": "charisma-saving-throws",
+     "value": null,
+     "fixedValue": null,
+     "statId": null,
+     "componentId": 10292178,
+     "availableToMulticlass": false,
+     "dice": null
+    },
+    {
+     "type": "proficiency",
+     "subType": "dexterity-saving-throws",
+     "value": null,
+     "fixedValue": null,
+     "statId": null,
+     "componentId": 10292178,
+     "availableToMulticlass": false,
+     "dice": null
+    },
+    {
+     "type": "proficiency",
+     "subType": "persuasion",
+     "value": null,
+     "fixedValue": null,
+     "statId": null,
+     "componentId": 10292178,
+     "availableToMulticlass": true,
+     "dice": null
+    },
+    {
+     "type": "proficiency",
+     "subType": "choose-a-skill",
+     "value": null,
+     "fixedValue": null,
+     "statId": null,
+     "componentId": 10292178,
+     "availableToMulticlass": false,
+     "dice": null
+    },
+    {
+     "type": "proficiency",
+     "subType": "choose-a-skill",
+     "value": null,
+     "fixedValue": null,
+     "statId": null,
+     "componentId": 10292178,
+     "availableToMulticlass": false,
+     "dice": null
+    },
+    {
+     "type": "proficiency",
+     "subType": "viol",
+     "value": null,
+     "fixedValue": null,
+     "statId": null,
+     "componentId": 10292178,
+     "availableToMulticlass": true,
+     "dice": null
+    },
+    {
+     "type": "proficiency",
+     "subType": "choose-a-musical-instrument",
+     "value": null,
+     "fixedValue": null,
+     "statId": null,
+     "componentId": 10292178,
+     "availableToMulticlass": false,
+     "dice": null
+    },
+    {
+     "type": "proficiency",
+     "subType": "choose-a-musical-instrument",
+     "value": null,
+     "fixedValue": null,
+     "statId": null,
+     "componentId": 10292178,
+     "availableToMulticlass": false,
+     "dice": null
+    },
+    {
+     "type": "proficiency",
+     "subType": "simple-weapons",
+     "value": null,
+     "fixedValue": null,
+     "statId": null,
+     "componentId": 10292178,
+     "availableToMulticlass": false,
+     "dice": null
+    },
+    {
+     "type": "proficiency",
+     "subType": "light-armor",
+     "value": null,
+     "fixedValue": null,
+     "statId": null,
+     "componentId": 10292178,
+     "availableToMulticlass": true,
+     "dice": null
+    },
+    {
+     "type": "expertise",
+     "subType": "deception",
+     "value": null,
+     "fixedValue": null,
+     "statId": null,
+     "componentId": 10292180,
+     "availableToMulticlass": true,
+     "dice": null
+    },
+    {
+     "type": "expertise",
+     "subType": "persuasion",
+     "value": null,
+     "fixedValue": null,
+     "statId": null,
+     "componentId": 10292180,
+     "availableToMulticlass": true,
+     "dice": null
+    },
+    {
+     "type": "half-proficiency",
+     "subType": "ability-checks",
+     "value": null,
+     "fixedValue": null,
+     "statId": null,
+     "componentId": 10292181,
+     "availableToMulticlass": true,
+     "dice": null
+    },
+    {
+     "type": "proficiency",
+     "subType": "dexterity-saving-throws",
+     "value": null,
+     "fixedValue": null,
+     "statId": null,
+     "componentId": 10292323,
+     "availableToMulticlass": false,
+     "dice": null
+    },
+    {
+     "type": "proficiency",
+     "subType": "intelligence-saving-throws",
+     "value": null,
+     "fixedValue": null,
+     "statId": null,
+     "componentId": 10292323,
+     "availableToMulticlass": false,
+     "dice": null
+    },
+    {
+     "type": "proficiency",
+     "subType": "acrobatics",
+     "value": null,
+     "fixedValue": null,
+     "statId": null,
+     "componentId": 10292323,
+     "availableToMulticlass": true,
+     "dice": null
+    },
+    {
+     "type": "proficiency",
+     "subType": "deception",
+     "value": null,
+     "fixedValue": null,
+     "statId": null,
+     "componentId": 10292323,
+     "availableToMulticlass": false,
+     "dice": null
+    },
+    {
+     "type": "proficiency",
+     "subType": "insight",
+     "value": null,
+     "fixedValue": null,
+     "statId": null,
+     "componentId": 10292323,
+     "availableToMulticlass": false,
+     "dice": null
+    },
+    {
+     "type": "proficiency",
+     "subType": "intimidation",
+     "value": null,
+     "fixedValue": null,
+     "statId": null,
+     "componentId": 10292323,
+     "availableToMulticlass": false,
+     "dice": null
+    },
+    {
+     "type": "proficiency",
+     "subType": "simple-weapons",
+     "value": null,
+     "fixedValue": null,
+     "statId": null,
+     "componentId": 10292323,
+     "availableToMulticlass": false,
+     "dice": null
+    },
+    {
+     "type": "proficiency",
+     "subType": "thieves-tools",
+     "value": null,
+     "fixedValue": null,
+     "statId": null,
+     "componentId": 10292323,
+     "availableToMulticlass": true,
+     "dice": null
+    },
+    {
+     "type": "proficiency",
+     "subType": "light-armor",
+     "value": null,
+     "fixedValue": null,
+     "statId": null,
+     "componentId": 10292323,
+     "availableToMulticlass": true,
+     "dice": null
+    },
+    {
+     "type": "proficiency",
+     "subType": "rapier",
+     "value": null,
+     "fixedValue": null,
+     "statId": null,
+     "componentId": 10292323,
+     "availableToMulticlass": false,
+     "dice": null
+    },
+    {
+     "type": "proficiency",
+     "subType": "scimitar",
+     "value": null,
+     "fixedValue": null,
+     "statId": null,
+     "componentId": 10292323,
+     "availableToMulticlass": false,
+     "dice": null
+    },
+    {
+     "type": "proficiency",
+     "subType": "shortsword",
+     "value": null,
+     "fixedValue": null,
+     "statId": null,
+     "componentId": 10292323,
+     "availableToMulticlass": false,
+     "dice": null
+    },
+    {
+     "type": "proficiency",
+     "subType": "whip",
+     "value": null,
+     "fixedValue": null,
+     "statId": null,
+     "componentId": 10292323,
+     "availableToMulticlass": false,
+     "dice": null
+    },
+    {
+     "type": "proficiency",
+     "subType": "crossbow-hand",
+     "value": null,
+     "fixedValue": null,
+     "statId": null,
+     "componentId": 10292323,
+     "availableToMulticlass": false,
+     "dice": null
+    },
+    {
+     "type": "expertise",
+     "subType": "history",
+     "value": null,
+     "fixedValue": null,
+     "statId": null,
+     "componentId": 10292324,
+     "availableToMulticlass": true,
+     "dice": null
+    },
+    {
+     "type": "expertise",
+     "subType": "insight",
+     "value": null,
+     "fixedValue": null,
+     "statId": null,
+     "componentId": 10292324,
+     "availableToMulticlass": true,
+     "dice": null
+    },
+    {
+     "type": "language",
+     "subType": "thieves-cant",
+     "value": null,
+     "fixedValue": null,
+     "statId": null,
+     "componentId": 10292326,
+     "availableToMulticlass": true,
+     "dice": null
+    },
+    {
+     "type": "language",
+     "subType": "orc",
+     "value": null,
+     "fixedValue": null,
+     "statId": null,
+     "componentId": 10292326,
+     "availableToMulticlass": true,
+     "dice": null
+    }
+   ],
+   "background": [
+    {
+     "type": "proficiency",
+     "subType": "arcana",
+     "value": null,
+     "fixedValue": null,
+     "statId": null,
+     "componentId": 406485,
+     "availableToMulticlass": true,
+     "dice": null
+    },
+    {
+     "type": "proficiency",
+     "subType": "history",
+     "value": null,
+     "fixedValue": null,
+     "statId": null,
+     "componentId": 406485,
+     "availableToMulticlass": true,
+     "dice": null
+    },
+    {
+     "type": "proficiency",
+     "subType": "calligraphers-supplies",
+     "value": null,
+     "fixedValue": null,
+     "statId": null,
+     "componentId": 406485,
+     "availableToMulticlass": true,
+     "dice": null
+    }
+   ],
+   "item": [],
+   "feat": [
+    {
+     "type": "bonus",
+     "subType": "dexterity-score",
+     "value": 1,
+     "fixedValue": 1,
+     "statId": 2,
+     "componentId": 2165557,
+     "availableToMulticlass": true,
+     "dice": null
+    },
+    {
+     "type": "bonus",
+     "subType": "intelligence-score",
+     "value": -1,
+     "fixedValue": -1,
+     "statId": 4,
+     "componentId": 2165557,
+     "availableToMulticlass": true,
+     "dice": null
+    },
+    {
+     "type": "bonus",
+     "subType": "wisdom-score",
+     "value": -1,
+     "fixedValue": -1,
+     "statId": 5,
+     "componentId": 2165557,
+     "availableToMulticlass": true,
+     "dice": null
+    },
+    {
+     "type": "bonus",
+     "subType": "charisma-score",
+     "value": 1,
+     "fixedValue": 1,
+     "statId": 6,
+     "componentId": 2165557,
+     "availableToMulticlass": true,
+     "dice": null
+    },
+    {
+     "type": "bonus",
+     "subType": "constitution-score",
+     "value": 1,
+     "fixedValue": 1,
+     "statId": null,
+     "componentId": 1789181,
+     "availableToMulticlass": true,
+     "dice": null
+    },
+    {
+     "type": "bonus",
+     "subType": "intelligence-score",
+     "value": 1,
+     "fixedValue": 1,
+     "statId": null,
+     "componentId": 1789181,
+     "availableToMulticlass": true,
+     "dice": null
+    },
+    {
+     "type": "bonus",
+     "subType": "wisdom-score",
+     "value": 1,
+     "fixedValue": 1,
+     "statId": null,
+     "componentId": 1789181,
+     "availableToMulticlass": true,
+     "dice": null
+    },
+    {
+     "type": "weapon-mastery",
+     "subType": "vex-rapier",
+     "value": null,
+     "fixedValue": null,
+     "statId": null,
+     "componentId": 1789214,
+     "availableToMulticlass": true,
+     "dice": null
+    },
+    {
+     "type": "weapon-mastery",
+     "subType": "vex-rapier-silver",
+     "value": null,
+     "fixedValue": null,
+     "statId": null,
+     "componentId": 1789214,
+     "availableToMulticlass": true,
+     "dice": null
+    },
+    {
+     "type": "weapon-mastery",
+     "subType": "vex-rapier-wooden",
+     "value": null,
+     "fixedValue": null,
+     "statId": null,
+     "componentId": 1789214,
+     "availableToMulticlass": true,
+     "dice": null
+    },
+    {
+     "type": "weapon-mastery",
+     "subType": "vex-rapier-silver",
+     "value": null,
+     "fixedValue": null,
+     "statId": null,
+     "componentId": 1789214,
+     "availableToMulticlass": true,
+     "dice": null
+    },
+    {
+     "type": "weapon-mastery",
+     "subType": "vex-rapier-wooden",
+     "value": null,
+     "fixedValue": null,
+     "statId": null,
+     "componentId": 1789214,
+     "availableToMulticlass": true,
+     "dice": null
+    },
+    {
+     "type": "weapon-mastery",
+     "subType": "nick-dagger",
+     "value": null,
+     "fixedValue": null,
+     "statId": null,
+     "componentId": 1789214,
+     "availableToMulticlass": true,
+     "dice": null
+    },
+    {
+     "type": "weapon-mastery",
+     "subType": "nick-dagger-silver",
+     "value": null,
+     "fixedValue": null,
+     "statId": null,
+     "componentId": 1789214,
+     "availableToMulticlass": true,
+     "dice": null
+    },
+    {
+     "type": "weapon-mastery",
+     "subType": "nick-dagger-wooden",
+     "value": null,
+     "fixedValue": null,
+     "statId": null,
+     "componentId": 1789214,
+     "availableToMulticlass": true,
+     "dice": null
+    },
+    {
+     "type": "weapon-mastery",
+     "subType": "nick-dagger-silver",
+     "value": null,
+     "fixedValue": null,
+     "statId": null,
+     "componentId": 1789214,
+     "availableToMulticlass": true,
+     "dice": null
+    },
+    {
+     "type": "weapon-mastery",
+     "subType": "nick-dagger-wooden",
+     "value": null,
+     "fixedValue": null,
+     "statId": null,
+     "componentId": 1789214,
+     "availableToMulticlass": true,
+     "dice": null
+    }
+   ],
+   "condition": []
+  },
+  "characterValues": [
+   {
+    "typeId": 22,
+    "value": 0,
+    "valueId": "888709486",
+    "contextId": null
+   },
+   {
+    "typeId": 19,
+    "value": 0,
+    "valueId": "888709486",
+    "contextId": null
+   },
+   {
+    "typeId": 8,
+    "value": "Spell Components",
+    "valueId": "888709486",
+    "contextId": null
+   },
+   {
+    "typeId": 19,
+    "value": 0,
+    "valueId": "888709485",
+    "contextId": null
+   },
+   {
+    "typeId": 22,
+    "value": 0,
+    "valueId": "888709485",
+    "contextId": null
+   },
+   {
+    "typeId": 8,
+    "value": "Scroll Satchel",
+    "valueId": "888709485",
+    "contextId": null
+   },
+   {
+    "typeId": 8,
+    "value": "Lore Items",
+    "valueId": "888709484",
+    "contextId": null
+   },
+   {
+    "typeId": 19,
+    "value": 0,
+    "valueId": "888709484",
+    "contextId": null
+   },
+   {
+    "typeId": 22,
+    "value": 0,
+    "valueId": "888709484",
+    "contextId": null
+   },
+   {
+    "typeId": 19,
+    "value": 0,
+    "valueId": "888705092",
+    "contextId": null
+   },
+   {
+    "typeId": 22,
+    "value": 0,
+    "valueId": "888705092",
+    "contextId": null
+   },
+   {
+    "typeId": 8,
+    "value": "Artisan's Tools",
+    "valueId": "888705092",
+    "contextId": null
+   },
+   {
+    "typeId": 19,
+    "value": 0,
+    "valueId": "888705091",
+    "contextId": null
+   },
+   {
+    "typeId": 22,
+    "value": 0,
+    "valueId": "888705091",
+    "contextId": null
+   },
+   {
+    "typeId": 8,
+    "value": "Anagraph",
+    "valueId": "888705091",
+    "contextId": null
+   },
+   {
+    "typeId": 26,
+    "value": 2,
+    "valueId": "6",
+    "contextId": null
+   },
+   {
+    "typeId": 26,
+    "value": 3,
+    "valueId": "5",
+    "contextId": null
+   },
+   {
+    "typeId": 18,
+    "value": true,
+    "valueId": "888704722",
+    "contextId": null
+   },
+   {
+    "typeId": 8,
+    "value": "Spell Scroll (Level 1) - Faerie Fire",
+    "valueId": "927357252",
+    "contextId": null
+   },
+   {
+    "typeId": 9,
+    "value": "dndbeyond.com/spells/2618858-faerie-fire",
+    "valueId": "927357252",
+    "contextId": null
+   },
+   {
+    "typeId": 8,
+    "value": "Spell Scroll (Level 1) - Healing Word",
+    "valueId": "1005285103",
+    "contextId": null
+   },
+   {
+    "typeId": 9,
+    "value": "dndbeyond.com/spells/2619143-healing-word",
+    "valueId": "1005285103",
+    "contextId": null
+   },
+   {
+    "typeId": 8,
+    "value": "Spell Scroll (Level 1) - Witch Bolt",
+    "valueId": "1025012577",
+    "contextId": null
+   },
+   {
+    "typeId": 9,
+    "value": "https://www.dndbeyond.com/spells/2619215-witch-bolt",
+    "valueId": "1025012577",
+    "contextId": null
+   }
+  ],
+  "inventory": [
+   {
+    "id": 904271177,
+    "quantity": 1,
+    "equipped": true,
+    "isAttuned": false,
+    "chargesUsed": 0,
+    "containerEntityId": 1000,
+    "limitedUse": null,
+    "definition": {
+     "weight": 2,
+     "bundleSize": 1,
+     "weightMultiplier": 1,
+     "isContainer": false,
+     "filterType": "Weapon",
+     "type": "Rapier",
+     "armorClass": null,
+     "armorTypeId": null,
+     "canEquip": true,
+     "canAttune": false,
+     "isConsumable": false,
+     "magic": true,
+     "name": "Homebrew item 1",
+     "grantedModifiers": []
+    }
+   },
+   {
+    "id": 891349550,
+    "quantity": 1,
+    "equipped": true,
+    "isAttuned": true,
+    "chargesUsed": 0,
+    "containerEntityId": 1000,
+    "limitedUse": null,
+    "definition": {
+     "weight": 0,
+     "bundleSize": 1,
+     "weightMultiplier": 1,
+     "isContainer": false,
+     "filterType": "Wondrous item",
+     "type": "Wondrous item",
+     "armorClass": null,
+     "armorTypeId": null,
+     "canEquip": true,
+     "canAttune": true,
+     "isConsumable": false,
+     "magic": true,
+     "name": "Homebrew item 2",
+     "grantedModifiers": []
+    }
+   },
+   {
+    "id": 888704346,
+    "quantity": 1,
+    "equipped": true,
+    "isAttuned": false,
+    "chargesUsed": 0,
+    "containerEntityId": 1000,
+    "limitedUse": null,
+    "definition": {
+     "weight": 13,
+     "bundleSize": 1,
+     "weightMultiplier": 1,
+     "isContainer": false,
+     "filterType": "Armor",
+     "type": "Light Armor",
+     "armorClass": 12,
+     "armorTypeId": 1,
+     "canEquip": true,
+     "canAttune": false,
+     "isConsumable": false,
+     "magic": false,
+     "name": "Studded Leather",
+     "grantedModifiers": []
+    }
+   },
+   {
+    "id": 888704722,
+    "quantity": 1,
+    "equipped": true,
+    "isAttuned": false,
+    "chargesUsed": 0,
+    "containerEntityId": 1000,
+    "limitedUse": null,
+    "definition": {
+     "weight": 1,
+     "bundleSize": 1,
+     "weightMultiplier": 1,
+     "isContainer": false,
+     "filterType": "Weapon",
+     "type": "Dagger",
+     "armorClass": null,
+     "armorTypeId": null,
+     "canEquip": true,
+     "canAttune": false,
+     "isConsumable": false,
+     "magic": false,
+     "name": "Dagger",
+     "grantedModifiers": []
+    }
+   },
+   {
+    "id": 909196416,
+    "quantity": 1,
+    "equipped": true,
+    "isAttuned": false,
+    "chargesUsed": 0,
+    "containerEntityId": 1000,
+    "limitedUse": null,
+    "definition": {
+     "weight": 1,
+     "bundleSize": 1,
+     "weightMultiplier": 1,
+     "isContainer": false,
+     "filterType": "Weapon",
+     "type": "Dagger",
+     "armorClass": null,
+     "armorTypeId": null,
+     "canEquip": true,
+     "canAttune": false,
+     "isConsumable": false,
+     "magic": false,
+     "name": "Dagger",
+     "grantedModifiers": []
+    }
+   },
+   {
+    "id": 890844711,
+    "quantity": 1,
+    "equipped": true,
+    "isAttuned": false,
+    "chargesUsed": 0,
+    "containerEntityId": 1000,
+    "limitedUse": null,
+    "definition": {
+     "weight": 3,
+     "bundleSize": 1,
+     "weightMultiplier": 1,
+     "isContainer": false,
+     "filterType": "Weapon",
+     "type": "Whip",
+     "armorClass": null,
+     "armorTypeId": null,
+     "canEquip": true,
+     "canAttune": false,
+     "isConsumable": false,
+     "magic": false,
+     "name": "Whip",
+     "grantedModifiers": []
+    }
+   },
+   {
+    "id": 888704986,
+    "quantity": 1,
+    "equipped": true,
+    "isAttuned": false,
+    "chargesUsed": 0,
+    "containerEntityId": 1000,
+    "limitedUse": null,
+    "definition": {
+     "weight": 5,
+     "bundleSize": 1,
+     "weightMultiplier": 1,
+     "isContainer": true,
+     "filterType": "Other Gear",
+     "type": "Gear",
+     "armorClass": null,
+     "armorTypeId": null,
+     "canEquip": true,
+     "canAttune": false,
+     "isConsumable": false,
+     "magic": false,
+     "name": "Backpack",
+     "grantedModifiers": []
+    }
+   },
+   {
+    "id": 888705091,
+    "quantity": 1,
+    "equipped": true,
+    "isAttuned": false,
+    "chargesUsed": 0,
+    "containerEntityId": 1000,
+    "limitedUse": null,
+    "definition": {
+     "weight": 5,
+     "bundleSize": 1,
+     "weightMultiplier": 1,
+     "isContainer": true,
+     "filterType": "Other Gear",
+     "type": "Gear",
+     "armorClass": null,
+     "armorTypeId": null,
+     "canEquip": true,
+     "canAttune": false,
+     "isConsumable": false,
+     "magic": false,
+     "name": "Backpack",
+     "grantedModifiers": []
+    }
+   },
+   {
+    "id": 888705092,
+    "quantity": 1,
+    "equipped": true,
+    "isAttuned": false,
+    "chargesUsed": 0,
+    "containerEntityId": 1000,
+    "limitedUse": null,
+    "definition": {
+     "weight": 5,
+     "bundleSize": 1,
+     "weightMultiplier": 1,
+     "isContainer": true,
+     "filterType": "Other Gear",
+     "type": "Gear",
+     "armorClass": null,
+     "armorTypeId": null,
+     "canEquip": true,
+     "canAttune": false,
+     "isConsumable": false,
+     "magic": false,
+     "name": "Backpack",
+     "grantedModifiers": []
+    }
+   },
+   {
+    "id": 888709484,
+    "quantity": 1,
+    "equipped": true,
+    "isAttuned": false,
+    "chargesUsed": 0,
+    "containerEntityId": 1000,
+    "limitedUse": null,
+    "definition": {
+     "weight": 5,
+     "bundleSize": 1,
+     "weightMultiplier": 1,
+     "isContainer": true,
+     "filterType": "Other Gear",
+     "type": "Gear",
+     "armorClass": null,
+     "armorTypeId": null,
+     "canEquip": true,
+     "canAttune": false,
+     "isConsumable": false,
+     "magic": false,
+     "name": "Backpack",
+     "grantedModifiers": []
+    }
+   },
+   {
+    "id": 888709485,
+    "quantity": 1,
+    "equipped": true,
+    "isAttuned": false,
+    "chargesUsed": 0,
+    "containerEntityId": 1000,
+    "limitedUse": null,
+    "definition": {
+     "weight": 5,
+     "bundleSize": 1,
+     "weightMultiplier": 1,
+     "isContainer": true,
+     "filterType": "Other Gear",
+     "type": "Gear",
+     "armorClass": null,
+     "armorTypeId": null,
+     "canEquip": true,
+     "canAttune": false,
+     "isConsumable": false,
+     "magic": false,
+     "name": "Backpack",
+     "grantedModifiers": []
+    }
+   },
+   {
+    "id": 888709486,
+    "quantity": 1,
+    "equipped": true,
+    "isAttuned": false,
+    "chargesUsed": 0,
+    "containerEntityId": 1000,
+    "limitedUse": null,
+    "definition": {
+     "weight": 5,
+     "bundleSize": 1,
+     "weightMultiplier": 1,
+     "isContainer": true,
+     "filterType": "Other Gear",
+     "type": "Gear",
+     "armorClass": null,
+     "armorTypeId": null,
+     "canEquip": true,
+     "canAttune": false,
+     "isConsumable": false,
+     "magic": false,
+     "name": "Backpack",
+     "grantedModifiers": []
+    }
+   },
+   {
+    "id": 340609163,
+    "quantity": 1,
+    "equipped": false,
+    "isAttuned": false,
+    "chargesUsed": 0,
+    "containerEntityId": 888704346,
+    "limitedUse": null,
+    "definition": {
+     "weight": 7,
+     "bundleSize": 1,
+     "weightMultiplier": 1,
+     "isContainer": false,
+     "filterType": "Other Gear",
+     "type": "Gear",
+     "armorClass": null,
+     "armorTypeId": null,
+     "canEquip": false,
+     "canAttune": false,
+     "isConsumable": false,
+     "magic": false,
+     "name": "Bedroll",
+     "grantedModifiers": []
+    }
+   },
+   {
+    "id": 340609162,
+    "quantity": 1,
+    "equipped": false,
+    "isAttuned": false,
+    "chargesUsed": 0,
+    "containerEntityId": 888704346,
+    "limitedUse": null,
+    "definition": {
+     "weight": 1,
+     "bundleSize": 1,
+     "weightMultiplier": 1,
+     "isContainer": false,
+     "filterType": "Other Gear",
+     "type": "Gear",
+     "armorClass": null,
+     "armorTypeId": null,
+     "canEquip": false,
+     "canAttune": false,
+     "isConsumable": false,
+     "magic": false,
+     "name": "Mess Kit",
+     "grantedModifiers": []
+    }
+   },
+   {
+    "id": 340609161,
+    "quantity": 10,
+    "equipped": false,
+    "isAttuned": false,
+    "chargesUsed": 0,
+    "containerEntityId": 888704346,
+    "limitedUse": null,
+    "definition": {
+     "weight": 2,
+     "bundleSize": 1,
+     "weightMultiplier": 1,
+     "isContainer": false,
+     "filterType": "Other Gear",
+     "type": "Gear",
+     "armorClass": null,
+     "armorTypeId": null,
+     "canEquip": false,
+     "canAttune": false,
+     "isConsumable": false,
+     "magic": false,
+     "name": "Rations (1 day)",
+     "grantedModifiers": []
+    }
+   },
+   {
+    "id": 340609160,
+    "quantity": 1,
+    "equipped": false,
+    "isAttuned": false,
+    "chargesUsed": 0,
+    "containerEntityId": 888704346,
+    "limitedUse": null,
+    "definition": {
+     "weight": 10,
+     "bundleSize": 1,
+     "weightMultiplier": 1,
+     "isContainer": false,
+     "filterType": "Other Gear",
+     "type": "Gear",
+     "armorClass": null,
+     "armorTypeId": null,
+     "canEquip": false,
+     "canAttune": false,
+     "isConsumable": false,
+     "magic": false,
+     "name": "Rope, Hempen (50 feet)",
+     "grantedModifiers": []
+    }
+   },
+   {
+    "id": 340609159,
+    "quantity": 1,
+    "equipped": false,
+    "isAttuned": false,
+    "chargesUsed": 0,
+    "containerEntityId": 888704346,
+    "limitedUse": null,
+    "definition": {
+     "weight": 1,
+     "bundleSize": 1,
+     "weightMultiplier": 1,
+     "isContainer": false,
+     "filterType": "Other Gear",
+     "type": "Gear",
+     "armorClass": null,
+     "armorTypeId": null,
+     "canEquip": false,
+     "canAttune": false,
+     "isConsumable": false,
+     "magic": false,
+     "name": "Tinderbox",
+     "grantedModifiers": []
+    }
+   },
+   {
+    "id": 340609158,
+    "quantity": 10,
+    "equipped": false,
+    "isAttuned": false,
+    "chargesUsed": 0,
+    "containerEntityId": 888704346,
+    "limitedUse": null,
+    "definition": {
+     "weight": 1,
+     "bundleSize": 1,
+     "weightMultiplier": 1,
+     "isContainer": false,
+     "filterType": "Other Gear",
+     "type": "Gear",
+     "armorClass": null,
+     "armorTypeId": null,
+     "canEquip": false,
+     "canAttune": false,
+     "isConsumable": false,
+     "magic": false,
+     "name": "Torch",
+     "grantedModifiers": []
+    }
+   },
+   {
+    "id": 340609157,
+    "quantity": 1,
+    "equipped": false,
+    "isAttuned": false,
+    "chargesUsed": 0,
+    "containerEntityId": 888704346,
+    "limitedUse": null,
+    "definition": {
+     "weight": 5,
+     "bundleSize": 1,
+     "weightMultiplier": 1,
+     "isContainer": false,
+     "filterType": "Other Gear",
+     "type": "Gear",
+     "armorClass": null,
+     "armorTypeId": null,
+     "canEquip": false,
+     "canAttune": false,
+     "isConsumable": false,
+     "magic": false,
+     "name": "Waterskin",
+     "grantedModifiers": []
+    }
+   },
+   {
+    "id": 888705126,
+    "quantity": 1,
+    "equipped": false,
+    "isAttuned": false,
+    "chargesUsed": 0,
+    "containerEntityId": 888704986,
+    "limitedUse": null,
+    "definition": {
+     "weight": 7,
+     "bundleSize": 1,
+     "weightMultiplier": 1,
+     "isContainer": false,
+     "filterType": "Other Gear",
+     "type": "Gear",
+     "armorClass": null,
+     "armorTypeId": null,
+     "canEquip": false,
+     "canAttune": false,
+     "isConsumable": false,
+     "magic": false,
+     "name": "Bedroll",
+     "grantedModifiers": []
+    }
+   },
+   {
+    "id": 888705276,
+    "quantity": 1,
+    "equipped": false,
+    "isAttuned": false,
+    "chargesUsed": 0,
+    "containerEntityId": 888704986,
+    "limitedUse": null,
+    "definition": {
+     "weight": 0,
+     "bundleSize": 1,
+     "weightMultiplier": 1,
+     "isContainer": false,
+     "filterType": "Other Gear",
+     "type": "Gear",
+     "armorClass": null,
+     "armorTypeId": null,
+     "canEquip": false,
+     "canAttune": false,
+     "isConsumable": false,
+     "magic": false,
+     "name": "Bell",
+     "grantedModifiers": []
+    }
+   },
+   {
+    "id": 888705368,
+    "quantity": 1,
+    "equipped": false,
+    "isAttuned": false,
+    "chargesUsed": 0,
+    "containerEntityId": 888704986,
+    "limitedUse": null,
+    "definition": {
+     "weight": 2,
+     "bundleSize": 1,
+     "weightMultiplier": 1,
+     "isContainer": false,
+     "filterType": "Other Gear",
+     "type": "Gear",
+     "armorClass": null,
+     "armorTypeId": null,
+     "canEquip": false,
+     "canAttune": false,
+     "isConsumable": false,
+     "magic": false,
+     "name": "Bullseye Lantern",
+     "grantedModifiers": []
+    }
+   },
+   {
+    "id": 927357252,
+    "quantity": 2,
+    "equipped": false,
+    "isAttuned": false,
+    "chargesUsed": 0,
+    "containerEntityId": 888709485,
+    "limitedUse": {
+     "resetType": "Consumable",
+     "numberUsed": 0,
+     "maxUses": 1
+    },
+    "definition": {
+     "weight": 0,
+     "bundleSize": 1,
+     "weightMultiplier": 1,
+     "isContainer": false,
+     "filterType": "Scroll",
+     "type": "Scroll",
+     "armorClass": null,
+     "armorTypeId": null,
+     "canEquip": false,
+     "canAttune": false,
+     "isConsumable": true,
+     "magic": true,
+     "name": "Spell Scroll (Level 1)",
+     "grantedModifiers": []
+    }
+   },
+   {
+    "id": 1005285103,
+    "quantity": 1,
+    "equipped": false,
+    "isAttuned": false,
+    "chargesUsed": 0,
+    "containerEntityId": 888709485,
+    "limitedUse": {
+     "resetType": "Consumable",
+     "numberUsed": 0,
+     "maxUses": 1
+    },
+    "definition": {
+     "weight": 0,
+     "bundleSize": 1,
+     "weightMultiplier": 1,
+     "isContainer": false,
+     "filterType": "Scroll",
+     "type": "Scroll",
+     "armorClass": null,
+     "armorTypeId": null,
+     "canEquip": false,
+     "canAttune": false,
+     "isConsumable": true,
+     "magic": true,
+     "name": "Spell Scroll (Level 1)",
+     "grantedModifiers": []
+    }
+   },
+   {
+    "id": 1025012577,
+    "quantity": 1,
+    "equipped": false,
+    "isAttuned": false,
+    "chargesUsed": 0,
+    "containerEntityId": 888709485,
+    "limitedUse": {
+     "resetType": "Consumable",
+     "numberUsed": 0,
+     "maxUses": 1
+    },
+    "definition": {
+     "weight": 0,
+     "bundleSize": 1,
+     "weightMultiplier": 1,
+     "isContainer": false,
+     "filterType": "Scroll",
+     "type": "Scroll",
+     "armorClass": null,
+     "armorTypeId": null,
+     "canEquip": false,
+     "canAttune": false,
+     "isConsumable": true,
+     "magic": true,
+     "name": "Spell Scroll (Level 1)",
+     "grantedModifiers": []
+    }
+   },
+   {
+    "id": 903078376,
+    "quantity": 1,
+    "equipped": false,
+    "isAttuned": false,
+    "chargesUsed": 0,
+    "containerEntityId": 888705092,
+    "limitedUse": null,
+    "definition": {
+     "weight": 1,
+     "bundleSize": 1,
+     "weightMultiplier": 1,
+     "isContainer": false,
+     "filterType": "Other Gear",
+     "type": "Gear",
+     "armorClass": null,
+     "armorTypeId": null,
+     "canEquip": false,
+     "canAttune": false,
+     "isConsumable": false,
+     "magic": false,
+     "name": "Thieves' Tools",
+     "grantedModifiers": []
+    }
+   },
+   {
+    "id": 888708296,
+    "quantity": 1,
+    "equipped": false,
+    "isAttuned": false,
+    "chargesUsed": 0,
+    "containerEntityId": 888705092,
+    "limitedUse": null,
+    "definition": {
+     "weight": 5,
+     "bundleSize": 1,
+     "weightMultiplier": 1,
+     "isContainer": false,
+     "filterType": "Other Gear",
+     "type": "Gear",
+     "armorClass": null,
+     "armorTypeId": null,
+     "canEquip": false,
+     "canAttune": false,
+     "isConsumable": false,
+     "magic": false,
+     "name": "Calligrapher's Supplies",
+     "grantedModifiers": []
+    }
+   },
+   {
+    "id": 888711401,
+    "quantity": 10,
+    "equipped": false,
+    "isAttuned": false,
+    "chargesUsed": 0,
+    "containerEntityId": 888704986,
+    "limitedUse": null,
+    "definition": {
+     "weight": 0,
+     "bundleSize": 1,
+     "weightMultiplier": 1,
+     "isContainer": false,
+     "filterType": "Other Gear",
+     "type": "Gear",
+     "armorClass": null,
+     "armorTypeId": null,
+     "canEquip": false,
+     "canAttune": false,
+     "isConsumable": false,
+     "magic": false,
+     "name": "Candle",
+     "grantedModifiers": []
+    }
+   },
+   {
+    "id": 888706789,
+    "quantity": 1,
+    "equipped": false,
+    "isAttuned": false,
+    "chargesUsed": 0,
+    "containerEntityId": 888704986,
+    "limitedUse": null,
+    "definition": {
+     "weight": 5,
+     "bundleSize": 1,
+     "weightMultiplier": 1,
+     "isContainer": false,
+     "filterType": "Other Gear",
+     "type": "Gear",
+     "armorClass": null,
+     "armorTypeId": null,
+     "canEquip": false,
+     "canAttune": false,
+     "isConsumable": false,
+     "magic": false,
+     "name": "Waterskin",
+     "grantedModifiers": []
+    }
+   },
+   {
+    "id": 888706687,
+    "quantity": 1,
+    "equipped": false,
+    "isAttuned": false,
+    "chargesUsed": 0,
+    "containerEntityId": 888704986,
+    "limitedUse": null,
+    "definition": {
+     "weight": 1,
+     "bundleSize": 1,
+     "weightMultiplier": 1,
+     "isContainer": false,
+     "filterType": "Other Gear",
+     "type": "Gear",
+     "armorClass": null,
+     "armorTypeId": null,
+     "canEquip": false,
+     "canAttune": false,
+     "isConsumable": false,
+     "magic": false,
+     "name": "Tinderbox",
+     "grantedModifiers": []
+    }
+   },
+   {
+    "id": 888711850,
+    "quantity": 1,
+    "equipped": false,
+    "isAttuned": false,
+    "chargesUsed": 0,
+    "containerEntityId": 888704986,
+    "limitedUse": null,
+    "definition": {
+     "weight": 3,
+     "bundleSize": 1,
+     "weightMultiplier": 1,
+     "isContainer": false,
+     "filterType": "Other Gear",
+     "type": "Gear",
+     "armorClass": null,
+     "armorTypeId": null,
+     "canEquip": false,
+     "canAttune": false,
+     "isConsumable": false,
+     "magic": false,
+     "name": "Blanket",
+     "grantedModifiers": []
+    }
+   },
+   {
+    "id": 888711622,
+    "quantity": 6,
+    "equipped": false,
+    "isAttuned": false,
+    "chargesUsed": 0,
+    "containerEntityId": 888704986,
+    "limitedUse": null,
+    "definition": {
+     "weight": 0,
+     "bundleSize": 1,
+     "weightMultiplier": 1,
+     "isContainer": false,
+     "filterType": "Other Gear",
+     "type": "Gear",
+     "armorClass": null,
+     "armorTypeId": null,
+     "canEquip": false,
+     "canAttune": false,
+     "isConsumable": false,
+     "magic": false,
+     "name": "Signal Whistle",
+     "grantedModifiers": []
+    }
+   },
+   {
+    "id": 888712175,
+    "quantity": 1,
+    "equipped": false,
+    "isAttuned": false,
+    "chargesUsed": 0,
+    "containerEntityId": 888704986,
+    "limitedUse": null,
+    "definition": {
+     "weight": 5,
+     "bundleSize": 1,
+     "weightMultiplier": 1,
+     "isContainer": false,
+     "filterType": "Other Gear",
+     "type": "Gear",
+     "armorClass": null,
+     "armorTypeId": null,
+     "canEquip": false,
+     "canAttune": false,
+     "isConsumable": false,
+     "magic": false,
+     "name": "Rope",
+     "grantedModifiers": []
+    }
+   },
+   {
+    "id": 888706229,
+    "quantity": 2,
+    "equipped": false,
+    "isAttuned": false,
+    "chargesUsed": 0,
+    "containerEntityId": 888704986,
+    "limitedUse": null,
+    "definition": {
+     "weight": 2,
+     "bundleSize": 1,
+     "weightMultiplier": 1,
+     "isContainer": false,
+     "filterType": "Other Gear",
+     "type": "Gear",
+     "armorClass": null,
+     "armorTypeId": null,
+     "canEquip": false,
+     "canAttune": false,
+     "isConsumable": false,
+     "magic": false,
+     "name": "Rations",
+     "grantedModifiers": []
+    }
+   },
+   {
+    "id": 888708501,
+    "quantity": 10,
+    "equipped": false,
+    "isAttuned": false,
+    "chargesUsed": 0,
+    "containerEntityId": 888704986,
+    "limitedUse": null,
+    "definition": {
+     "weight": 0,
+     "bundleSize": 1,
+     "weightMultiplier": 1,
+     "isContainer": false,
+     "filterType": "Other Gear",
+     "type": "Gear",
+     "armorClass": null,
+     "armorTypeId": null,
+     "canEquip": false,
+     "canAttune": false,
+     "isConsumable": false,
+     "magic": false,
+     "name": "Parchment",
+     "grantedModifiers": []
+    }
+   },
+   {
+    "id": 888706554,
+    "quantity": 4,
+    "equipped": false,
+    "isAttuned": false,
+    "chargesUsed": 0,
+    "containerEntityId": 888704986,
+    "limitedUse": null,
+    "definition": {
+     "weight": 1,
+     "bundleSize": 1,
+     "weightMultiplier": 1,
+     "isContainer": false,
+     "filterType": "Other Gear",
+     "type": "Gear",
+     "armorClass": null,
+     "armorTypeId": null,
+     "canEquip": false,
+     "canAttune": false,
+     "isConsumable": false,
+     "magic": false,
+     "name": "Oil",
+     "grantedModifiers": []
+    }
+   }
+  ],
+  "customItems": [
+   {
+    "id": 1,
+    "name": "Власний предмет 1",
+    "weight": null,
+    "quantity": 6
+   },
+   {
+    "id": 2,
+    "name": "Власний предмет 2",
+    "weight": 0,
+    "quantity": 3
+   },
+   {
+    "id": 3,
+    "name": "Власний предмет 3",
+    "weight": 0,
+    "quantity": 11
+   },
+   {
+    "id": 4,
+    "name": "Власний предмет 4",
+    "weight": 0,
+    "quantity": 3
+   },
+   {
+    "id": 5,
+    "name": "Власний предмет 5",
+    "weight": 0,
+    "quantity": 15
+   },
+   {
+    "id": 6,
+    "name": "Власний предмет 6",
+    "weight": 0,
+    "quantity": 1
+   },
+   {
+    "id": 7,
+    "name": "Власний предмет 7",
+    "weight": 0,
+    "quantity": 465
+   },
+   {
+    "id": 8,
+    "name": "Власний предмет 8",
+    "weight": null,
+    "quantity": 1
+   },
+   {
+    "id": 9,
+    "name": "Власний предмет 9",
+    "weight": 0,
+    "quantity": 5
+   },
+   {
+    "id": 10,
+    "name": "Власний предмет 10",
+    "weight": 0,
+    "quantity": 12
+   },
+   {
+    "id": 11,
+    "name": "Власний предмет 11",
+    "weight": 0,
+    "quantity": 1
+   },
+   {
+    "id": 12,
+    "name": "Власний предмет 12",
+    "weight": 0,
+    "quantity": 1
+   },
+   {
+    "id": 13,
+    "name": "Власний предмет 13",
+    "weight": null,
+    "quantity": 1
+   },
+   {
+    "id": 14,
+    "name": "Власний предмет 14",
+    "weight": 0,
+    "quantity": 4
+   },
+   {
+    "id": 15,
+    "name": "Власний предмет 15",
+    "weight": 0,
+    "quantity": 1
+   },
+   {
+    "id": 16,
+    "name": "Власний предмет 16",
+    "weight": 0,
+    "quantity": 6
+   },
+   {
+    "id": 17,
+    "name": "Власний предмет 17",
+    "weight": 0,
+    "quantity": 1
+   }
+  ],
+  "actions": {
+   "race": [],
+   "class": [
+    {
+     "name": "Bardic Inspiration",
+     "componentId": 10292177,
+     "limitedUse": {
+      "statModifierUsesId": 6,
+      "resetType": 2,
+      "numberUsed": 0,
+      "maxUses": 0,
+      "operator": 1,
+      "useProficiencyBonus": false,
+      "proficiencyBonusOperator": 1
+     }
+    },
+    {
+     "name": "Initiate a Circle Spell",
+     "componentId": 12373767,
+     "limitedUse": null
+    },
+    {
+     "name": "Circle Spell: Augment",
+     "componentId": 12373767,
+     "limitedUse": null
+    },
+    {
+     "name": "Circle Spell: Distribute",
+     "componentId": 12373767,
+     "limitedUse": null
+    },
+    {
+     "name": "Circle Spell: Expand",
+     "componentId": 12373767,
+     "limitedUse": null
+    },
+    {
+     "name": "Circle Spell: Prolong",
+     "componentId": 12373767,
+     "limitedUse": null
+    },
+    {
+     "name": "Circle Spell: Safeguard",
+     "componentId": 12373767,
+     "limitedUse": null
+    },
+    {
+     "name": "Circle Spell: Supplant",
+     "componentId": 12373767,
+     "limitedUse": null
+    },
+    {
+     "name": "Sneak Attack",
+     "componentId": 10292325,
+     "limitedUse": null
+    },
+    {
+     "name": "Cunning Action",
+     "componentId": 10292328,
+     "limitedUse": null
+    }
+   ],
+   "background": [],
+   "item": [],
+   "feat": [
+    {
+     "name": "Vex (Rapier)",
+     "componentId": 1789214,
+     "limitedUse": null
+    },
+    {
+     "name": "Nick (Dagger)",
+     "componentId": 1789214,
+     "limitedUse": null
+    }
+   ]
+  },
+  "spells": {
+   "race": [
+    {
+     "prepared": false,
+     "alwaysPrepared": false,
+     "limitedUse": null,
+     "definition": {
+      "name": "Shape Water",
+      "level": 0
+     }
+    },
+    {
+     "prepared": false,
+     "alwaysPrepared": false,
+     "limitedUse": null,
+     "definition": {
+      "name": "Detect Magic",
+      "level": 1
+     }
+    },
+    {
+     "prepared": false,
+     "alwaysPrepared": false,
+     "limitedUse": {
+      "statModifierUsesId": null,
+      "resetType": 2,
+      "numberUsed": 0,
+      "maxUses": 1,
+      "operator": 1,
+      "useProficiencyBonus": false,
+      "proficiencyBonusOperator": 1
+     },
+     "definition": {
+      "name": "Detect Magic",
+      "level": 1
+     }
+    }
+   ],
+   "class": [],
+   "background": [],
+   "item": [],
+   "feat": [
+    {
+     "prepared": false,
+     "alwaysPrepared": false,
+     "limitedUse": null,
+     "definition": {
+      "name": "Booming Blade",
+      "level": 0
+     }
+    },
+    {
+     "prepared": false,
+     "alwaysPrepared": false,
+     "limitedUse": null,
+     "definition": null
+    },
+    {
+     "prepared": false,
+     "alwaysPrepared": false,
+     "limitedUse": {
+      "statModifierUsesId": null,
+      "resetType": 2,
+      "numberUsed": 0,
+      "maxUses": 1,
+      "operator": 1,
+      "useProficiencyBonus": false,
+      "proficiencyBonusOperator": 1
+     },
+     "definition": {
+      "name": "Witch Bolt",
+      "level": 1
+     }
+    }
+   ]
+  },
+  "classSpells": [
+   {
+    "characterClassId": 212180525,
+    "spells": []
+   },
+   {
+    "characterClassId": 214537759,
+    "spells": [
+     {
+      "prepared": false,
+      "alwaysPrepared": false,
+      "limitedUse": null,
+      "definition": {
+       "name": "Blade Ward",
+       "level": 0
+      }
+     },
+     {
+      "prepared": false,
+      "alwaysPrepared": false,
+      "limitedUse": null,
+      "definition": {
+       "name": "Starry Wisp",
+       "level": 0
+      }
+     },
+     {
+      "prepared": false,
+      "alwaysPrepared": false,
+      "limitedUse": null,
+      "definition": {
+       "name": "Disguise Self",
+       "level": 1
+      }
+     },
+     {
+      "prepared": false,
+      "alwaysPrepared": false,
+      "limitedUse": null,
+      "definition": {
+       "name": "Healing Word",
+       "level": 1
+      }
+     },
+     {
+      "prepared": false,
+      "alwaysPrepared": false,
+      "limitedUse": null,
+      "definition": {
+       "name": "Faerie Fire",
+       "level": 1
+      }
+     }
+    ]
+   }
+  ],
+  "feats": [
+   {
+    "definition": {
+     "name": "Magic Initiate (Wizard)"
+    }
+   },
+   {
+    "definition": {
+     "name": "Sage Ability Score Improvements"
+    }
+   },
+   {
+    "definition": {
+     "name": "Weapon Mastery"
+    }
+   },
+   {
+    "definition": {
+     "name": "Dark Bargain"
+    }
+   },
+   {
+    "definition": {
+     "name": "Homebrew feat 3"
+    }
+   }
+  ]
+ }
+}
