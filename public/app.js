@@ -37,7 +37,7 @@ import { canonicalYouTubeUrl, musicTitle, oEmbedUrl, parseMusicStart, playbackUr
 import { centeredViewOnRect, locationBorderScreenWidth, locationHeaderHeight, maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, rebasedView, rectWithin, rectsOverlap, worldViewportRect, zoomedViewAt } from "./view.js";
 import { elementToPng, urlToPng, writeImageToClipboard } from "./snapshot.js";
 import { BOARD_THUMBNAIL_SIZE, PORTRAIT_THUMBNAIL_SIZE, createThumbnails, wantsFullImage } from "./thumbnails.js";
-import { ageLabel, createPartyMonitor, partyCardMarkup, partyDetailsMarkup, partyMembers } from "./party.js";
+import { ageLabel, createPartyMonitor, partyCardMarkup, partyDetailsMarkup, partyGoldLabel, partyMembers } from "./party.js";
 import { CALIBRATION_MILES, milesLabel, parseScale, plural as pluralForm, routeMiles, scaleFromCalibration, travelEstimates, travelModes } from "./travel.js";
 
 const MIN_NODE_SIZE = Number.EPSILON;
@@ -113,6 +113,7 @@ const toggleLayersButton = document.querySelector("#toggle-layers");
 const togglePartyButton = document.querySelector("#toggle-party");
 const partyList = document.querySelector("#party-list");
 const partyAge = document.querySelector("#party-age");
+const partyGold = document.querySelector("#party-gold");
 const canvasActions = document.querySelector(".canvas-actions");
 const status = document.querySelector("#save-status");
 const emptyState = document.querySelector("#empty-state");
@@ -2318,6 +2319,7 @@ function stopParty() {
   partyAgeTimer = null;
   partyList.replaceChildren();
   partyAge.textContent = "";
+  partyGold.textContent = "";
 }
 
 function syncPartyPolling() {
@@ -2353,6 +2355,7 @@ function renderParty() {
     partyList.replaceChildren(hint);
   }
   renderPartyAge(now);
+  partyGold.textContent = partyGoldLabel(entries.values());
   const openSlug = entityDetails.open ? entityDetailsContent.querySelector(".party-details")?.dataset.slug : null;
   const openMember = members.find((member) => member.slug === openSlug);
   if (openMember) entityDetailsContent.innerHTML = partyDetailsMarkup(openMember, entries.get(openMember.slug), now);

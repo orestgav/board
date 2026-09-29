@@ -59,7 +59,10 @@ svg.icon { width: 20px; height: 20px; }
 .party { position: absolute; z-index: 14; left: 0; top: 0; bottom: 0; width: 260px; overflow: hidden; border-right: 1px solid var(--line); background: rgba(27,25,23,.97); box-shadow: 14px 0 34px rgba(0,0,0,.3); transform: translateX(-100%); transition: transform .18s ease; }
 .workspace.party-open .party { transform: translateX(0); }
 .party-heading { align-items: center; gap: 8px; padding-top: 10px; }
-.party-heading strong { flex: 1; }
+.party-heading strong { flex: 0 0 auto; }
+.party-heading .party-total { margin-right: auto; color: #c9b27f; font-size: 11px; letter-spacing: 0; text-transform: none; white-space: nowrap; }
+/* Золота монетка замість «зм». */
+.party-gold::before, .party-heading .party-total:not(:empty)::before { content: ""; display: inline-block; width: 9px; height: 9px; margin-right: 4px; border: 1px solid #8a6a2c; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fbe3a2, #d9a846 55%, #a8792a); vertical-align: -1px; }
 .party-age { color: #746d64; font-size: 10px; }
 .party-heading button { display: grid; place-items: center; width: 27px; height: 27px; padding: 0; border: 1px solid #3d3934; border-radius: 5px; background: #292622; color: #aaa298; cursor: pointer; }
 .party-heading button:hover { border-color: #695f52; color: var(--text); }
@@ -70,8 +73,9 @@ svg.icon { width: 20px; height: 20px; }
 .party-card.empty { cursor: default; }
 .party-card.stale { opacity: .72; }
 .party-card header { display: flex; align-items: baseline; gap: 6px; }
-.party-name { flex: 1; min-width: 0; overflow: hidden; color: #eee6da; font: 13px Georgia, serif; text-overflow: ellipsis; white-space: nowrap; }
-.party-inspiration { color: var(--gold-bright); font-size: 12px; }
+.party-name { flex: 0 1 auto; min-width: 0; overflow: hidden; color: #eee6da; font: 13px Georgia, serif; text-overflow: ellipsis; white-space: nowrap; }
+.party-inspiration { margin-left: -2px; color: var(--gold-bright); font-size: 12px; }
+.party-gold { margin-left: auto; color: #c9b27f; font-size: 10.5px; white-space: nowrap; }
 .party-ac { padding: 1px 5px; border: 1px solid #4a443c; border-radius: 4px; color: #d8d0c6; font-size: 10px; font-weight: 600; }
 .party-hp { position: relative; height: 15px; overflow: hidden; border-radius: 4px; background: #151412; box-shadow: inset 0 0 0 1px #3a352f; }
 .party-hp i { position: absolute; top: 0; bottom: 0; }

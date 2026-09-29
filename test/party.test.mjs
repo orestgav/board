@@ -6,10 +6,12 @@ import {
   GHOST_MS,
   ageLabel,
   createPartyMonitor,
+  goldTotal,
   hitPointSegments,
   nextGhost,
   partyCardMarkup,
   partyDetailsMarkup,
+  partyGoldLabel,
   partyMembers,
   shortName,
 } from "../public/party.js";
@@ -92,7 +94,7 @@ test("картка: імʼя, AC, HP, комірки, ресурси класу,
   assert.match(html, /Комірки 1-го рівня: 2 з 3/);
   assert.match(html, /Bardic Inspiration: 2 з 2 \(довгий відпочинок\)/);
   assert.doesNotMatch(html, /Detect Magic/);
-  assert.match(html, /party-load heavy.*<span>97%<\/span>/);
+  assert.match(html, /party-load heavy.*<span>⚖ 97%<\/span>/);
   assert.match(html, /party-row slot.*Комірки 1-го рівня<\/span>/);
   assert.match(html, /party-inspiration/);
 });
@@ -132,6 +134,23 @@ test("попап: характеристики, ресурси з безкошт
   assert.match(html, /<h3>Scroll Satchel/);
   assert.match(html, /<h3>Замовляння<\/h3>/);
   assert.match(html, /dndbeyond\.com\/characters\/1000/);
+});
+
+test("гроші на картці — усе в золотих, після імені й натхнення, перед AC", () => {
+  assert.equal(goldTotal({ pp: 1, gp: 211, ep: 10, sp: 4, cp: 30 }), 226.7);
+  assert.equal(goldTotal({ cp: 9995, sp: 1, gp: 10 }), 110.05);
+  assert.equal(goldTotal({}), 0);
+  const html = partyCardMarkup(MEMBER, { state: normalizeCharacter(FIXTURE) }, 0);
+  assert.match(html, /Алренсіс<\/span><span class="party-inspiration"[^>]*>★<\/span><span class="party-gold"[^>]*>216<\/span><span class="party-ac"/);
+  const poor = normalizeCharacter(sheet((data) => { data.currencies = { cp: 0, sp: 7, gp: 2, ep: 0, pp: 0 }; }));
+  assert.match(partyCardMarkup(MEMBER, { state: poor }, 0), />2,7</);
+});
+
+test("гроші партії в шапці — сума тих, хто завантажився", () => {
+  const rich = { state: { currencies: { gp: 211, sp: 4, cp: 30, ep: 10 } } };
+  const poor = { state: { currencies: { cp: 9995, sp: 1, gp: 10 } } };
+  assert.equal(partyGoldLabel([rich, poor, { error: "private" }]), "326");
+  assert.equal(partyGoldLabel([{ error: "private" }]), "");
 });
 
 test("вік даних", () => {

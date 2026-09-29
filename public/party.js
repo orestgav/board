@@ -135,7 +135,7 @@ function loadLevel(load) {
 // Завантаженість — тонка смужка під ресурсами, відсоток у кінці.
 function loadBar(inventory) {
   return `<div class="party-load ${loadLevel(inventory.load)}" title="Вага: ${inventory.weight} з ${inventory.capacity} lb">`
-    + `<div class="party-load-bar"><i style="width:${Math.min(100, inventory.load)}%"></i></div><span>${inventory.load}%</span></div>`;
+    + `<div class="party-load-bar"><i style="width:${Math.min(100, inventory.load)}%"></i></div><span>⚖ ${inventory.load}%</span></div>`;
 }
 
 // Кожна комірка й кожен ресурс — окремий рядок: назва зліва, кружки справа.
@@ -160,6 +160,29 @@ function resourceRows(resources) {
   });
 }
 
+// Усі монети, зведені до золотих: 1 пм = 10 зм, 1 ем = ½, 1 см = 0,1, 1 мм = 0,01.
+export function goldTotal(currencies) {
+  const { pp = 0, gp = 0, ep = 0, sp = 0, cp = 0 } = currencies ?? {};
+  // Рахуємо в мідяках: так дроби не набігають (226.70000000000002).
+  return (pp * 1000 + gp * 100 + ep * 50 + sp * 10 + cp) / 100;
+}
+
+function goldLabel(currencies) {
+  return formatGold(goldTotal(currencies));
+}
+
+function formatGold(total) {
+  const shown = total >= 10 ? Math.floor(total) : Math.floor(total * 10) / 10;
+  return String(shown).replace(".", ",");
+}
+
+// Гроші всієї партії — для шапки панелі. Хто ще не завантажився, не рахується.
+export function partyGoldLabel(entries) {
+  const states = [...entries].map((entry) => entry?.state).filter(Boolean);
+  if (!states.length) return "";
+  return formatGold(states.reduce((sum, state) => sum + goldTotal(state.currencies), 0));
+}
+
 export function partyCardMarkup(member, entry = {}, now = Date.now()) {
   const state = entry.state;
   const name = `<span class="party-name" title="${escapeHtml(member.name)}">${escapeHtml(member.short)}</span>`;
@@ -172,7 +195,8 @@ export function partyCardMarkup(member, entry = {}, now = Date.now()) {
   const badges = statusBadges(state);
   const stale = entry.error ? " stale" : "";
   return `<article class="party-card${stale}" data-slug="${escapeHtml(member.slug)}" tabindex="0" role="button" aria-label="${escapeHtml(member.name)}: подробиці">`
-    + `<header>${name}${inspiration}<span class="party-ac" title="Клас броні">AC ${state.ac}</span></header>`
+    + `<header>${name}${inspiration}<span class="party-gold" title="Усі гроші в золотих">${goldLabel(state.currencies)}</span>`
+    + `<span class="party-ac" title="Клас броні">AC ${state.ac}</span></header>`
     + hitPointBar(state.hp, entry.ghost, now)
     + (rows.length ? `<div class="party-rows">${rows.join("")}</div>` : "")
     + (badges.length ? `<div class="party-badges">${badges.join("")}</div>` : "")
