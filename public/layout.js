@@ -48,6 +48,10 @@ export function validateNode(node) {
       throw new Error(`${node.id}.grid має бути { columns, rows } з цілих чисел від 1`);
     }
   }
+  // Токени прилипають до клітинок бойової карти; вимкнене прилипання — false.
+  if (node.snap !== undefined && (node.grid === undefined || node.snap !== false)) {
+    throw new Error(`${node.id}.snap буває лише false і лише в бойової карти`);
+  }
   if (["entity", "token"].includes(node.type) && (typeof node.entity !== "string" || !node.entity)) {
     throw new Error(`${node.id}.entity має бути непорожнім slug`);
   }

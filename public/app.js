@@ -29,7 +29,7 @@ import { iconElement } from "./icons.js";
 import { renderInline, renderMarkdown } from "./markdown.js";
 import { creatureHitPoints, creatureLabel, creatureList, maxHitPoints, parseHitPoints, statblockMarkup, writeCreatures } from "./statblock.js";
 import { mapSlugFromPath } from "./notes.js";
-import { battleMapSize, gridFromName, isBattleMap, isGridCount } from "./battlemap.js";
+import { battleMapSize, fitBattleMap, gridFromName, isBattleMap, isGridCount, snapChild, snapsTokens } from "./battlemap.js";
 import { TOKEN_COLORS, TOKEN_ENTITY_TYPES, initialTokenColor, tokenColor, tokenInitial, tokenInk, tokenSide, writeTokenColor } from "./token.js";
 import { noteMarkup, toggleBold } from "./note-format.js";
 import { NOTE_FONT_EM, STATBLOCK_FONT_EM, SUMMARY_FONT_EM, SUMMARY_MIN_RATIO, TEXT_MIN_RATIO, fitBoxKey, fittedFontSize, fittingRatio, notePadding, reservedFitRatio, textShape } from "./text-fit.js";
@@ -1965,6 +1965,7 @@ function addToken(entity) {
   writeTokenColor(node, initialTokenColor(entity));
   executeCommand("Додати токен", () => {
     (parent ? parent.children : layout.children).push(node);
+    snapToParent(node);
     setSelection([node.id]);
   });
   entityPicker.close();
@@ -2292,7 +2293,10 @@ function showImageDetails(node) {
     return description;
   };
   const sourceSize = addFact("Роздільність", "Завантаження…");
-  if (isBattleMap(node)) addFact("Сітка", `${node.grid.columns} × ${node.grid.rows} клітинок`);
+  if (isBattleMap(node)) {
+    addFact("Сітка", `${node.grid.columns} × ${node.grid.rows} клітинок`);
+    addFact("Прилипання токенів", node.snap === false ? "Вимкнене" : "Увімкнене");
+  }
   addFact("Розмір на полотні", `${Math.round(node.width)} × ${Math.round(node.height)} px`);
   addFact("Стан", node.locked ? "Заблоковано" : "Розблоковано");
   image.addEventListener("load", () => { sourceSize.textContent = `${image.naturalWidth} × ${image.naturalHeight} px`; }, { once: true });
@@ -2423,6 +2427,12 @@ function openContextMenu(node, clientX, clientY) {
   contextMenuItem("add-scene").hidden = !isLocationNode(node);
   contextMenuItem("rename").hidden = !["scene", "music"].includes(node?.type);
   for (const action of ["rotate-right", "rotate-left"]) contextMenuItem(action).hidden = node?.type !== "image";
+  for (const action of ["toggle-snap", "fit-battle-map"]) contextMenuItem(action).hidden = !isBattleMap(node);
+  if (isBattleMap(node)) {
+    const snapToggle = contextMenuItem("toggle-snap");
+    snapToggle.querySelector(".context-menu-icon").replaceChildren(iconElement(node.snap === false ? "grid_on" : "crop_square"));
+    snapToggle.querySelector(".context-menu-label").textContent = node.snap === false ? "Увімкнути прилипання до клітинок" : "Вимкнути прилипання до клітинок";
+  }
   contextMenuItem("details").hidden = !node || node.type === "scene";
   const summaryToggle = contextMenuItem("toggle-summary");
   summaryToggle.hidden = !canToggleSummary(node);
@@ -2459,7 +2469,7 @@ function openContextMenu(node, clientX, clientY) {
       button.disabled = false;
       button.title = "";
     }
-    for (const action of ["rename", "rotate-right", "rotate-left", "add-creature", "remove-creature"]) {
+    for (const action of ["rename", "rotate-right", "rotate-left", "toggle-snap", "fit-battle-map", "add-creature", "remove-creature"]) {
       const button = contextMenuItem(action);
       button.disabled = node.locked;
       button.title = node.locked ? "Спочатку розблокуйте елемент" : "";
@@ -2787,6 +2797,7 @@ async function endInteraction(event) {
   }
   for (const { node, parent } of placements) {
     reparentNode(layout, node.id, parent?.id ?? null, RENDERED);
+    snapToParent(node);
   }
   const relocations = [];
   // Рамка чи сцена везе свої нотатки з собою, тож під іншою картою їм так само
@@ -2847,6 +2858,40 @@ function rotateSelected(steps) {
         inset: RENDERED.inset(node),
       });
     }
+  });
+}
+
+// Токени-діти бойової карти стають на її клітинки, якщо прилипання не вимкнене.
+function snapTokensOf(map) {
+  if (!snapsTokens(map)) return;
+  for (const child of map.children) {
+    if (child.type === "token" && !child.locked) Object.assign(child, snapChild(child, map, RENDERED.inset(map)));
+  }
+}
+
+function snapToParent(node) {
+  const parent = findEntry(layout, node.id)?.parent;
+  if (node.type === "token" && snapsTokens(parent)) Object.assign(node, snapChild(node, parent, RENDERED.inset(parent)));
+}
+
+// Увімкнене знову прилипання одразу ставить токени карти на клітинки.
+function toggleSnap(node) {
+  if (!isBattleMap(node) || node.locked) return;
+  const enabling = node.snap === false;
+  executeCommand(enabling ? "Увімкнути прилипання до клітинок" : "Вимкнути прилипання до клітинок", () => {
+    if (enabling) {
+      delete node.snap;
+      snapTokensOf(node);
+    } else node.snap = false;
+  });
+}
+
+function fitToStandard(node) {
+  if (!isBattleMap(node) || node.locked) return;
+  executeCommand("Привести до стандартного розміру", () => {
+    const area = parentRect(layout, findEntry(layout, node.id).parent, RENDERED);
+    if (!fitBattleMap(node, boardConfig.grid.cell, { area, inset: RENDERED.inset(node) })) return false;
+    snapTokensOf(node);
   });
 }
 
@@ -3818,6 +3863,8 @@ nodeContextMenu.addEventListener("click", async (event) => {
   if (action === "add-scene") addScene(node, spot?.world);
   else if (action === "rename") renameNode(node);
   else if (action === "lock") toggleLock();
+  else if (action === "toggle-snap") toggleSnap(node);
+  else if (action === "fit-battle-map") fitToStandard(node);
   else if (action === "rotate-right") rotateSelected(1);
   else if (action === "rotate-left") rotateSelected(-1);
   else if (action === "copy") copySelection();
