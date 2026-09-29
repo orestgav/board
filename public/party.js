@@ -128,9 +128,36 @@ function statusBadges(state) {
   return badges;
 }
 
-function loadBadge(inventory) {
-  const level = inventory.load > 100 ? "over" : inventory.load >= 80 ? "heavy" : "light";
-  return `<span class="party-load ${level}" title="Вага: ${inventory.weight} з ${inventory.capacity} lb">⚖ ${inventory.load}%</span>`;
+function loadLevel(load) {
+  return load > 100 ? "over" : load >= 80 ? "heavy" : "light";
+}
+
+// Завантаженість — тонка смужка під ресурсами, відсоток у кінці.
+function loadBar(inventory) {
+  return `<div class="party-load ${loadLevel(inventory.load)}" title="Вага: ${inventory.weight} з ${inventory.capacity} lb">`
+    + `<div class="party-load-bar"><i style="width:${Math.min(100, inventory.load)}%"></i></div><span>${inventory.load}%</span></div>`;
+}
+
+// Кожна комірка й кожен ресурс — окремий рядок: назва зліва, кружки справа.
+// Спершу комірки заклять (свій колір кружків), пакт окремо, далі ресурси.
+function slotRows(state) {
+  const rows = state.slots.map((slot) => {
+    const title = `Комірки ${slot.level}-го рівня: ${slot.max - slot.used} з ${slot.max}`;
+    return `<div class="party-row slot" title="${title}"><span>Комірки ${slot.level}-го рівня</span>${pips(slot.used, slot.max)}</div>`;
+  });
+  if (state.pact) {
+    const { level, used, max } = state.pact;
+    rows.push(`<div class="party-row pact" title="Комірки пакту ${level}-го рівня: ${max - used} з ${max}"><span>Пакт ${level}-го рівня</span>${pips(used, max)}</div>`);
+  }
+  return rows;
+}
+
+function resourceRows(resources) {
+  return resources.map((resource) => {
+    const reset = resetLabel(resource.reset);
+    return `<div class="party-row" title="${escapeHtml(resource.name)}: ${resource.max - resource.used} з ${resource.max}${reset ? ` (${reset})` : ""}">`
+      + `<span>${escapeHtml(resource.name)}</span>${pips(resource.used, resource.max)}</div>`;
+  });
 }
 
 export function partyCardMarkup(member, entry = {}, now = Date.now()) {
@@ -141,23 +168,15 @@ export function partyCardMarkup(member, entry = {}, now = Date.now()) {
     return `<article class="party-card empty" data-slug="${escapeHtml(member.slug)}"><header>${name}</header>${waiting}</article>`;
   }
   const inspiration = state.inspiration ? "<span class=\"party-inspiration\" title=\"Натхнення\">★</span>" : "";
-  const slots = state.slots.map((slot) => `<span class="party-slot" title="Комірки ${slot.level}-го рівня: ${slot.max - slot.used} з ${slot.max}"><small>${slot.level}</small>${pips(slot.used, slot.max)}</span>`);
-  if (state.pact) {
-    slots.push(`<span class="party-slot pact" title="Комірки пакту ${state.pact.level}-го рівня: ${state.pact.max - state.pact.used} з ${state.pact.max}"><small>П${state.pact.level}</small>${pips(state.pact.used, state.pact.max)}</span>`);
-  }
-  const resources = cardResources(state).map((resource) => {
-    const reset = resetLabel(resource.reset);
-    return `<span class="party-resource" title="${escapeHtml(resource.name)}: ${resource.max - resource.used} з ${resource.max}${reset ? ` (${reset})` : ""}">`
-      + `<span>${escapeHtml(resource.name)}</span>${pips(resource.used, resource.max)}</span>`;
-  });
-  const footer = [...statusBadges(state), loadBadge(state.inventory)];
+  const rows = [...slotRows(state), ...resourceRows(cardResources(state))];
+  const badges = statusBadges(state);
   const stale = entry.error ? " stale" : "";
   return `<article class="party-card${stale}" data-slug="${escapeHtml(member.slug)}" tabindex="0" role="button" aria-label="${escapeHtml(member.name)}: подробиці">`
     + `<header>${name}${inspiration}<span class="party-ac" title="Клас броні">AC ${state.ac}</span></header>`
     + hitPointBar(state.hp, entry.ghost, now)
-    + (slots.length ? `<div class="party-slots">${slots.join("")}</div>` : "")
-    + (resources.length ? `<div class="party-resources">${resources.join("")}</div>` : "")
-    + `<footer>${footer.join("")}</footer>`
+    + (rows.length ? `<div class="party-rows">${rows.join("")}</div>` : "")
+    + (badges.length ? `<div class="party-badges">${badges.join("")}</div>` : "")
+    + loadBar(state.inventory)
     + errorLine(entry, now)
     + "</article>";
 }
@@ -204,8 +223,7 @@ function detailsInventory(state) {
     return `<h3>${escapeHtml(title)} <small>${weight} lb</small></h3><table class="party-table party-items">${rows}</table>`;
   });
   const { weight, capacity, load } = state.inventory;
-  const level = load > 100 ? "over" : load >= 80 ? "heavy" : "light";
-  return `<div class="party-weight ${level}"><div><i style="width:${Math.min(100, load)}%"></i></div>`
+  return `<div class="party-load ${loadLevel(load)}"><div class="party-load-bar"><i style="width:${Math.min(100, load)}%"></i></div>`
     + `<span>${weight} / ${capacity} lb · ${load}%</span></div>${sections.join("")}`;
 }
 
@@ -237,8 +255,7 @@ export function partyDetailsMarkup(member, entry = {}, now = Date.now()) {
     return `<div><small>${label}</small><b>${signed(Math.floor((score - 10) / 2))}</b><span>${score}</span></div>`;
   }).join("");
   const dcs = state.spellSaveDC.map((entry) => `DC ${entry.dc} <small>${escapeHtml(entry.className)}</small>`).join(" · ");
-  const slots = [...state.slots.map((slot) => `<span class="party-slot"><small>${slot.level}</small>${pips(slot.used, slot.max)}</span>`),
-    ...(state.pact ? [`<span class="party-slot pact"><small>П${state.pact.level}</small>${pips(state.pact.used, state.pact.max)}</span>`] : [])];
+  const slots = slotRows(state);
   const money = ["pp", "gp", "ep", "sp", "cp"].filter((key) => state.currencies[key])
     .map((key) => `${state.currencies[key]} ${{ pp: "пм", gp: "зм", ep: "ем", sp: "см", cp: "мм" }[key]}`).join(" · ") || "—";
   const badges = statusBadges(state);
@@ -261,7 +278,7 @@ export function partyDetailsMarkup(member, entry = {}, now = Date.now()) {
     + `<div class="wide"><dt>Гроші</dt><dd>${money}</dd></div>`
     + "</dl>"
     + `<div class="party-abilities">${abilities}</div>`
-    + (slots.length ? `<h2>Комірки</h2><div class="party-slots">${slots.join("")}</div>` : "")
+    + (slots.length ? `<h2>Комірки</h2><div class="party-rows">${slots.join("")}</div>` : "")
     + `<h2>Ресурси</h2>${detailsResources(state)}`
     + `<h2>Інвентар</h2>${detailsInventory(state)}`
     + `<h2>Заклинання</h2>${detailsSpells(state)}`

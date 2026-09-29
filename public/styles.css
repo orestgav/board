@@ -86,28 +86,39 @@ svg.icon { width: 20px; height: 20px; }
 @keyframes party-ghost { 0%, 85% { opacity: 1; } 100% { opacity: 0; } }
 .party-hp-text { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 10px; font-weight: 600; text-shadow: 0 1px 2px rgba(0,0,0,.85); }
 .party-hp-text b { margin-left: 3px; color: #cfe7fb; }
-.party-slots, .party-resources { display: flex; flex-wrap: wrap; gap: 3px 9px; }
-.party-slot, .party-resource { display: inline-flex; align-items: center; gap: 4px; min-width: 0; color: #a59e95; }
-.party-slot small { color: #8b8378; font-size: 9px; }
-.party-slot.pact small { color: #b69be0; }
-.party-resource { max-width: 100%; }
-.party-resource > span:first-child { max-width: 130px; overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
-.party-pips { display: inline-flex; gap: 2px; }
-.party-pips i { width: 7px; height: 7px; border: 1px solid #7d6d52; border-radius: 50%; }
+/* Рядок комірки чи ресурсу: назва зліва, кружки справа. Кружки комірок —
+   блакитні, пакту — фіолетові, ресурсів — золоті. */
+.party-rows { display: grid; gap: 2px; }
+.party-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 14px; color: #a59e95; }
+.party-row > span:first-child { min-width: 0; overflow: hidden; font-size: 10.5px; text-overflow: ellipsis; white-space: nowrap; }
+.party-pips { display: inline-flex; flex: 0 0 auto; gap: 3px; }
+.party-pips i { width: 8px; height: 8px; border: 1px solid #7d6d52; border-radius: 50%; }
 .party-pips i.on { border-color: var(--gold); background: var(--gold); }
-.party-slot.pact .party-pips i { border-color: #7d6a9c; }
-.party-slot.pact .party-pips i.on { border-color: #b69be0; background: #b69be0; }
-.party-count { color: #d8d0c6; font-size: 10px; }
-.party-card footer { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; }
+.party-row.slot .party-pips i { border-color: #4f6f8c; }
+.party-row.slot .party-pips i.on { border-color: #7fc4f0; background: #7fc4f0; }
+.party-row.pact .party-pips i { border-color: #7d6a9c; }
+.party-row.pact .party-pips i.on { border-color: #b69be0; background: #b69be0; }
+.party-count { flex: 0 0 auto; color: #d8d0c6; font-size: 10px; }
+.party-badges { display: flex; flex-wrap: wrap; gap: 3px; }
+/* Завантаженість: смужка тонша за HP, колір за заповненістю, відсоток у кінці. */
+.party-load { display: flex; align-items: center; gap: 7px; color: #8b8378; font-size: 10px; }
+.party-load-bar { flex: 1; height: 5px; overflow: hidden; border-radius: 3px; background: #151412; box-shadow: inset 0 0 0 1px #3a352f; }
+.party-load-bar i { display: block; height: 100%; background: #4f9a5c; }
+.party-load.heavy .party-load-bar i { background: #b98a3c; }
+.party-load.over .party-load-bar i { background: #b94a3e; }
+.party-load.heavy span { color: var(--gold-bright); }
+.party-load.over span { color: #ff8c7d; font-weight: 600; }
+.party-details .party-rows { max-width: 360px; gap: 5px; }
+.party-details .party-row > span:first-child { font-size: 12.5px; color: #d3cbc1; }
+.party-details .party-pips i { width: 10px; height: 10px; }
+.party-details .party-load { margin-bottom: 4px; font-size: 12px; }
+.party-details .party-load-bar { height: 8px; }
 .party-badge { padding: 1px 5px; border-radius: 3px; font-size: 9.5px; }
 .party-badge.condition { background: #4a2f2a; color: #ffb7a8; }
 .party-badge.death { background: #2e2433; color: #e3cdea; }
 .party-saves { display: inline-flex; gap: 4px; letter-spacing: 1px; }
 .party-saves .ok { color: #8fd49a; }
 .party-saves .bad { color: #ff8c7d; }
-.party-load { margin-left: auto; color: #8b8378; font-size: 10px; }
-.party-load.heavy { color: var(--gold-bright); }
-.party-load.over { color: #ff8c7d; font-weight: 600; }
 .party-error, .party-waiting { color: #d98b7e; font-size: 10px; line-height: 1.35; }
 .party-waiting { color: var(--muted); }
 .party-details h2 { margin: 24px 0 8px; color: #f0e6d8; font: 400 18px Georgia, serif; }
@@ -129,8 +140,6 @@ svg.icon { width: 20px; height: 20px; }
 .party-abilities small { color: #8b8378; font-size: 9px; letter-spacing: .06em; }
 .party-abilities b { font-size: 17px; font-weight: 600; }
 .party-abilities span { color: #8b8378; font-size: 10px; }
-.party-details .party-slots { gap: 6px 14px; font-size: 12px; }
-.party-details .party-pips i { width: 10px; height: 10px; }
 .party-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .party-table th { padding: 4px 8px 4px 0; color: #d3cbc1; font-weight: 400; text-align: left; }
 .party-table td { padding: 4px 0 4px 10px; color: #a59e95; white-space: nowrap; }
@@ -138,12 +147,6 @@ svg.icon { width: 20px; height: 20px; }
 .party-items td:last-child { width: 64px; text-align: right; }
 .party-mark { margin-left: 5px; color: #8fc0ec; font-size: 11px; }
 .party-mark.magic { color: #b69be0; }
-.party-weight { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; color: #a59e95; font-size: 12px; }
-.party-weight > div { flex: 1; height: 8px; overflow: hidden; border-radius: 4px; background: #151412; box-shadow: inset 0 0 0 1px #3a352f; }
-.party-weight i { display: block; height: 100%; background: #4f9a5c; }
-.party-weight.heavy i { background: #b98a3c; }
-.party-weight.over i { background: #b94a3e; }
-.party-weight.over span { color: #ff8c7d; }
 .party-spells { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0; padding: 0; list-style: none; color: #d3cbc1; font-size: 12.5px; }
 .party-spells li.unprepared { color: #7d766d; }
 .party-muted { color: #8b8378; font-size: 12.5px; }

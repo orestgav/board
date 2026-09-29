@@ -92,7 +92,8 @@ test("картка: імʼя, AC, HP, комірки, ресурси класу,
   assert.match(html, /Комірки 1-го рівня: 2 з 3/);
   assert.match(html, /Bardic Inspiration: 2 з 2 \(довгий відпочинок\)/);
   assert.doesNotMatch(html, /Detect Magic/);
-  assert.match(html, /⚖ 97%/);
+  assert.match(html, /party-load heavy.*<span>97%<\/span>/);
+  assert.match(html, /party-row slot.*Комірки 1-го рівня<\/span>/);
   assert.match(html, /party-inspiration/);
 });
 
