@@ -153,6 +153,14 @@ test("вага: власні ваги гравця, вміст контейне�
   assert.equal(withCoins.inventory.weight, 64);
 });
 
+test("вантажопідйомність: Powerful Build рахує персонажа Великим — межа вдвічі більша", () => {
+  const goliath = normalizeCharacter(fixture((data) => {
+    data.modifiers.race.push({ type: "carrying-capacity", subType: "large", value: null });
+  }));
+  assert.equal(goliath.inventory.capacity, 240);
+  assert.equal(goliath.inventory.load, 26);
+});
+
 test("вага: предмети, привʼязані до не-контейнера, DDB не показує й не рахує", () => {
   const state = normalizeCharacter(fixture((data) => {
     data.inventory = [

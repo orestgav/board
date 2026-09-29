@@ -53,6 +53,7 @@ const PACT_CLASSES = new Set(["Warlock"]);
 
 // Розмір (race.sizeId) → множник вантажопідйомності.
 const SIZE_CAPACITY = { 2: 0.5, 3: 1, 4: 1, 5: 2, 6: 4, 7: 8 };
+const SIZE_BY_NAME = { tiny: 0.5, small: 1, medium: 1, large: 2, huge: 4, gargantuan: 8 };
 const COINS_PER_POUND = 50;
 
 // Відповідь сервісу: { success, data } або вже розгорнутий data.
@@ -400,9 +401,13 @@ function inventory(data, scores, modifiers) {
   }
   const coins = Object.values(data.currencies ?? {}).reduce((sum, value) => sum + number(value), 0);
   if (!data.preferences?.ignoreCoinWeight) weight += coins / COINS_PER_POUND;
-  const size = SIZE_CAPACITY[data.race?.sizeId] ?? 1;
-  const multiplier = 1 + modifiers.filter((modifier) => modifier.subType === "carrying-capacity").length;
-  const capacity = scores.str * 15 * size * multiplier;
+  // Powerful Build і подібні: модифікатор type «carrying-capacity», subType —
+  // розмір, яким персонаж вважається для вантажопідйомності («large»).
+  const counted = modifiers
+    .filter((modifier) => modifier.type === "carrying-capacity")
+    .map((modifier) => SIZE_BY_NAME[modifier.subType] ?? 0);
+  const size = Math.max(SIZE_CAPACITY[data.race?.sizeId] ?? 1, ...counted);
+  const capacity = scores.str * 15 * size;
   return { items: list, weight: round(weight), capacity, load: capacity ? Math.round(weight / capacity * 100) : 0 };
 }
 
