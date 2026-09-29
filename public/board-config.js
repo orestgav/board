@@ -27,6 +27,9 @@ export const DEFAULT_BOARD_CONFIG = Object.freeze({
     statblockHiddenSections: DEFAULT_HIDDEN_SECTIONS,
   },
   travel: { hide: [], extra: [] },
+  // Клітинка бойової карти в одиницях полотна — одна на всю дошку. Токен
+  // Середньої істоти займає рівно її, більші — кілька.
+  grid: { cell: 120 },
 });
 
 function fail(field, message) {
@@ -57,6 +60,12 @@ function path(value, field, fallback, options) {
   return parts.filter(Boolean).join("/");
 }
 
+function positive(value, field, fallback) {
+  if (value === undefined) return fallback;
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) fail(field, "має бути додатним числом");
+  return value;
+}
+
 function strings(value, field, fallback) {
   if (value === undefined) return [...fallback];
   if (!Array.isArray(value) || value.some((item) => typeof item !== "string" || !item.trim())) fail(field, "має бути масивом непорожніх рядків");
@@ -73,6 +82,7 @@ export function normalizeBoardConfig(raw) {
   const media = object(raw.media, "media");
   const entities = object(raw.entities, "entities");
   const travel = object(raw.travel, "travel");
+  const grid = object(raw.grid, "grid");
 
   const prefix = notes.prefix === undefined ? defaults.notes.prefix : notes.prefix;
   if (typeof prefix !== "string" || !/^[a-z0-9-]*$/.test(prefix)) fail("notes.prefix", "має складатися з латинських літер, цифр і дефісів");
@@ -121,6 +131,7 @@ export function normalizeBoardConfig(raw) {
       hide: strings(travel.hide, "travel.hide", defaults.travel.hide),
       extra: modes,
     },
+    grid: { cell: positive(grid.cell, "grid.cell", defaults.grid.cell) },
   };
 }
 

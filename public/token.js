@@ -1,7 +1,22 @@
 // Токен — кругла фішка істоти зі статблока чи гравця: арт у колі або перша
 // літера назви, якщо арту нема. Колір кільця ДМ обирає з палітри; червоний — за
 // замовчуванням, тож у вузлі поле живе лише поки колір інший.
-export const TOKEN_SIZE = { width: 120, height: 120 };
+
+// Скільки клітинок у бік займає істота кожного розміру. Поле `size` у бестіарії
+// тримає одну з цих назв; «Середній або Великий» бере перший варіант.
+const SIZE_CELLS = [
+  ["крихітн", 0.5], ["мал", 1], ["середн", 1], ["велич", 3], ["велик", 2], ["гігантськ", 4],
+];
+
+export function tokenCells(entity) {
+  const size = String(entity?.meta?.size ?? "").trim().toLocaleLowerCase("uk");
+  return SIZE_CELLS.find(([stem]) => size.startsWith(stem))?.[1] ?? 1;
+}
+
+// Бік токена в одиницях полотна: клітинка з board.config.json на розмір істоти.
+export function tokenSide(entity, cell) {
+  return tokenCells(entity) * cell;
+}
 
 // Типи карток, з яких кнопка «Токен» робить фішку.
 export const TOKEN_ENTITY_TYPES = ["creature", "player"];

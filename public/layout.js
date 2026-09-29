@@ -3,6 +3,7 @@
 // Два окремі набори перевірок уже розходилися, тож тримаємо один.
 import { canonicalYouTubeUrl, isMusicStart } from "./music.js";
 import { splitNoteReference } from "./notes.js";
+import { isGridCount } from "./battlemap.js";
 import { isTokenColor } from "./token.js";
 
 // Поле версії існує, щоб старий редактор не відкрив і не перезаписав по-своєму
@@ -39,6 +40,13 @@ export function validateNode(node) {
     if (node.type !== "image") throw new Error(`${node.id}: повертати можна лише картинку`);
     if (!ROTATIONS.includes(node.rotation)) throw new Error(`${node.id}.rotation має бути одним із ${ROTATIONS.join(", ")}`);
     if (!Number.isFinite(node.aspect) || node.aspect <= 0) throw new Error(`${node.id}.aspect має бути додатним числом`);
+  }
+  // Сітка бойової карти — клітинки вздовж ширини й висоти неповернутої картинки.
+  if (node.grid !== undefined) {
+    if (node.type !== "image") throw new Error(`${node.id}: сітку має лише бойова карта`);
+    if (!node.grid || typeof node.grid !== "object" || !isGridCount(node.grid.columns) || !isGridCount(node.grid.rows)) {
+      throw new Error(`${node.id}.grid має бути { columns, rows } з цілих чисел від 1`);
+    }
   }
   if (["entity", "token"].includes(node.type) && (typeof node.entity !== "string" || !node.entity)) {
     throw new Error(`${node.id}.entity має бути непорожнім slug`);

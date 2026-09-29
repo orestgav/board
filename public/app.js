@@ -29,7 +29,8 @@ import { iconElement } from "./icons.js";
 import { renderInline, renderMarkdown } from "./markdown.js";
 import { creatureHitPoints, creatureLabel, creatureList, maxHitPoints, parseHitPoints, statblockMarkup, writeCreatures } from "./statblock.js";
 import { mapSlugFromPath } from "./notes.js";
-import { TOKEN_COLORS, TOKEN_ENTITY_TYPES, TOKEN_SIZE, initialTokenColor, tokenColor, tokenInitial, tokenInk, writeTokenColor } from "./token.js";
+import { battleMapSize, gridFromName, isBattleMap, isGridCount } from "./battlemap.js";
+import { TOKEN_COLORS, TOKEN_ENTITY_TYPES, initialTokenColor, tokenColor, tokenInitial, tokenInk, tokenSide, writeTokenColor } from "./token.js";
 import { noteMarkup, toggleBold } from "./note-format.js";
 import { NOTE_FONT_EM, STATBLOCK_FONT_EM, SUMMARY_FONT_EM, SUMMARY_MIN_RATIO, TEXT_MIN_RATIO, fitBoxKey, fittedFontSize, fittingRatio, notePadding, reservedFitRatio, textShape } from "./text-fit.js";
 import { canonicalYouTubeUrl, musicTitle, oEmbedUrl, parseMusicStart, playbackUrl } from "./music.js";
@@ -145,6 +146,12 @@ const entityDetailsContent = document.querySelector("#entity-details-content");
 const nodeContextMenu = document.querySelector("#node-context-menu");
 const sceneRenameDialog = document.querySelector("#scene-rename-dialog");
 const sceneRenameForm = document.querySelector("#scene-rename-form");
+const battleGridDialog = document.querySelector("#battle-grid-dialog");
+const battleGridForm = document.querySelector("#battle-grid-form");
+const battleGridFile = document.querySelector("#battle-grid-file");
+const battleGridColumns = document.querySelector("#battle-grid-columns");
+const battleGridRows = document.querySelector("#battle-grid-rows");
+const battleGridHint = document.querySelector("#battle-grid-hint");
 const sceneNameInput = document.querySelector("#scene-name");
 const renameDialogTitle = document.querySelector("#rename-dialog-title");
 const renameDialogHint = document.querySelector("#rename-dialog-hint");
@@ -1942,17 +1949,18 @@ function addEntity(entity) {
 }
 
 // Токен стає центром під курсор: це фішка, яку ставлять на клітинку карти.
+// Розмір — завжди з еталонної клітинки дошки, від зуму не залежить.
 function addToken(entity) {
   const point = insertPoint ?? defaultInsertPoint();
   const { parent, rect } = nearestPointParent(layout, point, RENDERED);
+  const side = tokenSide(entity, boardConfig.grid.cell);
   const node = {
     id: crypto.randomUUID(), type: "token", entity: entity.slug,
-    x: (point.x - TOKEN_SIZE.width / 2 - rect.x) / rect.width * 100,
-    y: (point.y - TOKEN_SIZE.height / 2 - rect.y) / rect.height * 100,
-    width: TOKEN_SIZE.width, height: TOKEN_SIZE.height, locked: false, children: [],
+    x: (point.x - side / 2 - rect.x) / rect.width * 100,
+    y: (point.y - side / 2 - rect.y) / rect.height * 100,
+    width: side, height: side, locked: false, children: [],
   };
   writeTokenColor(node, initialTokenColor(entity));
-  enlargeForZoom(node, point, rect);
   executeCommand("Додати токен", () => {
     (parent ? parent.children : layout.children).push(node);
     setSelection([node.id]);
@@ -2080,7 +2088,7 @@ function showImageDetails(node) {
   title.textContent = nodeLabel(node).replace(/\.[^.]+$/, "");
   const meta = document.createElement("div");
   meta.className = "entity-details-meta";
-  meta.textContent = isMapNode(node) ? "Карта" : "Ілюстрація";
+  meta.textContent = isBattleMap(node) ? "Бойова карта" : isMapNode(node) ? "Карта" : "Ілюстрація";
   const path = document.createElement("div");
   path.className = "entity-details-path";
   path.textContent = node.image;
@@ -2095,6 +2103,7 @@ function showImageDetails(node) {
     return description;
   };
   const sourceSize = addFact("Роздільність", "Завантаження…");
+  if (isBattleMap(node)) addFact("Сітка", `${node.grid.columns} × ${node.grid.rows} клітинок`);
   addFact("Розмір на полотні", `${Math.round(node.width)} × ${Math.round(node.height)} px`);
   addFact("Стан", node.locked ? "Заблоковано" : "Розблоковано");
   image.addEventListener("load", () => { sourceSize.textContent = `${image.naturalWidth} × ${image.naturalHeight} px`; }, { once: true });
@@ -2860,15 +2869,89 @@ async function uploadImage(file, kind) {
   }
 }
 
+// Розмір картинки в пікселях без повного розкодування.
+function imagePixels(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const image = new Image();
+    image.addEventListener("load", () => { URL.revokeObjectURL(url); resolve({ width: image.naturalWidth, height: image.naturalHeight }); }, { once: true });
+    image.addEventListener("error", () => { URL.revokeObjectURL(url); reject(new Error(`Не вдалося прочитати ${file.name}`)); }, { once: true });
+    image.src = url;
+  });
+}
+
+// Сітка береться з назви файлу («…-33x16-grid…»); нема — питаємо ДМа.
+// null — ДМ пропустив цей файл.
+async function battleGridFor(file) {
+  const pixels = await imagePixels(file);
+  return gridFromName(file.name, pixels.width, pixels.height) ?? askBattleGrid(file.name, pixels);
+}
+
+let battleGridRequest = null;
+
+function askBattleGrid(name, pixels) {
+  battleGridFile.textContent = `${name} · ${pixels.width} × ${pixels.height} px. У назві нема розміру сітки на кшталт 33x16.`;
+  battleGridColumns.value = "";
+  battleGridRows.value = "";
+  battleGridRows.placeholder = "";
+  battleGridColumns.setCustomValidity("");
+  battleGridDialog.showModal();
+  requestAnimationFrame(() => battleGridColumns.focus());
+  return new Promise((resolve) => {
+    battleGridRequest = { pixels, resolve };
+    updateBattleGridHint();
+  });
+}
+
+function finishBattleGrid(grid) {
+  const request = battleGridRequest;
+  battleGridRequest = null;
+  if (battleGridDialog.open) battleGridDialog.close();
+  request?.resolve(grid);
+}
+
+function enteredBattleGrid() {
+  const columns = Number(battleGridColumns.value);
+  const rows = Number(battleGridRows.value || battleGridRows.placeholder);
+  return isGridCount(columns) && isGridCount(rows) ? { columns, rows } : null;
+}
+
+// Висоту підказує пропорція картинки; клітинка, що вийшла не квадратною, —
+// знак, що числа переплутані чи не ті.
+function updateBattleGridHint() {
+  const { pixels } = battleGridRequest ?? {};
+  if (!pixels) return;
+  const columns = Number(battleGridColumns.value);
+  battleGridRows.placeholder = isGridCount(columns) ? String(Math.max(1, Math.round(columns * pixels.height / pixels.width))) : "";
+  const grid = enteredBattleGrid();
+  if (!grid) {
+    battleGridHint.textContent = "Скільки клітинок сітки намальовано вздовж ширини й висоти картинки.";
+    return;
+  }
+  const cellWidth = pixels.width / grid.columns;
+  const cellHeight = pixels.height / grid.rows;
+  const size = battleMapSize(grid, boardConfig.grid.cell);
+  const square = Math.abs(cellWidth / cellHeight - 1) <= 0.03;
+  battleGridHint.textContent = `Клітинка ${Math.round(cellWidth)} × ${Math.round(cellHeight)} px, на дошці карта ${size.width} × ${size.height}.`
+    + (square ? "" : " Клітинка не квадратна — перевір числа.");
+}
+
 async function processDrop(kind) {
   const drop = pendingDrop;
   pendingDrop = null;
   dropChoice.hidden = true;
   if (!drop || kind === "cancel") return;
-  setStatus(`Обробка ${drop.files.length} зображень…`, "dirty");
+  const battle = kind === "battlemap";
   try {
+    const files = [];
+    for (const file of drop.files) {
+      const grid = battle ? await battleGridFor(file) : null;
+      if (!battle || grid) files.push({ file, grid });
+    }
+    if (!files.length) return;
+    setStatus(`Обробка ${files.length} зображень…`, "dirty");
     const media = [];
-    for (const file of drop.files) media.push(await uploadImage(file, kind));
+    for (const { file, grid } of files) media.push({ ...await uploadImage(file, battle ? "map" : kind), grid });
     const parent = deepestNodeAt(layout, drop.point, { includeLocked: true, ...RENDERED });
     const area = parentRect(layout, parent, RENDERED);
     executeCommand("Додати зображення", () => {
@@ -2877,16 +2960,18 @@ async function processDrop(kind) {
       media.forEach((item, index) => {
         const maxWidth = kind === "map" ? 900 : 480;
         const scale = Math.min(1, maxWidth / item.width);
-        const width = Math.max(80, item.width * scale);
-        const height = Math.max(60, item.height * scale);
+        // Бойова карта лягає в масштабі клітинки дошки, від зуму не залежить.
+        const { width, height } = item.grid ? battleMapSize(item.grid, boardConfig.grid.cell)
+          : { width: Math.max(80, item.width * scale), height: Math.max(60, item.height * scale) };
         const offset = index * 28;
         const node = {
           id: crypto.randomUUID(), type: "image", image: item.path,
+          ...(item.grid ? { grid: item.grid } : {}),
           x: (drop.point.x + offset - area.x) / area.width * 100,
           y: (drop.point.y + offset - area.y) / area.height * 100,
           width, height, locked: false, children: [],
         };
-        enlargeForZoom(node, drop.point, area);
+        if (!item.grid) enlargeForZoom(node, drop.point, area);
         destination.push(node);
         created.push(node.id);
       });
@@ -3284,7 +3369,7 @@ viewport.addEventListener("drop", (event) => {
 });
 
 document.addEventListener("copy", (event) => {
-  if (!layout || entityPicker.open || entityDetails.open || musicDialog.open || sceneRenameDialog.open) return;
+  if (!layout || entityPicker.open || entityDetails.open || musicDialog.open || sceneRenameDialog.open || battleGridDialog.open) return;
   if (event.target.matches?.("input, textarea, [contenteditable=true]")) return;
   // Виділений текст статблока чи нотатки копіюється як текст — картки
   // забирає лише «порожній» Ctrl+C.
@@ -3293,7 +3378,7 @@ document.addEventListener("copy", (event) => {
 });
 
 document.addEventListener("paste", (event) => {
-  if (!layout || !connectionScreen.hidden || entityPicker.open || entityDetails.open || musicDialog.open || sceneRenameDialog.open) return;
+  if (!layout || !connectionScreen.hidden || entityPicker.open || entityDetails.open || musicDialog.open || sceneRenameDialog.open || battleGridDialog.open) return;
   if (event.target.matches?.("input, textarea, [contenteditable=true]")) return;
   const images = supportedImages(event.clipboardData?.files);
   const text = event.clipboardData?.getData("text/plain") ?? "";
@@ -3322,7 +3407,7 @@ window.addEventListener("keydown", (event) => {
     else setRouteMode(null);
     return;
   }
-  if (entityDetails.open || musicDialog.open || sceneRenameDialog.open) return;
+  if (entityDetails.open || musicDialog.open || sceneRenameDialog.open || battleGridDialog.open) return;
   const command = event.ctrlKey || event.metaKey;
   if (command && event.key.toLowerCase() === "k") {
     event.preventDefault();
@@ -3426,6 +3511,20 @@ redoButton.addEventListener("click", redo);
 layerActions.addEventListener("click", (event) => {
   const action = event.target.closest("[data-layer-action]")?.dataset.layerAction;
   if (action) changeZ(action);
+});
+document.querySelector("#battle-grid-close").addEventListener("click", () => finishBattleGrid(null));
+document.querySelector("#battle-grid-cancel").addEventListener("click", () => finishBattleGrid(null));
+battleGridDialog.addEventListener("close", () => finishBattleGrid(null));
+battleGridColumns.addEventListener("input", () => { battleGridColumns.setCustomValidity(""); updateBattleGridHint(); });
+battleGridRows.addEventListener("input", updateBattleGridHint);
+battleGridForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const grid = enteredBattleGrid();
+  if (!grid) {
+    battleGridColumns.setCustomValidity("Вкажіть цілу кількість клітинок від 1 до 500");
+    return battleGridColumns.reportValidity();
+  }
+  finishBattleGrid(grid);
 });
 dropChoice.addEventListener("click", (event) => {
   const kind = event.target.closest("[data-media-kind]")?.dataset.mediaKind;

@@ -128,6 +128,24 @@
         </div>
       </form>
     </dialog>
+    <dialog id="battle-grid-dialog" class="entity-picker music-dialog scene-rename-dialog">
+      <form id="battle-grid-form" method="dialog" class="music-panel">
+        <div class="entity-picker-heading">
+          <strong>Сітка бойової карти</strong>
+          <button id="battle-grid-close" type="button" data-icon="close" aria-label="Закрити" title="Закрити"></button>
+        </div>
+        <small id="battle-grid-file" class="scene-rename-hint"></small>
+        <div class="battle-grid-fields">
+          <label>Клітинок у ширину <input id="battle-grid-columns" type="number" min="1" max="500" step="1" required /></label>
+          <label>Клітинок у висоту <input id="battle-grid-rows" type="number" min="1" max="500" step="1" /></label>
+        </div>
+        <small id="battle-grid-hint" class="scene-rename-hint"></small>
+        <div class="music-actions">
+          <button type="button" class="quiet" id="battle-grid-cancel">Пропустити</button>
+          <button type="submit">Додати</button>
+        </div>
+      </form>
+    </dialog>
     <dialog id="entity-details" class="entity-details">
       <div class="entity-details-panel">
         <button id="close-entity-details" class="entity-details-close" type="button" data-icon="close" aria-label="Закрити" title="Закрити"></button>
@@ -208,6 +226,7 @@
       <span>Один вибір застосовується до всього дропу.</span>
       <div>
         <button data-media-kind="map">Карта <small>q90 · maps/</small></button>
+        <button data-media-kind="battlemap">Бойова карта <small>q90 · maps/ · сітка</small></button>
         <button data-media-kind="illustration">Ілюстрація <small>q82 · locations/</small></button>
         <button data-media-kind="cancel" class="quiet">Скасувати</button>
       </div>

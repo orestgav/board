@@ -390,6 +390,9 @@ svg.icon { width: 20px; height: 20px; }
 .scene-rename-dialog .music-actions button:not(.quiet) { border-color: #9271ad; background: #392e40; color: #eadcf5; }
 .scene-rename-dialog .music-actions button:not(.quiet):hover { border-color: #c6a9dd; background: #493653; }
 .scene-rename-hint { min-height: 30px; color: var(--muted); font-size: 11px; line-height: 1.35; }
+.battle-grid-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.battle-grid-fields label { display: grid; gap: 6px; }
+.battle-grid-fields input { width: 100%; min-width: 0; margin-bottom: 0; }
 .entity-details { width: min(760px, calc(100vw - 28px)); max-height: calc(100vh - 44px); padding: 0; overflow: hidden; border: 1px solid #655943; border-radius: 12px; background: #201d1a; color: var(--text); box-shadow: 0 24px 80px rgba(0,0,0,.65); }
 .entity-details::backdrop { background: rgba(8, 8, 7, .72); backdrop-filter: blur(3px); }
 .entity-details-panel { max-height: calc(100vh - 44px); overflow: auto; overscroll-behavior: contain; }

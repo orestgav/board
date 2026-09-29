@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { DEFAULT_TOKEN_COLOR, PLAYER_TOKEN_COLOR, TOKEN_COLORS, initialTokenColor, tokenColor, tokenInitial, tokenInk, writeTokenColor } from "../public/token.js";
+import { DEFAULT_TOKEN_COLOR, PLAYER_TOKEN_COLOR, TOKEN_COLORS, initialTokenColor, tokenColor, tokenCells, tokenInitial, tokenInk, tokenSide, writeTokenColor } from "../public/token.js";
 
 test("token palette offers twenty distinct colors with red first", () => {
   assert.equal(TOKEN_COLORS.length, 20);
@@ -34,4 +34,17 @@ test("token initial takes the first letter of the name", () => {
 test("token ink contrasts with the ring color", () => {
   assert.equal(tokenInk("#ece6da"), "#1d1a17");
   assert.equal(tokenInk("#24336e"), "#fff8eb");
+});
+
+test("token side is the board cell times the creature's size", () => {
+  const sized = (size) => ({ meta: { size } });
+  assert.equal(tokenCells(sized("Крихітний")), 0.5);
+  assert.equal(tokenCells(sized("Малий")), 1);
+  assert.equal(tokenCells(sized("Середній")), 1);
+  assert.equal(tokenCells(sized("Великий")), 2);
+  assert.equal(tokenCells(sized("Величезний")), 3);
+  assert.equal(tokenCells(sized("Гігантський")), 4);
+  assert.equal(tokenCells(sized("Середній або Великий")), 1);
+  assert.equal(tokenCells({ type: "player", meta: {} }), 1);
+  assert.equal(tokenSide(sized("Великий"), 25), 50);
 });

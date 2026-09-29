@@ -13,6 +13,7 @@ test("a new campaign needs nothing but the config version", () => {
   assert.deepEqual(config.entities.locationMembers, ["npc", "предмети"]);
   assert.deepEqual(config.entities.statblockHiddenSections, ["Тактика", "Де використовувати", "Що знають гравці"]);
   assert.deepEqual(config.travel, { hide: [], extra: [] });
+  assert.deepEqual(config.grid, { cell: 120 });
   assert.equal(config.id, null);
   assert.equal(config.name, null);
 });
@@ -58,6 +59,9 @@ test("a broken config says which field is wrong", () => {
   assert.throws(broken({ entities: { types: "npc" } }), /entities\.types має бути масивом непорожніх рядків/);
   assert.throws(broken({ entities: { summarySection: "" } }), /entities\.summarySection має бути непорожнім рядком/);
   assert.throws(broken({ name: 7 }), /name має бути непорожнім рядком/);
+  assert.equal(normalizeBoardConfig({ boardConfigVersion: 1, grid: { cell: 25.5 } }).grid.cell, 25.5);
+  assert.throws(broken({ grid: { cell: 0 } }), /grid.cell має бути додатним числом/);
+  assert.throws(broken({ grid: { cell: "25" } }), /grid.cell має бути додатним числом/);
   assert.throws(broken({ travel: { extra: {} } }), /travel\.extra має бути масивом/);
   assert.throws(broken({ travel: { extra: [{ id: "x", label: "X", milesPerHour: -1, milesPerDay: 1, hoursPerDay: 8 }] } }), /travel\.extra\.x: milesPerHour/);
   const sled = { id: "sled", label: "Сани", milesPerHour: 3, milesPerDay: 24, hoursPerDay: 8 };
