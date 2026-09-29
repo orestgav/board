@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { escapeHtml, renderInline, renderMarkdown } from "../public/markdown.js";
+import { escapeHtml, renderInline, renderMarkdown, tableCells } from "../public/markdown.js";
 
 test("розмітка з картки не може внести свій HTML", () => {
   assert.equal(escapeHtml('<script>alert("x")</script>'), "&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;");
@@ -14,15 +14,19 @@ test("рядкове форматування: жирний, курсив, ко�
 });
 
 test("посилання кампанії стають підписами, зовнішні — лінками", () => {
-  assert.equal(renderInline("живе в [[arven]]"), 'живе в <span class="md-link">arven</span>');
-  assert.equal(renderInline("[[arven|Арвені]]"), '<span class="md-link">Арвені</span>');
-  assert.equal(renderInline("[[arven#Влада]]"), '<span class="md-link">arven</span>');
+  assert.equal(renderInline("живе в [[arven]]"), 'живе в <span class="md-link" data-slug="arven">arven</span>');
+  assert.equal(renderInline("[[arven|Арвені]]"), '<span class="md-link" data-slug="arven">Арвені</span>');
+  assert.equal(renderInline("[[arven#Влада]]"), '<span class="md-link" data-slug="arven">arven</span>');
   assert.equal(
     renderInline("[правила](https://example.com/a)"),
     '<a href="https://example.com/a" target="_blank" rel="noreferrer noopener">правила</a>',
   );
   assert.equal(renderInline("[сусід](../npcs/barni.md)"), "сусід");
   assert.equal(renderInline("![Пекар](../../_media/npcs/pekar.webp)"), "");
+});
+
+test("slug посилання не виходить за межі атрибута", () => {
+  assert.equal(renderInline('[["><b>x]]'), '<span class="md-link" data-slug="&quot;&gt;&lt;b&gt;x">&quot;&gt;&lt;b&gt;x</span>');
 });
 
 test("javascript-посилання не стає лінком", () => {
@@ -73,4 +77,13 @@ test("сусідні рядки абзацу склеюються, блоки р
   assert.equal(renderMarkdown("Абзац\n\n## Секція\n\n- пункт"), "<p>Абзац</p><h3>Секція</h3><ul><li>пункт</li></ul>");
   assert.equal(renderMarkdown("---"), "<hr>");
   assert.equal(renderMarkdown(""), "");
+});
+
+test("«|» усередині [[посилання|підпис]] не ділить клітинку таблиці", () => {
+  assert.deepEqual(tableCells("| **[[bremmel-hammer|Молот]]** | 249.9 |"), ["**[[bremmel-hammer|Молот]]**", "249.9"]);
+  assert.equal(
+    renderMarkdown("| Позиція | Ціна |\n| --- | --- |\n| [[axe|Сокира]] | 5 |"),
+    "<table><thead><tr><th>Позиція</th><th>Ціна</th></tr></thead>"
+    + '<tbody><tr><td><span class="md-link" data-slug="axe">Сокира</span></td><td>5</td></tr></tbody></table>',
+  );
 });

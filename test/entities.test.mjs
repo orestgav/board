@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { entityRecord, extractSection, finalizeEntities, indexedTypes, matchesEntity, sectionLinks, wikiLinks } from "../public/entities.js";
+import { backlinks, entityRecord, extractSection, finalizeEntities, indexDocuments, indexedTypes, matchesEntity, mentionLines, sectionLinks, wikiLinks } from "../public/entities.js";
+import { parseFrontmatter } from "../public/frontmatter.js";
 
 test("board summary stops at the next heading of the same level", () => {
   const body = "# Картка\n\n## На дошці\n- Перша теза\n- Друга теза\n\n### Деталь\nТекст\n\n## Секрети\nНі";
@@ -84,4 +85,91 @@ test("картка тримає звʼязки зі свого тіла", () => 
 
 test("token types are indexed even when the campaign config leaves them out", () => {
   assert.deepEqual([...indexedTypes({ types: ["npc"] })].sort(), ["creature", "npc", "player"]);
+});
+
+test("документи поза індексом карток ідуть у довідкові, нотатки дошки — ні", () => {
+  const config = {
+    entities: { types: ["npc"], portraitField: "image", summarySection: "## На дошці" },
+    notes: { type: "board" },
+  };
+  const { entities, references } = indexDocuments([
+    { path: "sessions/session-010.md", source: "---\ntype: session\nname: Сесія 10\n---\nЗустріли [[ester]]." },
+    { path: "sessions/session-002.md", source: "---\ntype: session\n---\nТекст." },
+    { path: "npcs/ester.md", source: "---\ntype: npc\nname: Естер\n---\n## На дошці\nСоюзниця." },
+    { path: "board/notes/map-a.md", source: "---\ntype: board\n---\n[[ester]]" },
+    { path: "README.md", source: "# Без метаданих" },
+  ], parseFrontmatter, config);
+  assert.deepEqual(entities.map(({ slug }) => slug), ["ester"]);
+  assert.deepEqual(references.map(({ slug, name, type }) => [slug, name, type]), [
+    ["session-002", "session-002", "session"],
+    ["session-010", "Сесія 10", "session"],
+  ]);
+});
+
+test("рядки-згадки чистяться від розмітки блоку й знаходять slug без огляду на регістр", () => {
+  const body = [
+    "# [[ester]] у заголовку",
+    "- NPC: [[Ester|Естер]], [[bob]]",
+    "> [!note] Про [[ester#Минуле]]",
+    "| Хто | Де |",
+    "| --- | --- |",
+    "| [[ester]] | [[port]] |",
+    "Тут лише [[bob]].",
+    "**Жирний** початок про [[ester]]",
+    "- **Кок** на [[ester]]",
+  ].join("\n");
+  assert.deepEqual(mentionLines(body, "ester"), [
+    "[[ester]] у заголовку",
+    "NPC: [[Ester|Естер]], [[bob]]",
+    "[!note] Про [[ester#Минуле]]",
+    "[[ester]] · [[port]]",
+    "**Жирний** початок про [[ester]]",
+    "**Кок** на [[ester]]",
+  ]);
+});
+
+const brackets = (text) => [(text.match(/\[\[/g) ?? []).length, (text.match(/\]\]/g) ?? []).length];
+
+test("довгий абзац обрізається навколо згадки, не ріжучи посилань", () => {
+  const after = " далі".repeat(60);
+  const line = `${"Слово ".repeat(40)}[[lauris|Лаурісу]] і [[ester]]${after} [[bob]]`;
+  const [excerpt] = mentionLines(line, "ester");
+  assert.match(excerpt, /^… /);
+  assert.match(excerpt, / …$/);
+  assert.ok(excerpt.includes("[[ester]]"));
+  assert.ok(excerpt.length < line.length);
+  const [opened, closed] = brackets(excerpt);
+  assert.equal(opened, closed);
+  // Межа вікна падає всередину довгого посилання — воно береться цілим.
+  const edge = `${"а".repeat(80)} [[lauris|дуже довгий підпис посилання]] ${"б ".repeat(20)}[[ester]]${after}`;
+  const [cut] = mentionLines(edge, "ester");
+  assert.ok(cut.includes("[[lauris|дуже довгий підпис посилання]]"));
+  const [cutOpened, cutClosed] = brackets(cut);
+  assert.equal(cutOpened, cutClosed);
+});
+
+test("backlinks збирають кожне джерело один раз і пропускають саму картку", () => {
+  const documents = [
+    { slug: "ester", body: "Я [[ester]]." },
+    { slug: "port", body: "- NPC: [[ester]]\n- Ще раз [[ester]]" },
+    { slug: "bob", body: "Знає [[port]]." },
+    { slug: null, type: "note", body: "Нотатка про [[ester]]" },
+  ];
+  const found = backlinks("ester", documents);
+  assert.deepEqual(found.map(({ document, lines }) => [document.slug, lines.length]), [["port", 2], [null, 1]]);
+});
+
+test("вікно посеред **жирного** закриває його зірочки", () => {
+  const line = `${"слово ".repeat(30)}**Кок на [[rosinant]], разом із чоловіком** ${"далі ".repeat(60)}**ще жирне ${"слово ".repeat(30)}кінець**`;
+  const [excerpt] = mentionLines(line, "rosinant");
+  assert.equal((excerpt.match(/\*\*/g) ?? []).length % 2, 0);
+  const [inside] = mentionLines(`**${"довге ".repeat(40)}про [[rosinant]] ${"і ще ".repeat(60)}**`, "rosinant");
+  assert.match(inside, /^… \*\*/);
+  assert.match(inside, /\*\* …$/);
+});
+
+test("рядок таблиці з [[посиланням|підписом]] лишається цілим", () => {
+  assert.deepEqual(mentionLines("| **[[bremmel-hammer|Молот]]** | 249.9 | Прибиває. |", "bremmel-hammer"), [
+    "**[[bremmel-hammer|Молот]]** · 249.9 · Прибиває.",
+  ]);
 });

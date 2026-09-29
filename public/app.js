@@ -24,7 +24,7 @@ import {
 } from "./model.js";
 import { LayoutConflictError, createStorage } from "./storage.js";
 import { clipboardPayload, noteTargets, parseClipboard, placedItems, withoutNodes } from "./clipboard.js";
-import { matchesEntity } from "./entities.js";
+import { backlinks, matchesEntity } from "./entities.js";
 import { iconElement } from "./icons.js";
 import { renderInline, renderMarkdown } from "./markdown.js";
 import { creatureHitPoints, creatureLabel, creatureList, maxHitPoints, parseHitPoints, statblockMarkup, writeCreatures } from "./statblock.js";
@@ -195,6 +195,8 @@ let redoStack = [];
 let pendingDrop = null;
 let entities = [];
 let entitiesBySlug = new Map();
+// Документи поза індексом карток (сесії, службові): лише для попапа й backlinks.
+let referencesBySlug = new Map();
 let notesByRef = new Map();
 let boardConfig = null;
 let editingNoteId = null;
@@ -2053,8 +2055,193 @@ function addMusic() {
   musicDialog.close();
 }
 
-function showEntityDetails(entity) {
+// Попап «i» ходить за [[посиланнями]], як браузер: кнопка «назад» повертає до
+// картки, з якої прийшли. Відкриття з полотна починає шлях заново.
+let detailsTrail = [];
+let detailsDocument = null;
+let linkPreviewTimer = null;
+const linkPreview = document.createElement("div");
+linkPreview.className = "link-preview";
+linkPreview.hidden = true;
+entityDetails.append(linkPreview);
+
+const BACKLINK_GROUPS = [
+  ["npc", "NPC"], ["player", "Гравці"], ["location", "Локації"], ["faction", "Фракції"], ["item", "Предмети"],
+  ["encounter", "Сутички"], ["creature", "Статблоки"], ["world", "Світ"], ["session", "Сесії"], ["note", "Нотатки дошки"],
+];
+const BACKLINK_LINES = 3;
+
+function linkedDocument(slug) {
+  return entitiesBySlug.get(slug) ?? referencesBySlug.get(slug) ?? null;
+}
+
+function resetDetailsTrail() {
+  detailsTrail = [];
+  detailsDocument = null;
+  hideLinkPreview();
+}
+
+// Посилання, яке є куди відкрити, стає живим; на саму картку — лише
+// підсвіченим; на неіснуючу — приглушеним.
+function markDetailsLinks(root, selfSlug = null) {
+  for (const link of root.querySelectorAll(".md-link[data-slug]")) {
+    const slug = link.dataset.slug;
+    if (slug === selfSlug) link.classList.add("md-link-self");
+    else if (linkedDocument(slug)) {
+      link.classList.add("md-link-live");
+      link.tabIndex = 0;
+      link.setAttribute("role", "link");
+    } else {
+      link.classList.add("md-link-missing");
+      link.title = `[[${slug}]] — такої картки в кампанії немає`;
+    }
+  }
+}
+
+function followDetailsLink(target) {
+  if (!target) return;
+  showEntityDetails(target, { trail: detailsDocument ? [...detailsTrail, detailsDocument] : [] });
+}
+
+function detailsBack() {
+  const previous = detailsTrail.at(-1);
+  if (previous) showEntityDetails(previous, { trail: detailsTrail.slice(0, -1) });
+}
+
+function noteDocuments() {
+  return [...notesByRef.values()].map((note) => ({
+    slug: null,
+    type: "note",
+    name: note.text.split("\n").find((line) => line.trim())?.replace(/^[#>\-*\s]+/, "").slice(0, 60) || "Нотатка",
+    body: note.text,
+    reference: note.reference,
+  }));
+}
+
+function openNoteOnBoard(reference) {
+  const node = collectNodes(layout.children, (candidate) => candidate.type === "note" && candidate.note === reference)[0];
+  if (!node) return;
+  entityDetails.close();
+  centerNode(node.id);
+  showSelection();
+}
+
+function backlinksSection(entity) {
+  const found = backlinks(entity.slug, [...entities, ...referencesBySlug.values(), ...noteDocuments()]);
+  const section = document.createElement("section");
+  section.className = "entity-backlinks";
+  const heading = document.createElement("h2");
+  heading.textContent = "Згадують";
+  const count = document.createElement("span");
+  count.className = "entity-backlinks-count";
+  count.textContent = String(found.length);
+  heading.append(count);
+  section.append(heading);
+  if (!found.length) {
+    const empty = document.createElement("p");
+    empty.className = "entity-backlinks-empty";
+    empty.textContent = "Жодна картка, сесія чи нотатка на неї не посилається.";
+    section.append(empty);
+    return section;
+  }
+  const known = new Map(BACKLINK_GROUPS);
+  const order = (type) => (known.has(type) ? BACKLINK_GROUPS.findIndex(([key]) => key === type) : BACKLINK_GROUPS.length);
+  const types = [...new Set(found.map((entry) => entry.document.type))]
+    .sort((first, second) => order(first) - order(second) || first.localeCompare(second));
+  for (const type of types) {
+    const group = document.createElement("h3");
+    group.textContent = known.get(type) ?? type;
+    const list = document.createElement("ul");
+    for (const { document: source, lines } of found.filter((entry) => entry.document.type === type)) {
+      const item = document.createElement("li");
+      const name = document.createElement("button");
+      name.type = "button";
+      name.className = "entity-backlink-name";
+      name.textContent = source.name;
+      name.title = source.type === "note" ? "Показати нотатку на дошці" : source.path;
+      name.addEventListener("click", () => (source.type === "note" ? openNoteOnBoard(source.reference) : followDetailsLink(source)));
+      item.append(name);
+      for (const line of lines.slice(0, BACKLINK_LINES)) {
+        const context = document.createElement("div");
+        context.className = "entity-backlink-line";
+        context.innerHTML = renderInline(line);
+        item.append(context);
+      }
+      if (lines.length > BACKLINK_LINES) {
+        const more = document.createElement("div");
+        more.className = "entity-backlink-more";
+        more.textContent = `і ще ${lines.length - BACKLINK_LINES}`;
+        item.append(more);
+      }
+      list.append(item);
+    }
+    section.append(group, list);
+  }
+  return section;
+}
+
+// Превʼю картки під посиланням: портрет, назва й «На дошці» (для статблока —
+// AC, HP і CR), а без такої секції — початок тексту.
+function previewExcerpt(body) {
+  return body.split("\n")
+    .filter((line) => line.trim() && !/^\s*#{1,6}\s/.test(line) && !/^\s*!\[/.test(line))
+    .slice(0, 6).join("\n");
+}
+
+function showLinkPreview(link) {
+  const target = linkedDocument(link.dataset.slug);
+  if (!target || !link.isConnected) return;
+  linkPreview.replaceChildren();
+  if (target.portrait) {
+    const image = document.createElement("img");
+    image.className = "link-preview-portrait";
+    image.alt = "";
+    setDirectImageSource(image, target.portrait);
+    linkPreview.append(image);
+  }
+  const title = document.createElement("div");
+  title.className = "link-preview-title";
+  title.textContent = target.name;
+  const meta = document.createElement("div");
+  meta.className = "entity-details-meta";
+  meta.textContent = target.type === "creature"
+    ? `${target.type} · AC ${target.meta?.ac ?? "—"} · HP ${target.meta?.hp ?? "—"} · CR ${target.meta?.cr ?? "—"}`
+    : target.type;
+  const text = document.createElement("div");
+  text.className = "entity-details-markdown link-preview-text";
+  text.innerHTML = renderMarkdown(target.summary || previewExcerpt(target.body));
+  linkPreview.append(title, meta, text);
+  linkPreview.hidden = false;
+  const anchor = link.getBoundingClientRect();
+  const size = linkPreview.getBoundingClientRect();
+  const margin = 12;
+  const below = anchor.bottom + 8;
+  const top = below + size.height <= window.innerHeight - margin ? below : anchor.top - size.height - 8;
+  linkPreview.style.left = `${clamp(anchor.left, margin, window.innerWidth - size.width - margin)}px`;
+  linkPreview.style.top = `${clamp(top, margin, window.innerHeight - size.height - margin)}px`;
+}
+
+function hideLinkPreview() {
+  clearTimeout(linkPreviewTimer);
+  linkPreviewTimer = null;
+  linkPreview.hidden = true;
+}
+
+function showEntityDetails(entity, { trail = [] } = {}) {
+  hideLinkPreview();
+  detailsTrail = trail;
+  detailsDocument = entity;
   entityDetailsContent.replaceChildren();
+  const previous = trail.at(-1);
+  if (previous) {
+    const back = document.createElement("button");
+    back.type = "button";
+    back.className = "entity-details-back";
+    back.title = "Назад (Alt+←)";
+    back.append(iconElement("chevron_left"), document.createTextNode(previous.name));
+    back.addEventListener("click", detailsBack);
+    entityDetailsContent.append(back);
+  }
   if (entity.portrait) {
     const image = document.createElement("img");
     image.className = "entity-details-portrait";
@@ -2073,12 +2260,14 @@ function showEntityDetails(entity) {
   const body = document.createElement("div");
   body.className = "entity-details-markdown";
   body.innerHTML = renderMarkdown(entity.body);
-  entityDetailsContent.append(title, meta, path, body);
+  entityDetailsContent.append(title, meta, path, body, backlinksSection(entity));
+  markDetailsLinks(entityDetailsContent, entity.slug);
   if (!entityDetails.open) entityDetails.showModal();
   entityDetailsContent.parentElement.scrollTop = 0;
 }
 
 function showImageDetails(node) {
+  resetDetailsTrail();
   entityDetailsContent.replaceChildren();
   const image = document.createElement("img");
   image.className = "entity-details-portrait";
@@ -2115,6 +2304,7 @@ function showImageDetails(node) {
 
 function showNoteDetails(node) {
   const note = notesByRef.get(node.note);
+  resetDetailsTrail();
   entityDetailsContent.replaceChildren();
   const title = document.createElement("h1");
   title.textContent = nodeLabel(node);
@@ -2128,11 +2318,13 @@ function showNoteDetails(node) {
   body.className = "entity-details-markdown";
   body.innerHTML = note ? renderMarkdown(note.text) : "<p>Текст нотатки не знайдено.</p>";
   entityDetailsContent.append(title, meta, path, body);
+  markDetailsLinks(body);
   if (!entityDetails.open) entityDetails.showModal();
   entityDetailsContent.parentElement.scrollTop = 0;
 }
 
 function showMusicDetails(node) {
+  resetDetailsTrail();
   entityDetailsContent.replaceChildren();
   const title = document.createElement("h1");
   title.textContent = nodeLabel(node);
@@ -3537,6 +3729,32 @@ document.querySelector("#close-entity-details").addEventListener("click", () => 
 entityDetails.addEventListener("click", (event) => {
   if (event.target === entityDetails) entityDetails.close();
 });
+entityDetails.addEventListener("close", resetDetailsTrail);
+entityDetails.addEventListener("keydown", (event) => {
+  if ((event.altKey && event.key === "ArrowLeft") || (event.key === "Backspace" && !event.target.closest("input, textarea"))) {
+    if (!detailsTrail.length) return;
+    event.preventDefault();
+    detailsBack();
+  } else if (event.key === "Enter" && event.target.classList?.contains("md-link-live")) {
+    event.preventDefault();
+    followDetailsLink(linkedDocument(event.target.dataset.slug));
+  }
+});
+entityDetailsContent.addEventListener("click", (event) => {
+  const link = event.target.closest(".md-link-live");
+  if (link) followDetailsLink(linkedDocument(link.dataset.slug));
+});
+entityDetailsContent.addEventListener("pointerover", (event) => {
+  const link = event.target.closest(".md-link-live");
+  if (!link) return;
+  clearTimeout(linkPreviewTimer);
+  linkPreviewTimer = setTimeout(() => showLinkPreview(link), 250);
+});
+entityDetailsContent.addEventListener("pointerout", (event) => {
+  const link = event.target.closest(".md-link-live");
+  if (link && !link.contains(event.relatedTarget)) hideLinkPreview();
+});
+entityDetailsContent.parentElement.addEventListener("scroll", hideLinkPreview, { passive: true });
 function closeSceneRenameDialog() {
   if (sceneRenameDialog.open) sceneRenameDialog.close();
 }
@@ -3684,7 +3902,7 @@ async function readBoard() {
   const state = await storage.loadBoard();
   showLoading(`Відкриваю «${state.campaign}»…`, "Індексую картки й нотатки…");
   setStatus("Індексація карток…", "dirty");
-  const [loadedEntities, loadedNotes] = await Promise.all([storage.loadEntities(), storage.loadNotes()]);
+  const [{ entities: loadedEntities, references: loadedReferences }, loadedNotes] = await Promise.all([storage.loadEntities(), storage.loadNotes()]);
   // Кампанія починається з чистого аркуша: мініатюри, підібрані кеглі, позиція
   // полотна й масштаб лінійки — її власні, а не тієї, що була відкрита до неї.
   boardConfig = state.config;
@@ -3702,6 +3920,7 @@ async function readBoard() {
   view = loadView(storedView);
   entities = loadedEntities;
   entitiesBySlug = new Map(entities.map((entity) => [entity.slug, entity]));
+  referencesBySlug = new Map((loadedReferences ?? []).map((reference) => [reference.slug, reference]));
   notesByRef = new Map(loadedNotes.map((note) => [note.reference, note]));
   layout = state.layout;
   revision = state.revision;

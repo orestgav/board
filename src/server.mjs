@@ -4,7 +4,7 @@ import { mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/p
 import { createServer } from "node:http";
 import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { entityRecord, finalizeEntities, indexedTypes } from "../public/entities.js";
+import { indexDocuments } from "../public/entities.js";
 import {
   appendNoteBlock,
   newNoteDocument,
@@ -181,12 +181,7 @@ async function readEntities(campaignRoot, config) {
   const mediaRoot = safePath(campaignRoot, config.media.entityDir);
   const mediaByName = await collectMediaPaths(mediaRoot, campaignRoot);
   const documents = await collectMarkdown(campaignRoot, new Set(config.entities.skipDirs));
-  const types = indexedTypes(config.entities);
-  const entities = documents.flatMap(({ path, source }) => {
-    const { meta, body } = parser.parseFrontmatter(source, path);
-    return types.has(meta.type) ? [entityRecord(path, meta, body, config.entities, mediaByName)] : [];
-  });
-  return finalizeEntities(entities);
+  return indexDocuments(documents, parser.parseFrontmatter, config, mediaByName);
 }
 
 function validMapSlug(value) {
@@ -387,7 +382,7 @@ export async function startServer({ base, host = "127.0.0.1", port = 4173 }) {
         }, { etag: state.revision });
       }
       if (url.pathname === "/api/entities" && request.method === "GET") {
-        return json(response, 200, { entities: await readEntities(campaignRoot, config) });
+        return json(response, 200, await readEntities(campaignRoot, config));
       }
       if (url.pathname === "/api/notes" && request.method === "GET") {
         return json(response, 200, { notes: await readNotes(campaignRoot, config) });

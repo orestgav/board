@@ -144,7 +144,7 @@ test("текст картки екранується, а [[посилання]] 
     body: "## Дії\n\n**Укус.** Тягне до [[korabel|корабля]] & кусає.",
   });
   assert.match(markup, /&lt;b&gt;15&lt;\/b&gt;/);
-  assert.match(markup, /<span class="md-link">корабля<\/span> &amp; кусає/);
+  assert.match(markup, /<span class="md-link" data-slug="[^"]+">корабля<\/span> &amp; кусає/);
 });
 
 test("одна істота лишається в node.hp, друга переводить вузол на масив", () => {

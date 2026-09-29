@@ -66,7 +66,8 @@ export const FILES = {
   "world_data/npcs/ester.md": "---\ntype: npc\nname: Естер\nimage: ester.webp\n---\n\n## На дошці\nВласниця обмінного дому.\n",
   "world_data/locations/port.md": "---\ntype: location\nname: Порт\n---\n\n## Звʼязки\n- NPC: [[ester]]\n- Предмети: [[lamp]]\n",
   "world_data/items/lamp.md": "---\ntype: item\nname: Лампа\nprice: 5 gp\n---\n\n## На дошці\nСвітить у темряві.\n",
-  "world_data/bestiary/guard.md": "---\ntype: creature\nname: Стражник\nhp: 11 (2d8 + 2)\nac: 16\n---\n\n## Дії\n**Спис.** +3 до влучання.\n",
+  "world_data/bestiary/guard.md": "---\ntype: creature\nname: Стражник\nhp: 11 (2d8 + 2)\nac: 16\n---\n\n## Дії\n**Спис.** +3 до влучання.\n\nСтоїть у [[port]].\n",
+  "world_data/sessions/session-001.md": "---\ntype: session\nname: Сесія 1\n---\n\n- Партія зайшла в [[port]] і не знайшла [[nobody]].\n",
 };
 
 export const MEDIA = ["board/media/maps/world.webp", "board/media/maps/a.webp", "board/media/maps/b.webp", "_media/npcs/ester.webp"];

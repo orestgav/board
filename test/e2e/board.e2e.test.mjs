@@ -320,6 +320,40 @@ describe("canvas in a browser, local server mode", { skip: !chrome && "Chrome н
     assert.deepEqual(page.errors, []);
   });
 
+  test("the card popup follows links, previews them and lists who mentions the card", async (context) => {
+    const { page } = await open(context);
+    const heading = () => page.evaluate(() => document.querySelector("#entity-details-content h1")?.textContent);
+    await page.click('.node[data-id="guard-1"] .node-details');
+    await page.waitFor(() => document.querySelector("#entity-details").open, { message: "попап не відкрився" });
+    assert.equal(await heading(), "Стражник");
+
+    const link = await page.pointOf('#entity-details-content .md-link-live[data-slug="port"]');
+    await page.mouse("mouseMoved", link.x, link.y);
+    await page.waitFor(() => !document.querySelector(".link-preview").hidden, { message: "превʼю не показалось" });
+    assert.equal(await page.evaluate(() => document.querySelector(".link-preview-title").textContent), "Порт");
+
+    await page.clickAt(link);
+    await page.waitFor(() => document.querySelector("#entity-details-content h1").textContent === "Порт", { message: "посилання не відкрилось" });
+    assert.equal(await page.evaluate(() => document.querySelector(".link-preview").hidden), true);
+    assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll(".entity-backlink-name")].map((item) => item.textContent)), ["Стражник", "Сесія 1"]);
+    assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll(".entity-backlinks h3")].map((item) => item.textContent)), ["Статблоки", "Сесії"]);
+    assert.equal(await page.evaluate(() => document.querySelectorAll('.entity-details-markdown .md-link-live[data-slug="ester"]').length), 1);
+    assert.match(await page.evaluate(() => document.querySelector(".entity-details-back").textContent), /Стражник/);
+
+    // Сесії немає серед карток дошки, але попап відкриває її як довідку.
+    await page.evaluate(() => [...document.querySelectorAll(".entity-backlink-name")].find((item) => item.textContent === "Сесія 1").click());
+    assert.equal(await heading(), "Сесія 1");
+    assert.equal(await page.evaluate(() => document.querySelector('#entity-details-content .md-link[data-slug="nobody"]').classList.contains("md-link-missing")), true);
+    assert.equal(await page.evaluate(() => document.querySelector('#entity-details-content .md-link[data-slug="port"]').classList.contains("md-link-live")), true);
+
+    await page.click(".entity-details-back");
+    assert.equal(await heading(), "Порт");
+    await page.click(".entity-details-back");
+    assert.equal(await heading(), "Стражник");
+    assert.equal(await page.evaluate(() => document.querySelector(".entity-details-back")), null);
+    assert.deepEqual(page.errors, []);
+  });
+
   test("leaving with unsaved changes asks first and saves without waiting", async (context) => {
     const { page, campaign } = await open(context);
     await typeInto(page, '.node[data-id="guard-1"] .hp-current', "3");

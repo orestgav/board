@@ -262,7 +262,7 @@ test("a campaign without its own parser or portrait folder still indexes its car
   await root.put("notes/plain.md", "# без метаданих");
   const storage = createDirectoryStorage({ root, campaigns: memoryCampaigns() });
   await storage.loadBoard();
-  const [yarl] = await storage.loadEntities();
+  const { entities: [yarl] } = await storage.loadEntities();
   assert.equal(yarl.name, "Ярл");
   assert.equal(yarl.summary, "Володар півночі.");
   assert.equal(yarl.portrait, null);

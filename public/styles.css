@@ -419,6 +419,28 @@ svg.icon { width: 20px; height: 20px; }
 .entity-details-markdown blockquote { margin: 0 0 14px; padding: 2px 0 2px 14px; border-left: 2px solid #4b443b; color: #b7afa5; }
 .entity-details-markdown blockquote > :last-child, .md-callout > :last-child { margin-bottom: 0; }
 .md-link { color: var(--gold); text-decoration: underline dotted rgba(210, 168, 92, .45); text-underline-offset: 2px; }
+.md-link-live { cursor: pointer; border-radius: 3px; }
+.md-link-live:hover, .md-link-live:focus-visible { color: var(--gold-bright); text-decoration-style: solid; outline: none; background: rgba(210, 168, 92, .1); }
+.md-link-self { color: #f3ead9; text-decoration: none; font-weight: 600; }
+.md-link-missing { color: #8f877c; text-decoration-color: rgba(143, 135, 124, .4); }
+.entity-details-back { display: inline-flex; align-items: center; gap: 4px; max-width: calc(100% - 48px); margin: 0 0 16px -6px; padding: 4px 10px 4px 4px; overflow: hidden; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font: inherit; font-size: 12px; white-space: nowrap; text-overflow: ellipsis; cursor: pointer; }
+.entity-details-back:hover { background: #35302a; color: var(--text); }
+.entity-details-back svg.icon { flex: 0 0 auto; width: 18px; height: 18px; }
+.entity-backlinks { margin-top: 34px; padding-top: 18px; border-top: 1px solid #3a352f; }
+.entity-backlinks h2 { display: flex; align-items: baseline; gap: 9px; margin: 0 0 4px; color: #f0e6d8; font: 400 19px Georgia, serif; }
+.entity-backlinks-count { color: var(--muted); font: 12px system-ui, sans-serif; }
+.entity-backlinks h3 { margin: 16px 0 7px; color: var(--gold); font: 600 11px system-ui, sans-serif; letter-spacing: .08em; text-transform: uppercase; }
+.entity-backlinks ul { margin: 0; padding: 0; list-style: none; }
+.entity-backlinks li { margin: 0 0 10px; }
+.entity-backlinks-empty { margin: 8px 0 0; color: var(--muted); font-size: 13px; }
+.entity-backlink-name { padding: 0; border: 0; background: none; color: #f0e6d8; font: 600 14px system-ui, sans-serif; text-align: left; cursor: pointer; }
+.entity-backlink-name:hover { color: var(--gold-bright); text-decoration: underline; }
+.entity-backlink-line { margin: 3px 0 0 12px; padding-left: 9px; border-left: 2px solid #3a352f; color: #aaa296; font-size: 13px; line-height: 1.5; }
+.entity-backlink-more { margin: 3px 0 0 23px; color: #777067; font-size: 12px; }
+.link-preview { position: fixed; z-index: 5; width: 320px; max-height: 360px; padding: 12px 14px 14px; overflow: hidden; border: 1px solid #655943; border-radius: 10px; background: #292520; box-shadow: 0 14px 44px rgba(0, 0, 0, .6); pointer-events: none; }
+.link-preview-portrait { display: block; width: 100%; height: 140px; margin-bottom: 10px; border-radius: 7px; background: rgba(0, 0, 0, .3); object-fit: contain; }
+.link-preview-title { margin-bottom: 2px; color: #f3ead9; font: 18px Georgia, serif; }
+.link-preview-text { max-height: 150px; margin-top: 8px; overflow: hidden; font-size: 13px; line-height: 1.5; -webkit-mask-image: linear-gradient(#000 75%, transparent); mask-image: linear-gradient(#000 75%, transparent); }
 .md-callout { margin: 0 0 14px; padding: 11px 14px; border: 1px solid #423c34; border-left: 3px solid #857a6a; border-radius: 8px; background: rgba(255, 255, 255, .022); }
 .md-callout-title { margin: 0 0 6px; color: #cfc5b6; font-size: 11px; font-weight: 700; letter-spacing: .06em; line-height: 1.3; text-transform: uppercase; }
 .md-callout[data-callout="danger"] { border-left-color: #b4574b; background: rgba(180, 87, 75, .09); }

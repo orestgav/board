@@ -119,6 +119,7 @@ test("entity API indexes configured markdown through the campaign parser", async
   }`);
   await writeFile(join(base, "npcs", "ester.md"), "---\ntype: npc\nname: Естер\nimage: ester.webp\n---\n## На дошці\nСоюзниця");
   await writeFile(join(base, "_media", "npcs", "ester.webp"), "webp");
+  await writeFile(join(base, "npcs", "session-001.md"), "---\ntype: session\nname: Сесія 1\n---\nЗустріли [[ester]].");
   await writeFile(join(base, "board.config.json"), JSON.stringify({
     boardConfigVersion: 1,
     frontmatter: "tools/frontmatter.mjs",
@@ -133,6 +134,9 @@ test("entity API indexes configured markdown through the campaign parser", async
   assert.equal(response.status, 200);
   assert.deepEqual(result.entities.map(({ slug, name, portrait, summary }) => ({ slug, name, portrait, summary })), [{
     slug: "ester", name: "Естер", portrait: "_media/npcs/ester.webp", summary: "Союзниця",
+  }]);
+  assert.deepEqual(result.references, [{
+    slug: "session-001", path: "npcs/session-001.md", type: "session", name: "Сесія 1", portrait: null, body: "Зустріли [[ester]].",
   }]);
 });
 

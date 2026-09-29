@@ -8,7 +8,7 @@ const RECENT_PREFIX = "recent:";
 
 import { campaignKey, campaignName, parseBoardConfig } from "./board-config.js";
 import { parseFrontmatter as builtInFrontmatter } from "./frontmatter.js";
-import { entityRecord, finalizeEntities, indexedTypes } from "./entities.js";
+import { indexDocuments } from "./entities.js";
 import { emptyLayout, parseLayout, validateLayout } from "./layout.js";
 import {
   appendNoteBlock,
@@ -322,11 +322,7 @@ export function createDirectoryStorage({ root: initialRoot = null, campaigns = i
         if (error.name !== "NotFoundError") throw error;
       }
       const documents = await collectMarkdown(root, new Set(config.entities.skipDirs));
-      const types = indexedTypes(config.entities);
-      return finalizeEntities(documents.flatMap(({ path, source }) => {
-        const { meta, body } = parseFrontmatter(source, path);
-        return types.has(meta.type) ? [entityRecord(path, meta, body, config.entities, mediaByName)] : [];
-      }));
+      return indexDocuments(documents, parseFrontmatter, config, mediaByName);
     },
     async loadNotes() {
       if (!root || !config) throw new Error("Спочатку відкрий теку кампанії");
@@ -467,7 +463,7 @@ function createServerStorage() {
       const response = await fetch("/api/entities");
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Не вдалося завантажити картки");
-      return result.entities;
+      return { entities: result.entities, references: result.references };
     },
     async loadNotes() {
       const response = await fetch("/api/notes");
