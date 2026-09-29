@@ -91,7 +91,7 @@ describe("party panel in a browser", { skip: !chrome && "Chrome не знайд�
     assert.match(card, /Алренсіс/);
     assert.match(card, /AC 15/);
     assert.match(card, /28\/31/);
-    assert.match(card, /97%/);
+    assert.match(card, /52%/);
     assert.match(await page.evaluate(() => document.querySelector('.party-card[data-slug="rene"]').textContent), /Лист приватний/);
     assert.equal(await page.evaluate(() => document.querySelector(".workspace").classList.contains("party-open")), true);
     // Шари й партія ділять місце: відкриваєш шари — партія ховається.
@@ -130,7 +130,7 @@ describe("party panel in a browser", { skip: !chrome && "Chrome не знайд�
     await page.click('.party-card[data-slug="alrencis"]');
     await page.waitFor(() => document.querySelector("#entity-details").open && document.querySelector(".party-details"));
     const details = await page.evaluate(() => document.querySelector(".party-details").textContent);
-    assert.match(details, /116 \/ 120 lb · 97%/);
+    assert.match(details, /62 \/ 120 lb · 52%/);
     assert.match(details, /Scroll Satchel/);
     assert.match(details, /Detect Magic/);
     proxy.state.removed = 20;

@@ -143,14 +143,26 @@ test("limitedUseMax: модифікатор (не менше 1), бонус вп
 
 test("вага: власні ваги гравця, вміст контейнерів, монети за налаштуванням", () => {
   const state = normalizeCharacter(FIXTURE);
-  assert.equal(state.inventory.weight, 116);
+  assert.equal(state.inventory.weight, 62);
   assert.equal(state.inventory.capacity, 120);
-  assert.equal(state.inventory.load, 97);
+  assert.equal(state.inventory.load, 52);
   const withCoins = normalizeCharacter(fixture((data) => {
     data.preferences.ignoreCoinWeight = false;
     data.currencies = { cp: 0, sp: 0, gp: 100, ep: 0, pp: 0 };
   }));
-  assert.equal(withCoins.inventory.weight, 118);
+  assert.equal(withCoins.inventory.weight, 64);
+});
+
+test("вага: предмети, привʼязані до не-контейнера, DDB не показує й не рахує", () => {
+  const state = normalizeCharacter(fixture((data) => {
+    data.inventory = [
+      { id: 20, quantity: 1, equipped: true, containerEntityId: data.id, definition: { name: "Studded Leather", weight: 13, filterType: "Armor", armorTypeId: 1, armorClass: 12 } },
+      { id: 21, quantity: 10, containerEntityId: 20, definition: { name: "Torch", weight: 1 } },
+    ];
+    data.customItems = [];
+  }));
+  assert.equal(state.inventory.weight, 13);
+  assert.deepEqual(state.inventory.items.map((item) => item.name), ["Studded Leather"]);
 });
 
 test("вага: Bag of Holding обнуляє вміст, партійний схрон не рахується", () => {

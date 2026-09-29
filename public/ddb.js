@@ -359,8 +359,10 @@ function inventory(data, scores, modifiers) {
   const byId = new Map(items.map((item) => [item.id, item]));
   const carrier = (item, depth = 0) => {
     if (item.containerEntityId === data.id) return { carried: true, multiplier: 1 };
+    // «Контейнер», який сам не контейнер (лишки розпакованого стартового
+    // набору, прив'язані до обладунку), DDB не показує й не рахує — ми теж.
     const container = byId.get(item.containerEntityId);
-    if (!container || depth > 8) return { carried: false, multiplier: 0 };
+    if (!container?.definition?.isContainer || depth > 8) return { carried: false, multiplier: 0 };
     const parent = carrier(container, depth + 1);
     const own = container.definition?.weightMultiplier;
     return { carried: parent.carried, multiplier: parent.multiplier * (own === undefined || own === null ? 1 : number(own)) };

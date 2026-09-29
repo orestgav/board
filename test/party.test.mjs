@@ -94,7 +94,7 @@ test("картка: імʼя, AC, HP, комірки, ресурси класу,
   assert.match(html, /Комірки 1-го рівня: 2 з 3/);
   assert.match(html, /Bardic Inspiration: 2 з 2 \(довгий відпочинок\)/);
   assert.doesNotMatch(html, /Detect Magic/);
-  assert.match(html, /party-load heavy.*<span>⚖ 97%<\/span>/);
+  assert.match(html, /party-load light.*<span>⚖ 52%<\/span>/);
   assert.match(html, /party-row slot.*Комірки 1-го рівня<\/span>/);
   assert.match(html, /party-inspiration/);
 });
@@ -130,7 +130,7 @@ test("попап: характеристики, ресурси з безкошт
   assert.match(html, /DC 12/);
   assert.match(html, /Detect Magic <small>без комірки<\/small>/);
   assert.match(html, /Кості хітів d8/);
-  assert.match(html, /116 \/ 120 lb · 97%/);
+  assert.match(html, /62 \/ 120 lb · 52%/);
   assert.match(html, /<h3>Scroll Satchel/);
   assert.match(html, /<h3>Замовляння<\/h3>/);
   assert.match(html, /dndbeyond\.com\/characters\/1000/);
