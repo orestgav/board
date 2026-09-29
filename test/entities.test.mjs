@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { entityRecord, extractSection, finalizeEntities, matchesEntity, sectionLinks, wikiLinks } from "../public/entities.js";
+import { entityRecord, extractSection, finalizeEntities, indexedTypes, matchesEntity, sectionLinks, wikiLinks } from "../public/entities.js";
 
 test("board summary stops at the next heading of the same level", () => {
   const body = "# Картка\n\n## На дошці\n- Перша теза\n- Друга теза\n\n### Деталь\nТекст\n\n## Секрети\nНі";
@@ -80,4 +80,8 @@ test("картка тримає звʼязки зі свого тіла", () => 
     { portraitField: "image", summarySection: "## На дошці" },
   );
   assert.deepEqual(entity.links.npc, ["father-dominic", "fiia", "king-lionel-iv"]);
+});
+
+test("token types are indexed even when the campaign config leaves them out", () => {
+  assert.deepEqual([...indexedTypes({ types: ["npc"] })].sort(), ["creature", "npc", "player"]);
 });

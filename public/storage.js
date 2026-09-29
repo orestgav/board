@@ -8,7 +8,7 @@ const RECENT_PREFIX = "recent:";
 
 import { campaignKey, campaignName, parseBoardConfig } from "./board-config.js";
 import { parseFrontmatter as builtInFrontmatter } from "./frontmatter.js";
-import { entityRecord, finalizeEntities } from "./entities.js";
+import { entityRecord, finalizeEntities, indexedTypes } from "./entities.js";
 import { emptyLayout, parseLayout, validateLayout } from "./layout.js";
 import {
   appendNoteBlock,
@@ -322,7 +322,7 @@ export function createDirectoryStorage({ root: initialRoot = null, campaigns = i
         if (error.name !== "NotFoundError") throw error;
       }
       const documents = await collectMarkdown(root, new Set(config.entities.skipDirs));
-      const types = new Set(config.entities.types);
+      const types = indexedTypes(config.entities);
       return finalizeEntities(documents.flatMap(({ path, source }) => {
         const { meta, body } = parseFrontmatter(source, path);
         return types.has(meta.type) ? [entityRecord(path, meta, body, config.entities, mediaByName)] : [];

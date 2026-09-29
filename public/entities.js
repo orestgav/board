@@ -1,3 +1,5 @@
+import { TOKEN_ENTITY_TYPES } from "./token.js";
+
 export function extractSection(body, heading) {
   const normalized = body.replace(/\r\n/g, "\n");
   const lines = normalized.split("\n");
@@ -77,6 +79,12 @@ export function matchesEntity(entity, query) {
   if (!needle) return true;
   return [entity.name, entity.slug, entity.type, entity.path]
     .some((value) => value?.toLocaleLowerCase("uk").includes(needle));
+}
+
+// Типи, які йдуть в індекс. Картки для кнопки «Токен» (істоти й гравці) там
+// завжди, навіть якщо `entities.types` у конфігу кампанії їх не перелічує.
+export function indexedTypes(entitiesConfig) {
+  return new Set([...entitiesConfig.types, ...TOKEN_ENTITY_TYPES]);
 }
 
 export function finalizeEntities(entities) {
