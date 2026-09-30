@@ -955,7 +955,14 @@ function renderNode(node, isRoot = false) {
       // Однакових істот у бою буває кілька, тож кожна дістає власний рядок
       // лічильника; поки істота одна, рядок виглядає точно як раніше.
       const creatures = maximum ? creatureList(node) : [];
-      for (const index of creatures.keys()) element.append(hitPointTracker(node, entity, maximum, creatures, index));
+      // Комірки заклинача — одразу під HP своєї істоти: так у загоні видно, чиї
+      // вони, і рядки не губляться при скролі й не дрібніють з кеглем аркуша.
+      const slots = spellSlots(entity.body);
+      const rows = creatures.length || !slots.length ? creatures : creatureList(node);
+      for (const index of rows.keys()) {
+        if (maximum) element.append(hitPointTracker(node, entity, maximum, creatures, index));
+        if (slots.length) element.append(spellSlotTracker(node, entity, slots, rows, index));
+      }
       const body = document.createElement("div");
       body.className = "statblock-body";
       // Аркуш — окремий шар, щоб підібраний кегль не чіпав полів самого тіла.
@@ -987,12 +994,6 @@ function renderNode(node, isRoot = false) {
         body.addEventListener("wheel", hideSpellTip, { passive: true });
       }
       element.append(body);
-      // Комірки — під аркушем, щоб не губилися при скролі й не дрібніли з кеглем.
-      const slots = spellSlots(entity.body);
-      if (slots.length) {
-        const all = creatureList(node);
-        for (const index of all.keys()) element.append(spellSlotTracker(node, entity, slots, all, index));
-      }
     } else if (kind?.variant === "frame") {
       // Локація — контейнер: лише шапка з назвою, без портрета й секції картки.
       element.classList.add("location-node");
@@ -1372,22 +1373,14 @@ function hitPointTracker(node, entity, maximum, creatures, index) {
 // комірка ще є; клік по ньому витрачає одну, клік по порожньому повертає.
 // «⟲» — тривалий відпочинок: усе знову повне.
 function spellSlotTracker(node, entity, slots, creatures, index) {
-  const several = creatures.length > 1;
-  const label = creatureLabel(creatures[index], index);
-  const who = several ? `${entity.name} — ${label}` : entity.name;
+  // Підпис істоти стоїть у рядку HP над цим, тут він лише для читача екрана.
+  const who = creatures.length > 1 ? `${entity.name} — ${creatureLabel(creatures[index], index)}` : entity.name;
   const creature = creatures[index];
   const tracker = document.createElement("div");
   tracker.className = "statblock-slots";
   tracker.dataset.creature = String(index);
   tracker.addEventListener("pointerdown", (event) => event.stopPropagation());
   tracker.addEventListener("click", (event) => event.stopPropagation());
-  if (several) {
-    const name = document.createElement("span");
-    name.className = "slots-name";
-    name.textContent = label;
-    name.title = label;
-    tracker.append(name);
-  }
   const groups = document.createElement("div");
   groups.className = "slots-groups";
   for (const slot of slots) {

@@ -336,12 +336,10 @@ svg.icon { width: 20px; height: 20px; }
 .statblock-body .sb-key-edge { color: #7cc4ff; }
 .statblock-body .md-link { color: #8ddbd5; text-decoration-color: rgba(141, 219, 213, .45); }
 .node.locked > .statblock-body { pointer-events: none; }
-/* Комірки заклинача — під аркушем, у кольорах комірок панелі «Партія».
-   Коли аркуш з комірками, заокруглення знизу переходить на останній рядок. */
-.statblock-node:has(> .statblock-slots) > .statblock-body { border-radius: 0; }
-.statblock-slots { display: flex; align-items: center; gap: 8em; min-height: 34em; padding: 5em 13em; border-top: 1em solid rgba(120, 201, 196, .22); background: #111a20; pointer-events: auto; }
-.statblock-slots:last-child { border-radius: 0 0 9em 9em; }
-.slots-name { flex: 0 1 auto; max-width: 30%; overflow: hidden; color: #cfe3e1; font-size: 11em; text-overflow: ellipsis; white-space: nowrap; }
+/* Комірки заклинача — під рядком HP своєї істоти, у кольорах комірок панелі
+   «Партія». Рядок HP над ними не відділяється лінією: це одна істота. */
+.statblock-hp:has(+ .statblock-slots) { border-bottom-color: transparent; }
+.statblock-slots { display: flex; align-items: center; gap: 8em; min-height: 30em; padding: 0 13em 6em; border-bottom: 1em solid rgba(120, 201, 196, .22); background: #111a20; pointer-events: auto; }
 .slots-groups { display: flex; flex: 1 1 auto; flex-wrap: wrap; align-items: center; gap: 4em 12em; min-width: 0; }
 .slots-group { display: inline-flex; align-items: center; gap: 3em; }
 .slots-label { margin-right: 2em; color: var(--stat-muted); font-size: 11em; white-space: nowrap; }
