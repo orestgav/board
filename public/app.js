@@ -1397,6 +1397,9 @@ function spellSlotTracker(node, entity, slots, creatures, index) {
       const button = document.createElement("button");
       button.type = "button";
       button.className = `slot-pip${left ? " on" : ""}`;
+      // Коло — у SVG: рамку кнопки браузер вирівнює по пікселях полотна, і на
+      // великому зумі кружок з border-radius витягувався б в овал.
+      button.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.6"/></svg>';
       button.setAttribute("aria-label", `${left ? "Витратити" : "Повернути"}: ${slot.title} — ${who}`);
       button.addEventListener("click", () => {
         executeCommand(left ? "Витратити комірку" : "Повернути комірку", () => {

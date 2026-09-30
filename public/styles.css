@@ -343,9 +343,11 @@ svg.icon { width: 20px; height: 20px; }
 .slots-groups { display: flex; flex: 1 1 auto; flex-wrap: wrap; align-items: center; gap: 4em 12em; min-width: 0; }
 .slots-group { display: inline-flex; align-items: center; gap: 3em; }
 .slots-label { margin-right: 2em; color: var(--stat-muted); font-size: 11em; white-space: nowrap; }
-.slot-pip { width: 13em; height: 13em; padding: 0; border: 1.5em solid #4f6f8c; border-radius: 50%; background: transparent; cursor: pointer; }
-.slot-pip.on { border-color: #7fc4f0; background: #7fc4f0; }
-.slot-pip:hover { box-shadow: 0 0 0 2em rgba(127, 196, 240, .35); }
+.slot-pip { display: block; flex: 0 0 auto; width: 15em; height: 15em; padding: 0; border: 0; background: transparent; cursor: pointer; }
+.slot-pip svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.slot-pip circle { fill: transparent; stroke: #4f6f8c; stroke-width: 1.8; }
+.slot-pip.on circle { fill: #7fc4f0; stroke: #7fc4f0; }
+.slot-pip:hover circle { stroke: #b4e0ff; }
 .slots-rest { flex: 0 0 auto; width: 1.7em; height: 1.7em; padding: 0; border: .07em solid #40555c; border-radius: .38em; background: transparent; color: var(--stat-muted); font-size: 14em; line-height: 1; cursor: pointer; }
 .slots-rest:hover:not(:disabled) { border-color: var(--stat-accent); color: var(--stat-accent-bright); }
 .slots-rest:disabled { opacity: .35; cursor: default; }
