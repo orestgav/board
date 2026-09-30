@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "start": "node canvas.mjs",
-    "test": "node --test test/*.test.mjs test/e2e/*.test.mjs",
-    "test:unit": "node --test test/*.test.mjs"
+    "test": "node --test --test-timeout=120000 test/*.test.mjs test/e2e/*.test.mjs",
+    "test:unit": "node --test --test-timeout=120000 test/*.test.mjs"
   },
   "engines": {
     "node": ">=22"
