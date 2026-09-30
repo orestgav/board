@@ -288,7 +288,7 @@ svg.icon { width: 20px; height: 20px; }
 .statblock-node > .node-header { border-bottom-color: rgba(120, 201, 196, .27); background: #1d343d; }
 .statblock-node .node-glyph { color: var(--stat-accent); }
 .statblock-node .node-title { color: #eef7f5; }
-.statblock-node > .node-header, .statblock-node > .statblock-hp { flex: 0 0 auto; }
+.statblock-node > .node-header, .statblock-node > .statblock-hp, .statblock-node > .statblock-slots { flex: 0 0 auto; }
 .statblock-hp { height: 54em; display: flex; align-items: center; gap: 7em; padding: 0 13em; border-bottom: 1em solid rgba(120, 201, 196, .22); background: #111a20; pointer-events: auto; }
 /* Кілька однакових істот на одній картці: рядок той самий, що й одинокий, а
    підпис істоти просто займає порожнє місце між числом і кнопками. */
@@ -336,6 +336,37 @@ svg.icon { width: 20px; height: 20px; }
 .statblock-body .sb-key-edge { color: #7cc4ff; }
 .statblock-body .md-link { color: #8ddbd5; text-decoration-color: rgba(141, 219, 213, .45); }
 .node.locked > .statblock-body { pointer-events: none; }
+/* Комірки заклинача — під аркушем, у кольорах комірок панелі «Партія».
+   Коли аркуш з комірками, заокруглення знизу переходить на останній рядок. */
+.statblock-node:has(> .statblock-slots) > .statblock-body { border-radius: 0; }
+.statblock-slots { display: flex; align-items: center; gap: 8em; min-height: 34em; padding: 5em 13em; border-top: 1em solid rgba(120, 201, 196, .22); background: #111a20; pointer-events: auto; }
+.statblock-slots:last-child { border-radius: 0 0 9em 9em; }
+.slots-name { flex: 0 1 auto; max-width: 30%; overflow: hidden; color: #cfe3e1; font-size: 11em; text-overflow: ellipsis; white-space: nowrap; }
+.slots-groups { display: flex; flex: 1 1 auto; flex-wrap: wrap; align-items: center; gap: 4em 12em; min-width: 0; }
+.slots-group { display: inline-flex; align-items: center; gap: 3em; }
+.slots-label { margin-right: 2em; color: var(--stat-muted); font-size: 11em; white-space: nowrap; }
+.slot-pip { width: 13em; height: 13em; padding: 0; border: 1.5em solid #4f6f8c; border-radius: 50%; background: transparent; cursor: pointer; }
+.slot-pip.on { border-color: #7fc4f0; background: #7fc4f0; }
+.slot-pip:hover { box-shadow: 0 0 0 2em rgba(127, 196, 240, .35); }
+.slots-rest { flex: 0 0 auto; width: 1.7em; height: 1.7em; padding: 0; border: .07em solid #40555c; border-radius: .38em; background: transparent; color: var(--stat-muted); font-size: 14em; line-height: 1; cursor: pointer; }
+.slots-rest:hover:not(:disabled) { border-color: var(--stat-accent); color: var(--stat-accent-bright); }
+.slots-rest:disabled { opacity: .35; cursor: default; }
+/* Назва закляття з текстом: пунктир підказує, що над нею є підказка. */
+.statblock-body .sb-spell { text-decoration: underline dotted rgba(141, 219, 213, .6); text-underline-offset: .18em; cursor: help; }
+.statblock-body .sb-spell:hover { color: var(--stat-accent-bright); }
+/* Під замком аркуш курсора не ловить, але текст закляття в бою потрібен. */
+.node.locked > .statblock-body .sb-spell { pointer-events: auto; }
+.spell-tip { position: fixed; z-index: 30; width: 380px; max-width: calc(100vw - 24px); max-height: calc(100vh - 24px); padding: 12px 14px; overflow: hidden; border: 1px solid #477981; border-radius: 10px; background: #162129; box-shadow: 0 14px 44px rgba(0, 0, 0, .6); color: #e4efee; font-size: 13px; line-height: 1.45; pointer-events: none; }
+.spell-tip-title { margin-bottom: 4px; color: #a5e4de; font: 700 16px Georgia, serif; }
+.spell-tip p { margin: 6px 0 0; }
+.spell-tip p:first-of-type em { color: #9bafb2; }
+.spell-tip strong { font-style: italic; }
+.spell-tip .sb-key { font-weight: 700; }
+.spell-tip .sb-key-save { color: #f2e06b; }
+.spell-tip .sb-key-hit { color: #ffac5e; }
+.spell-tip .sb-key-damage { color: #ff7b7b; }
+.spell-tip .sb-key-condition { color: #d3a6ff; }
+.spell-tip .sb-key-edge { color: #7cc4ff; }
 /* Музика — червонувата картка заввишки з саму шапку: назва треку й «плей». */
 .music-node { border-color: #8a4a44; background: rgba(48, 27, 25, .95); }
 .music-node > .node-header { height: 100%; border-bottom: 0; border-radius: 9em; background: rgba(138, 74, 68, .32); }

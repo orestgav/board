@@ -17,6 +17,15 @@ const SECTION_TITLES = {
 };
 const SECTION_ORDER = ["Риси", "Дії", "Бонусні дії", "Реакції", "Легендарні дії", "Закляття"];
 const STAT_ENTRY = /^\*\*[^*\n]+\.\*\*/;
+// Повні тексти заклять живуть у тій самій картці, окремою секцією з
+// підсекціями «### Англійська назва». На аркуші її не видно: дошка показує
+// текст підказкою, коли курсор над назвою закляття в секції «Закляття».
+export const SPELL_SECTION = "Закляття";
+export const SPELL_TEXTS_SECTION = "Тексти заклять";
+// «**1 рівень (4/день).**», «**2-й рівень (3 комірки).**» — комірки рівня;
+// «**1/день кожне.** a, b» — окремий лічильник на кожне закляття (2024).
+const SLOT_LEVEL = /^\*\*(\d)(?:-?й)?\s+рів[\p{L}]*\s*\((\d+)\s*(?:\/\s*день|комір[\p{L}]*)\)\.\*\*/u;
+const PER_DAY = /^\*\*(\d+)\s*\/\s*день(\s+кожн[\p{L}]*)?\.\*\*\s*(.*)$/su;
 const SAVE = /^([A-Za-zА-Яа-я]{3})\s*([+\-−]?\d+)/;
 
 // Ключове в рисах і діях, яке ДМ шукає очима посеред бою: характеристика
@@ -108,17 +117,106 @@ export function metaLine(meta) {
   return lines.join("<br>");
 }
 
-// Секції тіла картки в порядку статблока; службові коментарі відкидаються.
-export function statblockSections(body, hiddenSections = DEFAULT_HIDDEN_SECTIONS) {
-  const hidden = new Set(hiddenSections);
-  const sections = [];
-  for (const part of String(body ?? "").replace(/\r\n/g, "\n").split(/^## /m).slice(1)) {
+// Секція «## Назва» як заголовок і абзаци без службових коментарів.
+function bodySections(body) {
+  return String(body ?? "").replace(/\r\n/g, "\n").split(/^## /m).slice(1).map((part) => {
     const newline = part.indexOf("\n");
     const title = part.slice(0, newline < 0 ? part.length : newline).trim();
-    if (hidden.has(title)) continue;
     const paragraphs = (newline < 0 ? "" : part.slice(newline + 1)).trim()
       .split(/\n\s*\n/).map((paragraph) => paragraph.trim())
       .filter((paragraph) => paragraph && !paragraph.startsWith("<!--"));
+    return { title, paragraphs };
+  });
+}
+
+function spellKey(name) {
+  return String(name ?? "").trim().replace(/\s+/g, " ").toLocaleLowerCase("en");
+}
+
+// «### Bless» і абзаци під ним -> Map «bless» -> { name, paragraphs }.
+// Назва — англійська, як у списку заклять: так збіг однозначний.
+export function spellTexts(body) {
+  const spells = new Map();
+  const section = bodySections(body).find((candidate) => candidate.title === SPELL_TEXTS_SECTION);
+  let current = null;
+  for (const paragraph of section?.paragraphs ?? []) {
+    const heading = paragraph.match(/^###\s+(.+?)(?:\n([\s\S]*))?$/);
+    if (heading) {
+      current = { name: heading[1].trim(), paragraphs: [] };
+      spells.set(spellKey(current.name), current);
+      if (heading[2]?.trim()) current.paragraphs.push(heading[2].trim());
+    } else if (current) {
+      current.paragraphs.push(paragraph);
+    }
+  }
+  return spells;
+}
+
+// Підказка закляття: назва, рядок параметрів курсивом, далі сам текст.
+export function spellTooltipMarkup(spell) {
+  return `<div class="spell-tip-title">${escapeHtml(spell.name)}</div>`
+    + spell.paragraphs.map((paragraph) => `<p>${highlightKeyTerms(renderInline(paragraph))}</p>`).join("");
+}
+
+// Назви заклять, для яких є текст, стають мітками під підказку. Довші назви
+// йдуть першими, щоб «mass healing word» не розпався на «healing word».
+export function markSpellNames(html, spells) {
+  if (!spells?.size) return html;
+  const names = [...spells.values()].map((spell) => spell.name).sort((first, second) => second.length - first.length)
+    .map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+"));
+  const pattern = new RegExp(`(?<![\\p{L}\\d])(?:${names.join("|")})(?![\\p{L}])`, "giu");
+  return String(html).split(/(<[^>]*>)/).map((part) => (part.startsWith("<")
+    ? part
+    : part.replace(pattern, (match) => `<span class="sb-spell" data-spell="${escapeHtml(spellKey(match))}">${match}</span>`))).join("");
+}
+
+// Лічильники заклять із секції «Закляття»: комірки кожного рівня й закляття
+// «N/день». Канітри «за бажанням» лічильника не мають.
+export function spellSlots(body) {
+  const section = bodySections(body).find((candidate) => candidate.title === SPELL_SECTION);
+  const slots = [];
+  for (const paragraph of section?.paragraphs ?? []) {
+    const level = paragraph.match(SLOT_LEVEL);
+    if (level) {
+      slots.push({ key: level[1], label: `${level[1]} рів.`, title: `Комірки ${level[1]}-го рівня`, max: Number(level[2]) });
+      continue;
+    }
+    const perDay = paragraph.match(PER_DAY);
+    if (!perDay) continue;
+    const max = Number(perDay[1]);
+    if (!perDay[2]) {
+      slots.push({ key: `${max}/день`, label: `${max}/день`, title: `${max}/день`, max });
+      continue;
+    }
+    for (const name of perDay[3].replace(/\.\s*$/, "").split(",").map((item) => item.trim()).filter(Boolean)) {
+      slots.push({ key: `день:${spellKey(name)}`, label: name, title: `${name}: ${max}/день`, max });
+    }
+  }
+  return slots.filter((slot) => slot.max > 0);
+}
+
+// Скільки витрачено; у файлі лише ненульові значення, решта — повний запас.
+export function usedSlots(creature, slot) {
+  const used = creature?.slots?.[slot.key];
+  return Number.isInteger(used) ? Math.min(Math.max(used, 0), slot.max) : 0;
+}
+
+export function withUsedSlots(creature, slot, used) {
+  const slots = { ...(creature?.slots ?? {}) };
+  const value = Math.min(Math.max(Math.trunc(used), 0), slot.max);
+  if (value) slots[slot.key] = value;
+  else delete slots[slot.key];
+  const next = { ...creature, slots };
+  if (!Object.keys(slots).length) delete next.slots;
+  return next;
+}
+
+// Секції тіла картки в порядку статблока; службові коментарі відкидаються.
+export function statblockSections(body, hiddenSections = DEFAULT_HIDDEN_SECTIONS) {
+  const hidden = new Set([...hiddenSections, SPELL_TEXTS_SECTION]);
+  const sections = [];
+  for (const { title, paragraphs } of bodySections(body)) {
+    if (hidden.has(title)) continue;
     if (!paragraphs.length) continue;
     // Незнайома секція (напр. «ФАЗА 2») потрапляє в статблок, лише якщо вся
     // складається з записів «**Назва.** …»; описові нотатки в статблок не йдуть.
@@ -134,8 +232,15 @@ export function statblockMarkup(entity, { hiddenSections = DEFAULT_HIDDEN_SECTIO
   const saves = savingThrows(meta.saves);
   const line = typeLine(meta);
   const abilities = ABILITIES.map(([field]) => `<td>${escapeHtml(filled(meta[field]) ? meta[field] : "+0")}</td>`).join("");
+  const spells = spellTexts(entity.body);
+  // Назви заклять шукаємо лише в їхній секції: у рисах «Aid» чи «Bless» могли б
+  // трапитися як звичайні слова.
+  const paragraphMarkup = (section, paragraph) => {
+    const html = highlightKeyTerms(renderInline(paragraph));
+    return `<p>${section.title === SPELL_SECTION ? markSpellNames(html, spells) : html}</p>`;
+  };
   const sections = statblockSections(entity.body, hiddenSections).map((section) => `<h3>${escapeHtml(SECTION_TITLES[section.title] ?? section.title.toLocaleUpperCase("uk"))}</h3>`
-    + section.paragraphs.map((paragraph) => `<p>${highlightKeyTerms(renderInline(paragraph))}</p>`).join("")).join("");
+    + section.paragraphs.map((paragraph) => paragraphMarkup(section, paragraph)).join("")).join("");
 
   // Підзаголовок у тій самій колонці, що й AC–Initiative: так арт праворуч
   // тягнеться на всю висоту шапки статблока.
@@ -168,11 +273,12 @@ export const CREATURE_NAME_PREFIX = "Істота";
 
 export function creatureList(node) {
   const creatures = node?.creatures;
-  if (!Array.isArray(creatures) || !creatures.length) return [{ name: "", hp: node?.hp }];
-  return creatures.map((creature) => ({
+  const withSlots = (entry, slots) => (hasSlots({ slots }) ? { ...entry, slots } : entry);
+  if (!Array.isArray(creatures) || !creatures.length) return [withSlots({ name: "", hp: node?.hp }, node?.slots)];
+  return creatures.map((creature) => withSlots({
     name: typeof creature?.name === "string" ? creature.name : "",
     hp: creature?.hp,
-  }));
+  }, creature?.slots));
 }
 
 // Без власної назви істота підписана порядковим номером, тож після видалення
@@ -194,6 +300,10 @@ export function parseHitPoints(raw) {
   return /^-?\d+$/.test(text) ? Number(text) : null;
 }
 
+function hasSlots(creature) {
+  return Boolean(creature?.slots) && typeof creature.slots === "object" && Object.keys(creature.slots).length > 0;
+}
+
 // Назва, що збігається з номером за замовчуванням, у файл не пишеться: інакше
 // після видалення сусіда «Істота 3» лишилася б другою в списку.
 export function writeCreatures(node, creatures) {
@@ -203,13 +313,17 @@ export function writeCreatures(node, creatures) {
       const name = String(creature?.name ?? "").trim();
       if (name && name !== creatureLabel(null, index)) entry.name = name;
       if (Number.isFinite(creature?.hp)) entry.hp = creature.hp;
+      if (hasSlots(creature)) entry.slots = { ...creature.slots };
       return entry;
     });
     delete node.hp;
+    delete node.slots;
   } else {
     delete node.creatures;
     if (Number.isFinite(creatures[0]?.hp)) node.hp = creatures[0].hp;
     else delete node.hp;
+    if (hasSlots(creatures[0])) node.slots = { ...creatures[0].slots };
+    else delete node.slots;
   }
   return node;
 }

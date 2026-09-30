@@ -6,8 +6,14 @@ import {
   parseHitPoints,
   creatureList,
   maxHitPoints,
+  markSpellNames,
   metaLine,
   savingThrows,
+  spellSlots,
+  spellTexts,
+  spellTooltipMarkup,
+  usedSlots,
+  withUsedSlots,
   statblockMarkup,
   statblockSections,
   typeLine,
@@ -211,4 +217,102 @@ test("a campaign names its own DM-only statblock sections", () => {
   assert.deepEqual(statblockSections(body, ["Секрет ДМа"]).map((section) => section.title), ["Дії", "Тактика"]);
   assert.doesNotMatch(statblockMarkup({ meta: {}, body }, { hiddenSections: ["Секрет ДМа"] }), /Прихована/);
   assert.match(statblockMarkup({ meta: { xp: "<b>50</b>" }, body: "" }), /XP &lt;b&gt;50&lt;\/b&gt;/);
+});
+
+const CLERIC = [
+  "## Дії",
+  "",
+  "**Булава.** +4 до влучання.",
+  "",
+  "## Закляття",
+  "",
+  "**Канітри (за бажанням).** sacred flame, guidance.",
+  "",
+  "**1 рівень (4/день).** bless, healing word",
+  "",
+  "**3 рівень (2 комірки).** spirit guardians, mass healing word.",
+  "",
+  "**1/день кожне.** Dimension Door, Fireball.",
+  "",
+  "## Тексти заклять",
+  "",
+  "### Healing Word",
+  "",
+  "*1 рівень, огородження · Бонусна дія*",
+  "",
+  "Відновлює 2к4 хітів.",
+  "",
+  "### Mass Healing Word",
+  "*3 рівень, огородження*",
+  "",
+  "До шести істот відновлюють 2к4 хітів.",
+  "",
+  "<!-- SRD 5.2 -->",
+  "",
+  "## Тактика",
+  "",
+  "Лікує Healing Word.",
+].join("\n");
+
+test("тексти заклять беруться з підсекцій за англійською назвою", () => {
+  const spells = spellTexts(CLERIC);
+  assert.deepEqual([...spells.keys()], ["healing word", "mass healing word"]);
+  assert.deepEqual(spells.get("healing word").paragraphs, ["*1 рівень, огородження · Бонусна дія*", "Відновлює 2к4 хітів."]);
+  assert.deepEqual(spells.get("mass healing word").paragraphs, ["*3 рівень, огородження*", "До шести істот відновлюють 2к4 хітів."]);
+  assert.equal(spellTexts("## Дії\n\n**Удар.** +3.").size, 0);
+});
+
+test("секція текстів заклять на аркуш не потрапляє", () => {
+  assert.deepEqual(statblockSections(CLERIC).map((section) => section.title), ["Дії", "Закляття"]);
+  assert.doesNotMatch(statblockMarkup({ meta: {}, body: CLERIC }), /До шести істот/);
+});
+
+test("назви заклять з текстом стають мітками лише в секції «Закляття»", () => {
+  const markup = statblockMarkup({ meta: {}, body: CLERIC });
+  assert.match(markup, /<span class="sb-spell" data-spell="healing word">healing word<\/span>/);
+  // Довша назва не розпадається на коротшу всередині.
+  assert.match(markup, /<span class="sb-spell" data-spell="mass healing word">mass healing word<\/span>/);
+  assert.doesNotMatch(markup, /data-spell="[^"]*">bless/);
+  assert.equal(markSpellNames('<b title="healing word">x</b>', spellTexts(CLERIC)), '<b title="healing word">x</b>');
+  assert.equal(markSpellNames("Healing  Word", spellTexts(CLERIC)), '<span class="sb-spell" data-spell="healing word">Healing  Word</span>');
+});
+
+test("підказка показує назву й текст закляття з підсвіткою", () => {
+  const tip = spellTooltipMarkup(spellTexts(CLERIC).get("healing word"));
+  assert.match(tip, /^<div class="spell-tip-title">Healing Word<\/div>/);
+  assert.match(tip, /<p><em>1 рівень, огородження · Бонусна дія<\/em><\/p>/);
+  assert.match(tip, /sb-key-damage">2к4/);
+});
+
+test("лічильники: комірки рівнів і закляття «N/день кожне», без канітрів", () => {
+  assert.deepEqual(spellSlots(CLERIC).map(({ key, label, max }) => [key, label, max]), [
+    ["1", "1 рів.", 4],
+    ["3", "3 рів.", 2],
+    ["день:dimension door", "Dimension Door", 1],
+    ["день:fireball", "Fireball", 1],
+  ]);
+  assert.deepEqual(spellSlots("## Закляття\n\n**2/день.** a, b"), [{ key: "2/день", label: "2/день", title: "2/день", max: 2 }]);
+  assert.deepEqual(spellSlots("## Дії\n\n**1 рівень (4/день).** bless"), []);
+});
+
+test("витрачені комірки не виходять за межі й не пишуться нулями", () => {
+  const slot = { key: "1", max: 4 };
+  assert.equal(usedSlots({}, slot), 0);
+  assert.equal(usedSlots({ slots: { 1: 9 } }, slot), 4);
+  assert.deepEqual(withUsedSlots({ hp: 5 }, slot, 2), { hp: 5, slots: { 1: 2 } });
+  assert.deepEqual(withUsedSlots({ hp: 5, slots: { 1: 1 } }, slot, 0), { hp: 5 });
+  assert.deepEqual(withUsedSlots({ slots: { 1: 3, 2: 1 } }, slot, 7), { slots: { 1: 4, 2: 1 } });
+});
+
+test("комірки живуть поруч із HP: у вузлі, поки істота одна, і в кожної — у загоні", () => {
+  const node = { id: "n4", hp: 30 };
+  writeCreatures(node, [{ name: "", hp: 30, slots: { 1: 2 } }]);
+  assert.deepEqual(node, { id: "n4", hp: 30, slots: { 1: 2 } });
+  assert.deepEqual(creatureList(node), [{ name: "", hp: 30, slots: { 1: 2 } }]);
+
+  writeCreatures(node, [...creatureList(node), { name: "", hp: 30 }]);
+  assert.deepEqual(node, { id: "n4", creatures: [{ hp: 30, slots: { 1: 2 } }, { hp: 30 }] });
+
+  writeCreatures(node, creatureList(node).toSpliced(0, 1));
+  assert.deepEqual(node, { id: "n4", hp: 30 });
 });

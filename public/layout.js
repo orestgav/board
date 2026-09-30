@@ -64,6 +64,10 @@ export function validateNode(node) {
   if (node.hp !== undefined && !Number.isFinite(node.hp)) {
     throw new Error(`${node.id}.hp має бути числом`);
   }
+  // Витрачені комірки й «N/день» заклинача: ключ лічильника -> скільки витрачено.
+  if (node.slots !== undefined && !isSlotUsage(node.slots)) {
+    throw new Error(`${node.id}.slots має бути обʼєктом із цілих чисел від 1`);
+  }
   // Кілька однакових істот на одній картці: у кожної свої HP й назва. Поки
   // істота одна, вузол лишається на node.hp і масиву не має.
   if (node.creatures !== undefined) {
@@ -79,6 +83,9 @@ export function validateNode(node) {
       }
       if (creature.name !== undefined && typeof creature.name !== "string") {
         throw new Error(`${node.id}.creatures: назва істоти має бути рядком`);
+      }
+      if (creature.slots !== undefined && !isSlotUsage(creature.slots)) {
+        throw new Error(`${node.id}.creatures: slots істоти має бути обʼєктом із цілих чисел від 1`);
       }
     }
   }
@@ -130,4 +137,9 @@ export function parseLayout(text, source = "canvas.json") {
   catch (error) { throw new Error(`${source} не читається як JSON: ${error.message}`); }
   try { return validateLayout(layout); }
   catch (error) { throw new Error(`${source}: ${error.message}`); }
+}
+
+function isSlotUsage(slots) {
+  return Boolean(slots) && typeof slots === "object" && !Array.isArray(slots)
+    && Object.values(slots).every((used) => Number.isInteger(used) && used > 0);
 }

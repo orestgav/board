@@ -38,3 +38,12 @@ test("only a picture turns, in 45° steps, and keeps its proportions with it", (
   assert.throws(() => validateNode(image({ rotation: 90 })), /aspect має бути додатним числом/);
   assert.throws(() => validateNode(frame({ rotation: 90, aspect: 1 })), /повертати можна лише картинку/);
 });
+
+test("spent spell slots are whole positive counts, on the node or on each creature", () => {
+  const statblock = (fields) => ({ id: "s", type: "entity", entity: "kliryk", x: 0, y: 0, width: 10, height: 10, children: [], ...fields });
+  assert.equal(validateNode(statblock({ slots: { 1: 2, "день:fireball": 1 } })).id, "s");
+  assert.equal(validateNode(statblock({ creatures: [{ hp: 3, slots: { 3: 1 } }, { hp: 3 }] })).id, "s");
+  assert.throws(() => validateNode(statblock({ slots: { 1: 0 } })), /slots має бути/);
+  assert.throws(() => validateNode(statblock({ slots: [1] })), /slots має бути/);
+  assert.throws(() => validateNode(statblock({ creatures: [{ slots: { 1: 1.5 } }] })), /slots істоти/);
+});

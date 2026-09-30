@@ -2,6 +2,8 @@
 // перевіряється те, що живе в app.js, — жести, історія, нотатки у файлах,
 // збереження. Без Chrome на машині тести пропускаються (CROWN_E2E=0 — теж).
 import assert from "node:assert/strict";
+import { writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { after, before, describe, test } from "node:test";
 import { startServer } from "../../src/server.mjs";
 import { findChrome, launchBrowser } from "./browser.mjs";
@@ -242,6 +244,31 @@ describe("canvas in a browser, local server mode", { skip: !chrome && "Chrome н
       const port = allNodes(await campaign.canvas(), (node) => node.entity === "port")[0];
       return port && port.children.map((child) => child.entity).join() === "ester,lamp";
     }, { message: "локація не принесла NPC і предмет" });
+    assert.deepEqual(page.errors, []);
+  });
+
+  test("a caster's statblock tracks spell slots in the layout and shows spell text on hover", async (context) => {
+    const { page, campaign } = await open(context);
+    await writeFile(join(campaign.base, "world_data/bestiary/guard.md"), [
+      "---", "type: creature", "name: Стражник", "hp: 11 (2d8 + 2)", "---", "",
+      "## Закляття", "", "**1 рівень (2/день).** bless, healing word", "",
+      "## Тексти заклять", "", "### Healing Word", "", "*1 рівень, огородження · Бонусна дія*", "", "Відновлює 2к4 хітів.", "",
+    ].join("\n"));
+    await page.reload();
+    await page.waitFor(() => document.querySelector('.node[data-id="guard-1"] .statblock-slots'), { message: "немає рядка комірок" });
+    assert.equal(await page.evaluate(() => document.querySelectorAll('.node[data-id="guard-1"] .slot-pip.on').length), 2);
+
+    await page.click('.node[data-id="guard-1"] .slot-pip.on');
+    await page.until(async () => findNode(await campaign.canvas(), "guard-1").node.slots?.["1"] === 1, { message: "комірка не зберіглась" });
+    assert.equal(await page.evaluate(() => document.querySelectorAll('.node[data-id="guard-1"] .slot-pip.on').length), 1);
+    await page.click('.node[data-id="guard-1"] .slots-rest');
+    await page.until(async () => findNode(await campaign.canvas(), "guard-1").node.slots === undefined, { message: "відпочинок не відновив комірки" });
+
+    const { x, y } = await page.pointOf('.node[data-id="guard-1"] .sb-spell[data-spell="healing word"]');
+    await page.mouse("mouseMoved", x, y);
+    await page.waitFor(() => !document.querySelector(".spell-tip").hidden, { message: "підказка не зʼявилась" });
+    assert.match(await page.evaluate(() => document.querySelector(".spell-tip").textContent), /Healing Word.*Відновлює 2к4 хітів/s);
+    assert.equal(await page.evaluate(() => document.querySelector('.node[data-id="guard-1"] .sb-spell[data-spell="bless"]')), null);
     assert.deepEqual(page.errors, []);
   });
 

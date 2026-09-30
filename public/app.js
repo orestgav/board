@@ -27,7 +27,10 @@ import { clipboardPayload, noteTargets, parseClipboard, placedItems, withoutNode
 import { backlinks, matchesEntity } from "./entities.js";
 import { iconElement } from "./icons.js";
 import { renderInline, renderMarkdown } from "./markdown.js";
-import { creatureHitPoints, creatureLabel, creatureList, maxHitPoints, parseHitPoints, statblockMarkup, writeCreatures } from "./statblock.js";
+import {
+  creatureHitPoints, creatureLabel, creatureList, maxHitPoints, parseHitPoints, spellSlots, spellTexts, spellTooltipMarkup,
+  statblockMarkup, usedSlots, withUsedSlots, writeCreatures,
+} from "./statblock.js";
 import { mapSlugFromPath } from "./notes.js";
 import { battleMapSize, fitBattleMap, gridFromName, isBattleMap, isGridCount, snapChild, snapsTokens } from "./battlemap.js";
 import { TOKEN_COLORS, TOKEN_ENTITY_TYPES, initialTokenColor, tokenColor, tokenInitial, tokenInk, tokenSide, writeTokenColor } from "./token.js";
@@ -210,6 +213,13 @@ const textRatioByBox = new Map();
 // статблоці: розкладці ці дрібниці не належать, тож тримаємо їх тут.
 const hpAmountByNode = new Map();
 const statblockScrollByNode = new Map();
+// Підказка з текстом закляття висить поверх усього в екранних пікселях, тож
+// читається однаково на будь-якому зумі полотна.
+const spellTip = document.createElement("div");
+spellTip.className = "spell-tip";
+spellTip.hidden = true;
+document.body.append(spellTip);
+let spellTipAnchor = null;
 let hitPointEdit = null;
 let historyBusy = false;
 const newNoteIds = new Set();
@@ -636,6 +646,8 @@ function render() {
   // Кегль підписів, нотаток і статблоків підбирається по вже вставлених у сцену
   // картках: раніше міряти нічого, бо прямокутник тексту ще не має висоти.
   fresh.forEach(fitOwnTexts);
+  // Назва під курсором могла зникнути разом зі старим вузлом.
+  if (spellTipAnchor && !spellTipAnchor.isConnected) hideSpellTip();
 }
 
 // Вузли одного контейнера в порядку розкладки. Готовий елемент переїжджає
@@ -705,7 +717,7 @@ function fitSummary(summary) {
 // Рядки лічильника HP забирають висоту в тіла, тож їх кількість теж у ключі.
 function fitStatblock(sheet) {
   const body = sheet.parentElement;
-  const rows = body.parentElement?.querySelectorAll(":scope > .statblock-hp").length ?? 0;
+  const rows = body.parentElement?.querySelectorAll(":scope > :is(.statblock-hp, .statblock-slots)").length ?? 0;
   fitBoxText(sheet, {
     kind: "statblock",
     box: body,
@@ -961,7 +973,26 @@ function renderNode(node, isRoot = false) {
       body.addEventListener("scroll", () => statblockScrollByNode.set(node.id, body.scrollTop));
       const scrolled = statblockScrollByNode.get(node.id) ?? 0;
       if (scrolled) requestAnimationFrame(() => { body.scrollTop = scrolled; });
+      const spells = spellTexts(entity.body);
+      if (spells.size) {
+        body.addEventListener("pointerover", (event) => {
+          const name = event.target.closest?.(".sb-spell");
+          if (name) showSpellTip(name, spells.get(name.dataset.spell));
+        });
+        body.addEventListener("pointerout", (event) => {
+          const name = event.target.closest?.(".sb-spell");
+          if (name && !name.contains(event.relatedTarget)) hideSpellTip();
+        });
+        body.addEventListener("scroll", hideSpellTip, { passive: true });
+        body.addEventListener("wheel", hideSpellTip, { passive: true });
+      }
       element.append(body);
+      // Комірки — під аркушем, щоб не губилися при скролі й не дрібніли з кеглем.
+      const slots = spellSlots(entity.body);
+      if (slots.length) {
+        const all = creatureList(node);
+        for (const index of all.keys()) element.append(spellSlotTracker(node, entity, slots, all, index));
+      }
     } else if (kind?.variant === "frame") {
       // Локація — контейнер: лише шапка з назвою, без портрета й секції картки.
       element.classList.add("location-node");
@@ -1335,6 +1366,90 @@ function hitPointTracker(node, entity, maximum, creatures, index) {
   tracker.append(controls);
   tracker.classList.toggle("hurt", hurt(currentHitPoints(node, index, maximum), maximum));
   return tracker;
+}
+
+// Комірки заклинача: у кожної істоти загону власний рядок. Заповнений кружок —
+// комірка ще є; клік по ньому витрачає одну, клік по порожньому повертає.
+// «⟲» — тривалий відпочинок: усе знову повне.
+function spellSlotTracker(node, entity, slots, creatures, index) {
+  const several = creatures.length > 1;
+  const label = creatureLabel(creatures[index], index);
+  const who = several ? `${entity.name} — ${label}` : entity.name;
+  const creature = creatures[index];
+  const tracker = document.createElement("div");
+  tracker.className = "statblock-slots";
+  tracker.dataset.creature = String(index);
+  tracker.addEventListener("pointerdown", (event) => event.stopPropagation());
+  tracker.addEventListener("click", (event) => event.stopPropagation());
+  if (several) {
+    const name = document.createElement("span");
+    name.className = "slots-name";
+    name.textContent = label;
+    name.title = label;
+    tracker.append(name);
+  }
+  const groups = document.createElement("div");
+  groups.className = "slots-groups";
+  for (const slot of slots) {
+    const used = usedSlots(creature, slot);
+    const group = document.createElement("span");
+    group.className = "slots-group";
+    group.title = `${slot.title}: ${slot.max - used} з ${slot.max}`;
+    const caption = document.createElement("span");
+    caption.className = "slots-label";
+    caption.textContent = slot.label;
+    group.append(caption);
+    for (let pip = 0; pip < slot.max; pip += 1) {
+      const left = pip < slot.max - used;
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = `slot-pip${left ? " on" : ""}`;
+      button.setAttribute("aria-label", `${left ? "Витратити" : "Повернути"}: ${slot.title} — ${who}`);
+      button.addEventListener("click", () => {
+        executeCommand(left ? "Витратити комірку" : "Повернути комірку", () => {
+          const all = creatureList(node);
+          const current = usedSlots(all[index], slot);
+          writeCreatures(node, all.with(index, withUsedSlots(all[index], slot, current + (left ? 1 : -1))));
+        });
+      });
+      group.append(button);
+    }
+    groups.append(group);
+  }
+  const rest = document.createElement("button");
+  rest.type = "button";
+  rest.className = "slots-rest";
+  rest.textContent = "⟲";
+  rest.title = `Тривалий відпочинок: відновити всі комірки — ${who}`;
+  rest.disabled = slots.every((slot) => !usedSlots(creature, slot));
+  rest.addEventListener("click", () => {
+    executeCommand("Відновити комірки", () => {
+      const all = creatureList(node);
+      const { slots: _spent, ...fresh } = all[index];
+      writeCreatures(node, all.with(index, fresh));
+    });
+  });
+  tracker.append(groups, rest);
+  return tracker;
+}
+
+function showSpellTip(anchorElement, spell) {
+  if (!spell || !anchorElement.isConnected) return;
+  spellTipAnchor = anchorElement;
+  spellTip.innerHTML = spellTooltipMarkup(spell);
+  spellTip.hidden = false;
+  const anchor = anchorElement.getBoundingClientRect();
+  const size = spellTip.getBoundingClientRect();
+  const margin = 12;
+  const below = anchor.bottom + 8;
+  const top = below + size.height <= window.innerHeight - margin ? below : anchor.top - size.height - 8;
+  spellTip.style.left = `${clamp(anchor.left, margin, window.innerWidth - size.width - margin)}px`;
+  spellTip.style.top = `${clamp(top, margin, window.innerHeight - size.height - margin)}px`;
+}
+
+function hideSpellTip() {
+  spellTipAnchor = null;
+  spellTip.hidden = true;
 }
 
 function hitPointButton(kind, glyph, title, action) {
@@ -1714,7 +1829,7 @@ function renameNode(node) {
 
 // Номер рядка лічильника під курсором; поза лічильником — null.
 function creatureRowIndex(target) {
-  const row = target?.closest?.(".statblock-hp");
+  const row = target?.closest?.(":is(.statblock-hp, .statblock-slots)");
   return row ? Number(row.dataset.creature) : null;
 }
 
