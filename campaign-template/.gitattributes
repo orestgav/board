@@ -1,0 +1,13 @@
+* text=auto eol=lf
+*.md text
+*.pdf -text -diff
+
+# Картинки — через git-lfs, інакше репозиторій роздувається
+_media/**/*.png filter=lfs diff=lfs merge=lfs -text
+_media/**/*.jpg filter=lfs diff=lfs merge=lfs -text
+_media/**/*.jpeg filter=lfs diff=lfs merge=lfs -text
+_media/**/*.webp filter=lfs diff=lfs merge=lfs -text
+board/media/**/*.png filter=lfs diff=lfs merge=lfs -text
+board/media/**/*.jpg filter=lfs diff=lfs merge=lfs -text
+board/media/**/*.jpeg filter=lfs diff=lfs merge=lfs -text
+board/media/**/*.webp filter=lfs diff=lfs merge=lfs -text

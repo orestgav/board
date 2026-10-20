@@ -1,0 +1,20 @@
+# Obsidian: робочий стан вікон змінюється щосекунди, налаштування — ні
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+.obsidian/cache
+.trash/
+
+# OS
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Node
+node_modules/
+timeline/
+tools/public-review/
+.cache/
+board/cache/
+examples/maps/
+output/
+tmp/

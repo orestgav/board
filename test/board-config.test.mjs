@@ -82,6 +82,12 @@ test("the Crown campaign config is accepted as it is", async (context) => {
   assert.equal(config.media.entityDir, "_media");
 });
 
+test("the campaign template config is accepted as it is", async () => {
+  const config = parseBoardConfig(await readFile(new URL("../campaign-template/board.config.json", import.meta.url), "utf8"));
+  assert.equal(config.frontmatter, "tools/frontmatter.mjs");
+  assert.equal(config.party.proxy, null);
+});
+
 test("party: вимкнена без proxy, адреса лише https або локальний http", () => {
   const broken = (party) => () => normalizeBoardConfig({ boardConfigVersion: 1, party });
   assert.deepEqual(normalizeBoardConfig({ boardConfigVersion: 1 }).party, { proxy: null, interval: 15, idField: "ddb_id" });

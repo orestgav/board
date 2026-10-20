@@ -1,0 +1,6 @@
+{
+  "boardConfigVersion": 1,
+  "id": "my-campaign",
+  "name": "Моя кампанія",
+  "frontmatter": "tools/frontmatter.mjs"
+}
