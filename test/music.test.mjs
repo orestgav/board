@@ -29,6 +29,14 @@ test("канонічний лінк однаковий для всіх джер�
     "https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PL1234567890",
   );
   assert.equal(youTubeListId("https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=../secret"), null);
+  assert.equal(
+    canonicalYouTubeUrl("https://music.youtube.com/playlist?list=PLcMESWVDJST4"),
+    "https://music.youtube.com/playlist?list=PLcMESWVDJST4",
+  );
+  assert.equal(
+    canonicalYouTubeUrl("https://music.youtube.com/watch?v=dQw4w9WgXcQ&list=PLcMESWVDJST4"),
+    "https://music.youtube.com/watch?v=dQw4w9WgXcQ&list=PLcMESWVDJST4",
+  );
 });
 
 test("кнопка «плей» завжди веде на нульову позначку часу", () => {
@@ -39,6 +47,10 @@ test("кнопка «плей» завжди веде на нульову поз
   assert.equal(parameters.get("start"), "0");
   assert.equal(parameters.get("time_continue"), null);
   assert.equal(playbackUrl("не лінк"), null);
+  assert.equal(
+    playbackUrl("https://music.youtube.com/playlist?list=PLcMESWVDJST4", 95),
+    "https://music.youtube.com/playlist?list=PLcMESWVDJST4",
+  );
 });
 
 test("картка лишається підписаною навіть без назви з ютуба", () => {
@@ -46,6 +58,7 @@ test("картка лишається підписаною навіть без �
   assert.equal(musicTitle("  Тема\nтаверни  ", url), "Тема таверни");
   assert.equal(musicTitle("", url), "dQw4w9WgXcQ");
   assert.equal(musicTitle(undefined, "не лінк"), "Трек");
+  assert.equal(musicTitle("", "https://music.youtube.com/playlist?list=PLcMESWVDJST4"), "PLcMESWVDJST4");
   assert.equal(oEmbedUrl(url), `https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(url)}`);
 });
 

@@ -101,7 +101,7 @@ export function validateNode(node) {
     throw new Error(`${node.id}.locked має бути булевим`);
   }
   if (node.type === "music") {
-    if (!canonicalYouTubeUrl(node.url)) throw new Error(`${node.id}.url має бути лінком на ролік YouTube`);
+    if (!canonicalYouTubeUrl(node.url)) throw new Error(`${node.id}.url має бути лінком на ролік або плейлист YouTube`);
     if (node.title !== undefined && typeof node.title !== "string") throw new Error(`${node.id}.title має бути рядком`);
     // Секунда, з якої «плей» запускає трек; з початку — без поля.
     if (node.start !== undefined && !isMusicStart(node.start)) throw new Error(`${node.id}.start має бути цілим числом секунд від 0`);

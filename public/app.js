@@ -36,7 +36,7 @@ import { battleMapSize, fitBattleMap, gridFromName, isBattleMap, isGridCount, sn
 import { TOKEN_COLORS, TOKEN_ENTITY_TYPES, initialTokenColor, tokenColor, tokenInitial, tokenInk, tokenSide, writeTokenColor } from "./token.js";
 import { noteMarkup, toggleBold } from "./note-format.js";
 import { NOTE_FONT_EM, STATBLOCK_FONT_EM, SUMMARY_FONT_EM, SUMMARY_MIN_RATIO, TEXT_MIN_RATIO, fitBoxKey, fittedFontSize, fittingRatio, notePadding, reservedFitRatio, textShape } from "./text-fit.js";
-import { canonicalYouTubeUrl, musicTitle, oEmbedUrl, parseMusicStart, playbackUrl } from "./music.js";
+import { canonicalYouTubeUrl, musicTitle, oEmbedUrl, parseMusicStart, playbackUrl, youTubeVideoId } from "./music.js";
 import { centeredViewOnRect, locationBorderScreenWidth, locationHeaderHeight, maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, rebasedView, rectWithin, rectsOverlap, worldViewportRect, zoomedViewAt } from "./view.js";
 import { elementToPng, urlToPng, writeImageToClipboard } from "./snapshot.js";
 import { BOARD_THUMBNAIL_SIZE, PORTRAIT_THUMBNAIL_SIZE, createThumbnails, wantsFullImage } from "./thumbnails.js";
@@ -2126,7 +2126,7 @@ function openMusicDialog() {
   musicUrlInput.value = "";
   musicTitleInput.value = "";
   musicStartInput.value = "";
-  setMusicHint("Встав лінк на ролік — назву канва спитає в ютуба.");
+  setMusicHint("Встав лінк на ролік або плейлист — назву ролика канва спитає в ютуба.");
   musicDialog.showModal();
   requestAnimationFrame(() => musicUrlInput.focus());
 }
@@ -2154,7 +2154,12 @@ function onMusicUrlInput() {
   musicLookup += 1;
   const url = canonicalYouTubeUrl(musicUrlInput.value);
   if (!url) {
-    setMusicHint(musicUrlInput.value.trim() ? "Це не схоже на лінк ютуба." : "Встав лінк на ролік — назву канва спитає в ютуба.");
+    setMusicHint(musicUrlInput.value.trim() ? "Це не схоже на лінк ролика або плейлиста ютуба." : "Встав лінк на ролік або плейлист.");
+    return;
+  }
+  if (!youTubeVideoId(url)) {
+    if (!musicTitleEdited && !musicTitleInput.value.trim()) musicTitleInput.value = "Плейлист YouTube Music";
+    setMusicHint("Плейлист прийнято. Назву можна замінити своєю; поле старту для плейлиста не використовується.");
     return;
   }
   musicLookupTimer = setTimeout(() => lookupMusicTitle(url), MUSIC_LOOKUP_DELAY);
@@ -2163,7 +2168,7 @@ function onMusicUrlInput() {
 function addMusic() {
   const url = canonicalYouTubeUrl(musicUrlInput.value);
   if (!url) {
-    setMusicHint("Потрібен лінк на ролік ютуба.");
+    setMusicHint("Потрібен лінк на ролік або плейлист ютуба.");
     musicUrlInput.focus();
     return;
   }

@@ -99,10 +99,11 @@ test("layout validation accepts note references and rejects unsafe ones", () => 
   assert.throws(() => validateLayout({ formatVersion: 1, children: [{ ...note, note: "../secret#n1" }] }), /Некоректне посилання/);
 });
 
-test("layout validation keeps music cards pointing at a real YouTube video", () => {
+test("layout validation keeps music cards pointing at a real YouTube video or playlist", () => {
   const music = { id: "track-1", type: "music", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", title: "Тема таверни", x: 10, y: 20, width: 320, height: 46, children: [] };
   assert.equal(validateLayout({ formatVersion: 1, children: [music] }).children[0].url, music.url);
-  assert.throws(() => validateLayout({ formatVersion: 1, children: [{ ...music, url: "https://evil.example/track" }] }), /ролік YouTube/);
+  assert.equal(validateLayout({ formatVersion: 1, children: [{ ...music, url: "https://music.youtube.com/playlist?list=PLcMESWVDJST4" }] }).children[0].url, "https://music.youtube.com/playlist?list=PLcMESWVDJST4");
+  assert.throws(() => validateLayout({ formatVersion: 1, children: [{ ...music, url: "https://evil.example/track" }] }), /ролік або плейлист YouTube/);
   assert.throws(() => validateLayout({ formatVersion: 1, children: [{ ...music, title: 7 }] }), /має бути рядком/);
   assert.equal(validateLayout({ formatVersion: 1, children: [{ ...music, start: 90 }] }).children[0].start, 90);
   for (const start of [-1, 1.5, "90"]) assert.throws(() => validateLayout({ formatVersion: 1, children: [{ ...music, start }] }), /start/);
