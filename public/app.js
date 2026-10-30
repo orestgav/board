@@ -36,7 +36,7 @@ import { battleMapSize, fitBattleMap, gridFromName, isBattleMap, isGridCount, sn
 import { TOKEN_COLORS, TOKEN_ENTITY_TYPES, initialTokenColor, tokenColor, tokenInitial, tokenInk, tokenSide, writeTokenColor } from "./token.js";
 import { noteMarkup, toggleBold } from "./note-format.js";
 import { NOTE_FONT_EM, STATBLOCK_FONT_EM, SUMMARY_FONT_EM, SUMMARY_MIN_RATIO, TEXT_MIN_RATIO, fitBoxKey, fittedFontSize, fittingRatio, notePadding, reservedFitRatio, textShape } from "./text-fit.js";
-import { canonicalYouTubeUrl, musicTitle, oEmbedUrl, parseMusicStart, playbackUrl, youTubeVideoId } from "./music.js";
+import { canonicalYouTubeUrl, musicTitle, oEmbedUrl, parseMusicStart, playbackUrl, youTubeVideoId } from "./music.js?v=20261031-playlists";
 import { centeredViewOnRect, locationBorderScreenWidth, locationHeaderHeight, maximumScaleForNodes, minimumScaleForNodes, nodeVisualScale, rebasedView, rectWithin, rectsOverlap, worldViewportRect, zoomedViewAt } from "./view.js";
 import { elementToPng, urlToPng, writeImageToClipboard } from "./snapshot.js";
 import { BOARD_THUMBNAIL_SIZE, PORTRAIT_THUMBNAIL_SIZE, createThumbnails, wantsFullImage } from "./thumbnails.js";
