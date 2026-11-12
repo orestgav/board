@@ -397,4 +397,36 @@ describe("canvas in a browser, local server mode", { skip: !chrome && "Chrome н
     await page.until(async () => (await page.evaluate(() => location.href)) === "about:blank", { message: "сторінка не пішла" });
     assert.deepEqual(page.dialogs, ["beforeunload"]);
   });
+  test("a picture goes to the TV tab from the context menu and is steered from the cast panel", async (context) => {
+    const { page, url } = await open(context);
+    const tv = await browser.newPage();
+    context.after(() => tv.close());
+    await tv.goto(`${url}/cast.html`);
+
+    await page.click('.node[data-id="map-b"]', { button: "right" });
+    await page.waitFor(() => !document.querySelector("#node-context-menu").hidden, { message: "меню не відкрилось" });
+    await page.click('[data-context-action="cast"]');
+    await page.waitFor(() => document.querySelector(".workspace").classList.contains("cast-open"), { message: "панель трансляції не відкрилась" });
+    await page.waitFor(() => document.querySelector("#cast-screen-state").textContent.startsWith("ТВ:"), { message: "ТВ не підключився" });
+    await tv.waitFor(() => {
+      const image = document.querySelector("#stage img");
+      return image?.naturalWidth > 0 && parseFloat(image.style.width) > 0;
+    }, { message: "картинка не зʼявилась на ТВ" });
+    assert.equal(await tv.evaluate(() => document.querySelector("#hint").hidden), true);
+    assert.equal(await page.evaluate(() => document.querySelector('#cast-controls [data-cast="fit-inch"]').disabled), true, "без сітки — без дюймів");
+
+    await page.waitFor(() => Math.abs(document.querySelector("#cast-panel").getBoundingClientRect().right - innerWidth) < 1, { message: "панель не виїхала" });
+    await page.click('#cast-controls [data-cast="rotate-right"]');
+    await tv.waitFor(() => document.querySelector("#stage img").style.transform === "rotate(90deg)", { message: "картинка не повернулась" });
+    const before = await tv.evaluate(() => parseFloat(document.querySelector("#stage img").style.left));
+    await page.click('#cast-controls [data-cast="right"]');
+    await tv.waitFor((left) => parseFloat(document.querySelector("#stage img").style.left) > left, { message: "картинка не зсунулась" }, before);
+
+    await page.click("#cast-blackout");
+    await tv.waitFor(() => document.querySelector("#stage").classList.contains("blackout"), { message: "ТВ не затемнився" });
+    await page.click('#cast-controls [data-cast="remove"]');
+    await tv.waitFor(() => !document.querySelector("#stage img"), { message: "картинка лишилась на ТВ" });
+    assert.deepEqual(page.errors, []);
+    assert.deepEqual(tv.errors, []);
+  });
 });

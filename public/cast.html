@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Трансляція</title>
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <style>
+      html, body { height: 100%; margin: 0; overflow: hidden; background: #000; color: #8d857b; font-family: ui-sans-serif, system-ui, "Segoe UI", sans-serif; }
+      body.idle, body.idle * { cursor: none !important; }
+      #stage { position: fixed; inset: 0; overflow: hidden; background: #000; }
+      #stage img { position: absolute; max-width: none; user-select: none; -webkit-user-drag: none; cursor: grab; transform-origin: 50% 50%; }
+      #stage img.dragging { cursor: grabbing; }
+      #stage.blackout img { visibility: hidden; }
+      #calibration { position: fixed; z-index: 2; left: 50%; top: 50%; transform: translate(-50%, -50%); outline: 3px solid #fff; background-image: linear-gradient(#fff6 1px, transparent 1px), linear-gradient(90deg, #fff6 1px, transparent 1px); pointer-events: none; }
+      #calibration span { position: absolute; left: 0; right: 0; top: calc(100% + 14px); color: #fff; font-size: 20px; text-align: center; white-space: nowrap; }
+      #hint { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); max-width: 520px; font-size: 15px; line-height: 1.5; text-align: center; }
+      #bar { position: fixed; z-index: 3; top: 12px; right: 12px; display: flex; gap: 8px; transition: opacity .3s; }
+      body.idle #bar { opacity: 0; pointer-events: none; }
+      #bar button { padding: 8px 12px; border: 1px solid #514a42; border-radius: 8px; background: #292622; color: #d8d0c6; font: 13px ui-sans-serif, system-ui, sans-serif; cursor: pointer; }
+      [hidden] { display: none !important; }
+    </style>
+  </head>
+  <body>
+    <div id="stage"></div>
+    <div id="calibration" hidden><span></span></div>
+    <p id="hint">Трансляція чекає на дошку.<br />Відкрийте дошку в цьому ж браузері й виберіть на картинці «Транслювати».</p>
+    <div id="bar"><button id="fullscreen" type="button">На весь екран</button></div>
+    <script type="module" src="./cast-screen.js"></script>
+  </body>
+</html>

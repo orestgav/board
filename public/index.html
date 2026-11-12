@@ -31,6 +31,63 @@
         </div>
         <div id="party-list" class="party-list"></div>
       </aside>
+      <!-- Трансляція: права панель, з якої ДМ веде сцену на телевізорі
+           (cast.html у другій вкладці). Сама вкладка лише малює. -->
+      <aside id="cast-panel" class="cast-panel" aria-label="Трансляція">
+        <div class="layers-heading cast-heading">
+          <strong>Трансляція</strong>
+          <span id="cast-screen-state" class="cast-screen-state">ТВ не відкрито</span>
+          <button id="cast-close" type="button" data-icon="close" title="Закрити панель" aria-label="Закрити панель"></button>
+        </div>
+        <div class="cast-body">
+          <button id="cast-open" class="cast-wide" type="button" data-icon="open_in_new">Відкрити екран трансляції</button>
+          <div class="cast-pair">
+            <button id="cast-blackout" type="button" aria-pressed="false" data-icon="visibility_off">Затемнити</button>
+            <button id="cast-calibrate" type="button" aria-pressed="false" data-icon="straighten">Калібрування</button>
+          </div>
+          <div id="cast-calibration" class="cast-calibration" hidden>
+            <p>Прикладіть лінійку до квадрата на ТВ: його сторона має бути 4″ (10,16 см). Підганяйте кнопками, доки не збіжеться.</p>
+            <div class="cast-stepper">
+              <button type="button" data-cast-ppi="0.98" title="Менше на 2%">−−</button>
+              <button type="button" data-cast-ppi="0.995" title="Менше на 0,5%">−</button>
+              <output id="cast-ppi"></output>
+              <button type="button" data-cast-ppi="1.005" title="Більше на 0,5%">+</button>
+              <button type="button" data-cast-ppi="1.02" title="Більше на 2%">++</button>
+            </div>
+          </div>
+          <div class="cast-section-title"><span>На ТВ</span><small>знизу → вгору</small></div>
+          <div id="cast-list" class="cast-list"></div>
+          <div id="cast-controls" class="cast-controls" hidden>
+            <div class="cast-control">
+              <span>Поворот</span>
+              <button type="button" data-cast="rotate-left" data-icon="rotate_left" title="На 90° проти годинникової" aria-label="На 90° проти годинникової"></button>
+              <button type="button" data-cast="rotate-right" data-icon="rotate_right" title="На 90° за годинниковою" aria-label="На 90° за годинниковою"></button>
+            </div>
+            <div class="cast-control">
+              <span>Розмір</span>
+              <button type="button" data-cast="smaller" data-icon="remove" title="Менше на 5% (Shift — на 1%)" aria-label="Менше"></button>
+              <output id="cast-scale"></output>
+              <button type="button" data-cast="bigger" data-icon="add" title="Більше на 5% (Shift — на 1%)" aria-label="Більше"></button>
+            </div>
+            <div class="cast-pair">
+              <button type="button" data-cast="fit-inch" data-icon="grid_on" title="Кожна клітинка карти — рівно 1 дюйм">1 клітинка = 1″</button>
+              <button type="button" data-cast="fit-screen" data-icon="fit_screen" title="Вписати в екран">Вписати в екран</button>
+            </div>
+            <div class="cast-control cast-move">
+              <span>Зсув</span>
+              <div class="cast-dpad">
+                <button type="button" data-cast="up" data-icon="arrow_upward" title="Вгору" aria-label="Вгору"></button>
+                <button type="button" data-cast="left" data-icon="arrow_back" title="Вліво" aria-label="Вліво"></button>
+                <button type="button" data-cast="center" data-icon="circle" title="По центру екрана" aria-label="По центру екрана"></button>
+                <button type="button" data-cast="right" data-icon="arrow_forward" title="Вправо" aria-label="Вправо"></button>
+                <button type="button" data-cast="down" data-icon="arrow_downward" title="Вниз" aria-label="Вниз"></button>
+              </div>
+            </div>
+            <small class="cast-hint">Крок — 1″ (одна клітинка), із Shift — ¼″. Карту можна й перетягнути мишею просто на ТВ.</small>
+            <button type="button" class="cast-wide danger" data-cast="remove" data-icon="delete">Прибрати з ТВ</button>
+          </div>
+        </div>
+      </aside>
       <section id="viewport" class="viewport" tabindex="0" aria-label="Полотно">
         <div id="grid" class="grid"></div>
         <div id="scene" class="scene"></div>
@@ -43,6 +100,7 @@
         </div>
         <div class="hud hud-right" role="toolbar" aria-label="Інструменти канви">
           <div class="hud-row">
+            <button id="toggle-cast" class="hud-button icon" type="button" data-icon="cast" aria-expanded="false" title="Трансляція на телевізор" aria-label="Трансляція на телевізор"></button>
             <button id="undo" class="hud-button icon" type="button" data-icon="undo" title="Скасувати (Ctrl+Z)" aria-label="Скасувати" disabled></button>
             <button id="redo" class="hud-button icon" type="button" data-icon="redo" title="Повторити (Ctrl+Shift+Z)" aria-label="Повторити" disabled></button>
             <button id="zoom-out" class="hud-button icon" type="button" data-icon="zoom_out" title="Віддалити" aria-label="Віддалити"></button>
@@ -168,6 +226,12 @@
       </button>
       <button type="button" role="menuitem" data-context-action="copy-image" data-icon="image">
         <span>Копіювати як картинку</span>
+      </button>
+      <button type="button" role="menuitem" data-context-action="cast" data-icon="cast">
+        <span>Транслювати</span>
+      </button>
+      <button type="button" role="menuitem" data-context-action="cast-add" data-icon="add">
+        <span>Додати до трансляції</span>
       </button>
       <button type="button" role="menuitem" data-context-action="paste" data-icon="content_paste">
         <span>Вставити <kbd>Ctrl+V</kbd></span>

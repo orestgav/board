@@ -26,6 +26,7 @@ import { LayoutConflictError, createStorage } from "./storage.js";
 import { clipboardPayload, noteTargets, parseClipboard, placedItems, withoutNodes } from "./clipboard.js";
 import { backlinks, matchesEntity } from "./entities.js";
 import { iconElement } from "./icons.js";
+import { CAST_CHANNEL, CAST_PPI_KEY, addToCast, calibratedPpi, castItem, centered, defaultPpi, emptyCast, moved, parseCast, parseMemory, parsePpi, refitted, rememberTransforms, removeFromCast, rotated, scaled, updateItem } from "./cast.js";
 import { renderInline, renderMarkdown } from "./markdown.js";
 import {
   creatureHitPoints, creatureLabel, creatureList, maxHitPoints, parseHitPoints, spellSlots, spellTexts, spellTooltipMarkup,
@@ -2648,6 +2649,7 @@ function openContextMenu(node, clientX, clientY) {
   contextMenuPoint = { clientX, clientY, world: screenToWorld(clientX, clientY) };
   for (const action of ["copy", "lock", "delete"]) contextMenuItem(action).hidden = !node;
   contextMenuItem("copy-image").hidden = !imageCopyKind(node);
+  for (const action of ["cast", "cast-add"]) contextMenuItem(action).hidden = !castSource(node);
   contextMenuItem("add-scene").hidden = !isLocationNode(node);
   contextMenuItem("rename").hidden = !["scene", "music"].includes(node?.type);
   for (const action of ["rotate-right", "rotate-left"]) contextMenuItem(action).hidden = node?.type !== "image";
@@ -4095,6 +4097,247 @@ function submitCreatureName() {
   closeSceneRenameDialog();
 }
 
+// ── Трансляція на телевізор ──────────────────────────────────────────────
+// Сцену тримає дошка: що на ТВ, як повернуто, де стоїть. Вкладка cast.html
+// отримує стан і самі файли картинок через BroadcastChannel — доступу до теки
+// кампанії в неї нема. Стан і підгонка кожної картинки памʼятаються окремо
+// для кожної кампанії; калібрування — спільне, бо телевізор один.
+const CAST_OPEN_KEY = "board.cast-open";
+const castPanelElement = document.querySelector("#cast-panel");
+const toggleCastButton = document.querySelector("#toggle-cast");
+const castList = document.querySelector("#cast-list");
+const castControls = document.querySelector("#cast-controls");
+const castScreenState = document.querySelector("#cast-screen-state");
+const castBlackoutButton = document.querySelector("#cast-blackout");
+const castCalibrateButton = document.querySelector("#cast-calibrate");
+const castCalibration = document.querySelector("#cast-calibration");
+const castPpiOutput = document.querySelector("#cast-ppi");
+const castScaleOutput = document.querySelector("#cast-scale");
+const castChannel = "BroadcastChannel" in window ? new BroadcastChannel(CAST_CHANNEL) : null;
+let castState = emptyCast();
+let castMemory = {};
+let castScreen = null;
+let castOpen = false;
+let castSaveTimer = null;
+const castBlobs = new Map();
+
+function castPpi() {
+  return parsePpi(readStorage(CAST_PPI_KEY)) ?? defaultPpi(castScreen?.width ?? 0);
+}
+
+function setCastOpen(open, persist = true) {
+  castOpen = open;
+  workspace.classList.toggle("cast-open", open);
+  toggleCastButton.setAttribute("aria-expanded", String(open));
+  if (persist) writeStorage(CAST_OPEN_KEY, String(open));
+  if (open) renderCastPanel();
+}
+
+function setCast(next, { remember = true } = {}) {
+  castState = next;
+  if (remember) castMemory = rememberTransforms(castMemory, next);
+  clearTimeout(castSaveTimer);
+  castSaveTimer = setTimeout(saveCast, 300);
+  broadcastCast();
+  renderCastPanel();
+}
+
+function saveCast() {
+  castSaveTimer = null;
+  setCampaignSetting("cast", JSON.stringify({ ...castState, calibrating: false }));
+  setCampaignSetting("cast-memory", JSON.stringify(castMemory));
+}
+
+function broadcastCast() {
+  if (!castChannel) return;
+  const images = {};
+  for (const item of castState.items) {
+    const blob = castBlobs.get(item.path);
+    if (blob) images[item.path] = blob;
+  }
+  castChannel.postMessage({ type: "state", state: castState, ppi: castPpi(), images });
+}
+
+async function loadCastBlob(path) {
+  if (!castBlobs.has(path)) castBlobs.set(path, await (await fetch(await storage.mediaUrl(path, false))).blob());
+  return castBlobs.get(path);
+}
+
+// Транслюється лише файл картинки: картинка з полотна (бойова карта — разом зі
+// сіткою) або портрет NPC. Нотатки й токени з карти на ТВ не потрапляють.
+function castSource(node) {
+  const kind = imageCopyKind(node);
+  if (kind === "image") {
+    return { path: node.image, name: nodeLabel(node).replace(/\.[^.]+$/, ""), grid: isBattleMap(node) ? node.grid : null };
+  }
+  if (kind === "portrait") return { path: nodeEntity(node).portrait, name: nodeLabel(node), grid: null };
+  return null;
+}
+
+async function castNode(node, { replace }) {
+  const source = castSource(node);
+  if (!source) return;
+  try {
+    await loadCastBlob(source.path);
+  } catch (error) {
+    console.warn(error);
+    return showToast(`Не вдалося прочитати картинку: ${error.message}`);
+  }
+  setCast(addToCast(castState, castItem(source, castMemory[source.path]), { replace }));
+  setCastOpen(true);
+  if (!castScreen) showToast("Екран трансляції ще не відкрито — «Відкрити екран трансляції» в панелі");
+}
+
+function selectedCastItem() {
+  return castState.items.find((item) => item.id === castState.selected) ?? null;
+}
+
+function renderCastPanel() {
+  toggleCastButton.classList.toggle("live", castState.items.length > 0 && !castState.blackout);
+  if (!castOpen) return;
+  castScreenState.textContent = castScreen ? `ТВ: ${castScreen.width}×${castScreen.height}` : "ТВ не відкрито";
+  castScreenState.classList.toggle("connected", Boolean(castScreen));
+  castBlackoutButton.setAttribute("aria-pressed", String(castState.blackout));
+  castCalibrateButton.setAttribute("aria-pressed", String(castState.calibrating));
+  castCalibration.hidden = !castState.calibrating;
+  const ppi = castPpi();
+  const across = castScreen ? ` · ${(castScreen.width / ppi).toLocaleString("uk-UA", { maximumFractionDigits: 1 })}″ у ширину` : "";
+  castPpiOutput.textContent = `${ppi.toLocaleString("uk-UA", { maximumFractionDigits: 1 })} пкс/″${across}`;
+
+  castList.replaceChildren();
+  if (!castState.items.length) {
+    const empty = document.createElement("p");
+    empty.className = "cast-empty";
+    empty.textContent = "Порожньо. Клацніть правою кнопкою по карті чи арту на дошці й виберіть «Транслювати».";
+    castList.append(empty);
+  }
+  for (const item of castState.items) {
+    const row = document.createElement("div");
+    row.className = "cast-item";
+    row.classList.toggle("selected", item.id === castState.selected);
+    row.dataset.castItem = item.id;
+    row.tabIndex = 0;
+    const name = document.createElement("span");
+    name.className = "cast-item-name";
+    name.textContent = item.name;
+    name.title = item.path;
+    row.append(name);
+    if (item.grid) {
+      const grid = document.createElement("small");
+      grid.textContent = `${item.grid.columns}×${item.grid.rows}`;
+      row.append(grid);
+    }
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.dataset.cast = "remove";
+    remove.title = "Прибрати з ТВ";
+    remove.setAttribute("aria-label", remove.title);
+    remove.append(iconElement("close"));
+    row.append(remove);
+    castList.append(row);
+  }
+
+  const item = selectedCastItem();
+  castControls.hidden = !item;
+  if (!item) return;
+  castScaleOutput.textContent = `${Math.round(item.scale * 1000) / 10}%`;
+  const fitInch = castControls.querySelector('[data-cast="fit-inch"]');
+  fitInch.disabled = !item.grid;
+  fitInch.title = item.grid ? "Кожна клітинка карти — рівно 1 дюйм" : "Спершу задайте карті сітку на дошці";
+  fitInch.setAttribute("aria-pressed", String(item.fit === "inch"));
+  castControls.querySelector('[data-cast="fit-screen"]').setAttribute("aria-pressed", String(item.fit === "screen"));
+}
+
+function castAction(action, { fine = false, id = castState.selected } = {}) {
+  const step = fine ? 0.25 : 1;
+  const zoom = fine ? 1.01 : 1.05;
+  const changes = {
+    "rotate-left": (item) => rotated(item, -1),
+    "rotate-right": (item) => rotated(item, 1),
+    smaller: (item) => scaled(item, 1 / zoom),
+    bigger: (item) => scaled(item, zoom),
+    "fit-inch": (item) => refitted(item, "inch"),
+    "fit-screen": (item) => refitted(item, "screen"),
+    up: (item) => moved(item, 0, -step),
+    down: (item) => moved(item, 0, step),
+    left: (item) => moved(item, -step, 0),
+    right: (item) => moved(item, step, 0),
+    center: () => centered(),
+  };
+  if (action === "remove") return setCast(removeFromCast(castState, id));
+  if (changes[action] && id) setCast(updateItem(castState, id, changes[action]));
+}
+
+async function restoreCast() {
+  castState = parseCast(campaignSetting("cast"));
+  castMemory = parseMemory(campaignSetting("cast-memory"));
+  castBlobs.clear();
+  const missing = [];
+  await Promise.all(castState.items.map((item) => loadCastBlob(item.path).catch(() => missing.push(item.id))));
+  let state = castState;
+  for (const id of missing) state = removeFromCast(state, id);
+  setCast(state, { remember: false });
+}
+
+function flushCastSave() {
+  if (castSaveTimer === null) return;
+  clearTimeout(castSaveTimer);
+  castSaveTimer = null;
+  saveCast();
+}
+addEventListener("pagehide", flushCastSave);
+
+// Кампанію закрито: на ТВ від неї не лишається нічого.
+function stopCast() {
+  flushCastSave();
+  castState = emptyCast();
+  castBlobs.clear();
+  broadcastCast();
+  renderCastPanel();
+}
+
+castChannel?.addEventListener("message", ({ data }) => {
+  if (data?.type === "hello" || data?.type === "screen") {
+    castScreen = data.screen;
+    broadcastCast();
+    renderCastPanel();
+  } else if (data?.type === "bye") {
+    castScreen = null;
+    renderCastPanel();
+  } else if (data?.type === "move" && castState.items.some((item) => item.id === data.id)) {
+    setCast(updateItem(castState, data.id, (item) => moved(item, data.dx, data.dy)));
+  }
+});
+castChannel?.postMessage({ type: "ping" });
+
+toggleCastButton.addEventListener("click", () => setCastOpen(!castOpen));
+document.querySelector("#cast-close").addEventListener("click", () => setCastOpen(false));
+document.querySelector("#cast-open").addEventListener("click", () => {
+  window.open("cast.html", "crown-board-cast");
+});
+castBlackoutButton.addEventListener("click", () => setCast({ ...castState, blackout: !castState.blackout }, { remember: false }));
+castCalibrateButton.addEventListener("click", () => setCast({ ...castState, calibrating: !castState.calibrating }, { remember: false }));
+castPanelElement.addEventListener("click", (event) => {
+  const ppiButton = event.target.closest("[data-cast-ppi]");
+  if (ppiButton) {
+    writeStorage(CAST_PPI_KEY, String(calibratedPpi(castPpi(), Number(ppiButton.dataset.castPpi))));
+    broadcastCast();
+    return renderCastPanel();
+  }
+  const row = event.target.closest("[data-cast-item]");
+  const button = event.target.closest("[data-cast]");
+  if (button && !button.disabled) return castAction(button.dataset.cast, { fine: event.shiftKey, id: row?.dataset.castItem ?? castState.selected });
+  if (row) setCast({ ...castState, selected: row.dataset.castItem }, { remember: false });
+});
+castPanelElement.addEventListener("keydown", (event) => {
+  const row = event.target.closest?.("[data-cast-item]");
+  if (row && (event.key === "Enter" || event.key === " ")) {
+    event.preventDefault();
+    setCast({ ...castState, selected: row.dataset.castItem }, { remember: false });
+  }
+});
+setCastOpen(readStorage(CAST_OPEN_KEY) === "true", false);
+
 nodeContextMenu.addEventListener("click", async (event) => {
   const action = event.target.closest("[data-context-action]")?.dataset.contextAction;
   if (!action || event.target.closest("button")?.disabled) return;
@@ -4114,6 +4357,8 @@ nodeContextMenu.addEventListener("click", async (event) => {
   else if (action === "rotate-left") rotateSelected(-1);
   else if (action === "copy") copySelection();
   else if (action === "copy-image") copyAsImage(node);
+  else if (action === "cast") castNode(node, { replace: true });
+  else if (action === "cast-add") castNode(node, { replace: false });
   else if (action === "delete") await deleteSelected();
   else if (action === "details") showNodeDetails(node);
   else if (action === "toggle-summary") toggleSummary(node);
@@ -4230,6 +4475,7 @@ async function readBoard() {
   applyView();
   if (layout.children.length && !storedView) fitAll();
   setupParty();
+  restoreCast();
   setStatus("Збережено");
 }
 
@@ -4252,6 +4498,7 @@ function closeBoard() {
   stopParty();
   togglePartyButton.hidden = true;
   setPartyOpen(false, false);
+  stopCast();
   emptyState.hidden = true;
   setRouteMode(null);
   campaignNameLabel.textContent = "Кампанію не відкрито";
