@@ -16,6 +16,9 @@ export const CAST_ROTATION_KEY = "board.cast-rotation";
 export const DEFAULT_SCREEN_INCHES = 30;
 // Сторона квадрата калібрування на телевізорі.
 export const CALIBRATION_INCHES = 4;
+// Арт, вписаний в екран, не впирається в краї: з кожного боку лишається
+// така частка екрана.
+export const SCREEN_MARGIN = 0.1;
 export const MIN_SCALE = 0.05;
 export const MAX_SCALE = 20;
 const MIN_PPI = 5;
@@ -114,7 +117,8 @@ export function itemFrame(item, { ppi, screen, image }) {
     const turned = item.rotation % 180 !== 0;
     const boxWidth = turned ? image.height : image.width;
     const boxHeight = turned ? image.width : image.height;
-    const contain = boxWidth && boxHeight ? Math.min(screen.width / boxWidth, screen.height / boxHeight) : 1;
+    const room = 1 - SCREEN_MARGIN * 2;
+    const contain = boxWidth && boxHeight ? Math.min(screen.width * room / boxWidth, screen.height * room / boxHeight) : 1;
     width = image.width * contain;
   }
   width *= item.scale;

@@ -73,13 +73,13 @@ test("offset is measured in inches from the screen centre", () => {
   assert.equal(frame.centerY, 540 - 40);
 });
 
-test("screen fit contains the turned picture", () => {
+test("screen fit contains the turned picture with a 10% margin on every side", () => {
   const screen = { width: 1920, height: 1080 };
   const image = { width: 1000, height: 2000 };
   const upright = itemFrame(castItem(art), { ppi: 40, screen, image });
-  assert.equal(upright.height, 1080);
+  assert.equal(upright.height, 1080 * 0.8);
   const turned = itemFrame({ ...castItem(art), rotation: 90 }, { ppi: 40, screen, image });
-  assert.equal(turned.height, 1920, "after 90° the long side lies along the screen width");
+  assert.ok(Math.abs(turned.height - 1920 * 0.8) < 1e-9, "after 90° the long side lies along the screen width, 10% off each end");
 });
 
 test("calibration stays in a sane range", () => {
