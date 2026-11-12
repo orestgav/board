@@ -30,7 +30,9 @@ export function emptyCast() {
 
 // Що саме транслюється: файл картинки (не вузол — на ТВ не має потрапити нічого
 // з того, що лежить на карті на дошці) і, якщо це бойова карта, її сітка.
-export function castItem({ path, name, grid = null }, remembered = null, { rotation = 0 } = {}) {
+// Картка з дошки (локація, предмет) транслюється знімком: `snapshot` — id її
+// вузла, `version` міняється з кожним новим знімком, щоб ТВ узяв свіжий.
+export function castItem({ path, name, grid = null, snapshot = null }, remembered = null, { rotation = 0, version = 0 } = {}) {
   const item = {
     id: `cast-${Math.random().toString(36).slice(2, 10)}`,
     path,
@@ -41,6 +43,8 @@ export function castItem({ path, name, grid = null }, remembered = null, { rotat
     x: 0,
     y: 0,
     fit: grid ? "inch" : "screen",
+    snapshot,
+    version,
   };
   return remembered ? { ...item, ...pickTransform(remembered, item) } : item;
 }
@@ -50,7 +54,7 @@ export function castItem({ path, name, grid = null }, remembered = null, { rotat
 export function addToCast(state, item, { replace = false } = {}) {
   const kept = replace ? [] : state.items.filter((other) => other.path !== item.path);
   const existing = replace ? null : state.items.find((other) => other.path === item.path);
-  const next = existing ?? item;
+  const next = existing ? { ...existing, version: item.version } : item;
   return { ...state, items: [...kept, next], selected: next.id, blackout: false };
 }
 
@@ -159,7 +163,11 @@ export function parseCast(text) {
     .map((item) => {
       const grid = item.grid && Number.isInteger(item.grid.columns) && Number.isInteger(item.grid.rows)
         && item.grid.columns > 0 && item.grid.rows > 0 ? { columns: item.grid.columns, rows: item.grid.rows } : null;
-      const base = { id: item.id, path: item.path, name: typeof item.name === "string" ? item.name : item.path, grid };
+      const base = {
+        id: item.id, path: item.path, name: typeof item.name === "string" ? item.name : item.path, grid,
+        snapshot: typeof item.snapshot === "string" ? item.snapshot : null,
+        version: Number.isFinite(item.version) ? item.version : 0,
+      };
       return { ...base, ...pickTransform(item, base) };
     });
   const selected = items.some((item) => item.id === raw.selected) ? raw.selected : (items.at(-1)?.id ?? null);

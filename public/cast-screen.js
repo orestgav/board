@@ -12,7 +12,7 @@ const channel = new BroadcastChannel(CAST_CHANNEL);
 
 let state = null;
 let ppi = 40;
-const urls = new Map(); // path → object URL
+const urls = new Map(); // path → { version, url }
 const images = new Map(); // item id → <img>
 let drag = null;
 
@@ -21,7 +21,7 @@ channel.addEventListener("message", ({ data }) => {
   if (data?.type !== "state") return;
   state = data.state;
   ppi = data.ppi;
-  syncUrls(data.images ?? {});
+  syncUrls(data.images ?? {}, data.state.items);
   render();
 });
 
@@ -33,15 +33,17 @@ function announce() {
   channel.postMessage({ type: "hello", screen: screenSize() });
 }
 
-// Та сама картинка приходить із кожним станом — новий URL лише для нового файлу.
-function syncUrls(blobs) {
-  for (const [path, url] of urls) {
-    if (blobs[path]) continue;
-    URL.revokeObjectURL(url);
+// Та сама картинка приходить із кожним станом — новий URL лише для нового
+// файлу чи нового знімка картки (у нього інша `version`).
+function syncUrls(blobs, items) {
+  const versions = new Map(items.map((item) => [item.path, item.version ?? 0]));
+  for (const [path, entry] of urls) {
+    if (blobs[path] && versions.get(path) === entry.version) continue;
+    URL.revokeObjectURL(entry.url);
     urls.delete(path);
   }
   for (const [path, blob] of Object.entries(blobs)) {
-    if (!urls.has(path) && blob instanceof Blob) urls.set(path, URL.createObjectURL(blob));
+    if (!urls.has(path) && blob instanceof Blob) urls.set(path, { version: versions.get(path) ?? 0, url: URL.createObjectURL(blob) });
   }
 }
 
@@ -66,7 +68,7 @@ function render() {
       images.set(item.id, image);
     }
     stage.append(image); // порядок у DOM — порядок шарів
-    const url = urls.get(item.path);
+    const url = urls.get(item.path)?.url;
     if (url && image.getAttribute("src") !== url) image.src = url;
     place(image);
   }

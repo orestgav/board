@@ -126,3 +126,16 @@ test("new pictures lie the way the TV lies; remembered ones keep their own turn"
   assert.equal(parseRotation("45"), 0);
   assert.equal(parseRotation(null), 0);
 });
+
+test("a re-cast card keeps its fitting but takes the fresh snapshot", () => {
+  const card = { path: "card:shop", name: "Крамниця", snapshot: "shop" };
+  const first = { ...castItem(card, null, { version: 1 }), rotation: 270, x: 2 };
+  const state = addToCast(addToCast(emptyCast(), first), castItem(card, null, { version: 2 }));
+  assert.equal(state.items.length, 1);
+  assert.equal(state.items[0].version, 2);
+  assert.equal(state.items[0].rotation, 270);
+  assert.equal(state.items[0].x, 2);
+  const restored = parseCast(JSON.stringify(state)).items[0];
+  assert.equal(restored.snapshot, "shop");
+  assert.equal(restored.fit, "screen");
+});

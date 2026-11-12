@@ -4165,7 +4165,10 @@ async function loadCastBlob(path) {
 
 // Транслюється лише файл картинки: картинка з полотна (бойова карта — разом зі
 // сіткою) або портрет NPC. Нотатки й токени з карти на ТВ не потрапляють.
+// Локація чи предмет ідуть знімком картки — такою, як вона на екрані, з усім
+// вкладеним: розмиті нотатки лишаються розмитими, сховане — схованим.
 function castSource(node) {
+  if (castsAsCard(node)) return { path: `card:${node.id}`, name: nodeLabel(node), grid: null, snapshot: node.id };
   const kind = imageCopyKind(node);
   if (kind === "image") {
     return { path: node.image, name: nodeLabel(node).replace(/\.[^.]+$/, ""), grid: isBattleMap(node) ? node.grid : null };
@@ -4174,17 +4177,41 @@ function castSource(node) {
   return null;
 }
 
+function castsAsCard(node) {
+  return isLocationNode(node) || imageCopyKind(node) === "card";
+}
+
+// Керування дошкою (маркери, «i», замок, ручки нотаток) — не частина картки.
+// Обвід локації дошка товщає під зум, а на знімку його обрізали б краї, тож
+// він знімається; виділення теж.
+function castCardPng(node) {
+  const element = nodeElement(node.id);
+  if (!element) return Promise.reject(new Error("картки не видно на полотні"));
+  return elementToPng(element, {
+    width: node.width, height: node.height,
+    strip: [".resize-handle", ".node-details", ".node-lock-indicator", ".note-drag-handle"],
+    imageSource: (image) => image.dataset.mediaPath ? storage.mediaUrl(image.dataset.mediaPath, false) : null,
+    adjust: (clone) => {
+      for (const part of [clone, ...clone.querySelectorAll(".node")]) {
+        part.classList.remove("selected");
+        part.style.outlineWidth = "0";
+      }
+    },
+  });
+}
+
 async function castNode(node, { replace }) {
   const source = castSource(node);
   if (!source) return;
   try {
-    await loadCastBlob(source.path);
+    if (source.snapshot) castBlobs.set(source.path, await castCardPng(node));
+    else await loadCastBlob(source.path);
   } catch (error) {
     console.warn(error);
-    return showToast(`Не вдалося прочитати картинку: ${error.message}`);
+    return showToast(`Не вдалося підготувати картинку: ${error.message}`);
   }
   const rotation = parseRotation(readStorage(CAST_ROTATION_KEY));
-  setCast(addToCast(castState, castItem(source, castMemory[source.path], { rotation }), { replace }));
+  setCast(addToCast(castState, castItem(source, castMemory[source.path], { rotation, version: Date.now() }), { replace }));
   setCastOpen(true);
   if (!castScreen) showToast("Екран трансляції ще не відкрито — «Відкрити екран трансляції» в панелі");
 }
@@ -4232,6 +4259,15 @@ function renderCastPanel() {
       grid.textContent = `${item.grid.columns}×${item.grid.rows}`;
       row.append(grid);
     }
+    if (item.snapshot) {
+      const refresh = document.createElement("button");
+      refresh.type = "button";
+      refresh.dataset.cast = "refresh";
+      refresh.title = "Оновити знімок: показати картку такою, як вона зараз на дошці";
+      refresh.setAttribute("aria-label", "Оновити знімок");
+      refresh.append(iconElement("refresh"));
+      row.append(refresh);
+    }
     const remove = document.createElement("button");
     remove.type = "button";
     remove.dataset.cast = "remove";
@@ -4270,7 +4306,30 @@ function castAction(action, { fine = false, id = castState.selected } = {}) {
     center: () => centered(),
   };
   if (action === "remove") return setCast(removeFromCast(castState, id));
+  if (action === "refresh") return refreshCastCard(id);
   if (changes[action] && id) setCast(updateItem(castState, id, changes[action]));
+}
+
+async function refreshCastCard(id) {
+  const item = castState.items.find((candidate) => candidate.id === id);
+  const node = item?.snapshot ? findNode(layout, item.snapshot) : null;
+  if (!node) return showToast("Цієї картки вже нема на дошці");
+  try {
+    castBlobs.set(item.path, await castCardPng(node));
+  } catch (error) {
+    console.warn(error);
+    return showToast(`Не вдалося зняти картку: ${error.message}`);
+  }
+  setCast(updateItem(castState, id, () => ({ version: Date.now() })), { remember: false });
+}
+
+// Знімок картки не файл — після перезавантаження його знімають наново з тієї
+// самої картки; нема її на дошці — з ТВ вона зникає.
+async function restoreCastBlob(item) {
+  if (!item.snapshot) return loadCastBlob(item.path);
+  const node = findNode(layout, item.snapshot);
+  if (!node) throw new Error("картки нема");
+  castBlobs.set(item.path, await castCardPng(node));
 }
 
 async function restoreCast() {
@@ -4278,7 +4337,7 @@ async function restoreCast() {
   castMemory = parseMemory(campaignSetting("cast-memory"));
   castBlobs.clear();
   const missing = [];
-  await Promise.all(castState.items.map((item) => loadCastBlob(item.path).catch(() => missing.push(item.id))));
+  await Promise.all(castState.items.map((item) => restoreCastBlob(item).catch(() => missing.push(item.id))));
   let state = castState;
   for (const id of missing) state = removeFromCast(state, id);
   setCast(state, { remember: false });

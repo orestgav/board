@@ -32,10 +32,12 @@ export async function urlToPng(url) {
 // стилями дошки кладемо в SVG foreignObject і малюємо на canvas. Картинки
 // всередині SVG-зображення мусять бути data: URL — зовнішніх воно не вантажить.
 // На полотні картинка буває мініатюрою, тож `imageSource` може дати для знімка
-// інше, повне джерело; нема його — береться показане.
-export async function elementToPng(element, { width, height, strip = [], imageSource = () => null }) {
+// інше, повне джерело; нема його — береться показане. `adjust` може ще
+// підправити клон (скажімо, зняти обвід, що залежить від зуму).
+export async function elementToPng(element, { width, height, strip = [], imageSource = () => null, adjust = () => {} }) {
   const clone = element.cloneNode(true);
   for (const selector of strip) clone.querySelectorAll(selector).forEach((part) => part.remove());
+  adjust(clone);
   clone.classList.remove("selected", "offscreen");
   Object.assign(clone.style, { left: "0", top: "0", margin: "0" });
   await Promise.all([...clone.querySelectorAll("img")].map(async (image) => {
