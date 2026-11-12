@@ -402,11 +402,14 @@ describe("canvas in a browser, local server mode", { skip: !chrome && "Chrome н
     const tv = await browser.newPage();
     context.after(() => tv.close());
     await tv.goto(`${url}/cast.html`);
+    await page.click("#toggle-cast");
+    await page.waitFor(() => Math.abs(document.querySelector("#cast-panel").getBoundingClientRect().right - innerWidth) < 1, { message: "панель не виїхала" });
+    await page.click('[data-cast-rotation="270"]');
+    await page.waitFor(() => document.querySelector('[data-cast-rotation="270"]').getAttribute("aria-pressed") === "true", { message: "орієнтація не вибралась" });
 
     await page.click('.node[data-id="map-b"]', { button: "right" });
     await page.waitFor(() => !document.querySelector("#node-context-menu").hidden, { message: "меню не відкрилось" });
     await page.click('[data-context-action="cast"]');
-    await page.waitFor(() => document.querySelector(".workspace").classList.contains("cast-open"), { message: "панель трансляції не відкрилась" });
     await page.waitFor(() => document.querySelector("#cast-screen-state").textContent.startsWith("ТВ:"), { message: "ТВ не підключився" });
     await tv.waitFor(() => {
       const image = document.querySelector("#stage img");
@@ -416,8 +419,9 @@ describe("canvas in a browser, local server mode", { skip: !chrome && "Chrome н
     assert.equal(await page.evaluate(() => document.querySelector('#cast-controls [data-cast="fit-inch"]').disabled), true, "без сітки — без дюймів");
 
     await page.waitFor(() => Math.abs(document.querySelector("#cast-panel").getBoundingClientRect().right - innerWidth) < 1, { message: "панель не виїхала" });
+    assert.equal(await tv.evaluate(() => document.querySelector("#stage img").style.transform), "rotate(270deg)", "верх нової картинки — ліворуч");
     await page.click('#cast-controls [data-cast="rotate-right"]');
-    await tv.waitFor(() => document.querySelector("#stage img").style.transform === "rotate(90deg)", { message: "картинка не повернулась" });
+    await tv.waitFor(() => document.querySelector("#stage img").style.transform === "rotate(0deg)", { message: "картинка не повернулась" });
     const before = await tv.evaluate(() => parseFloat(document.querySelector("#stage img").style.left));
     await page.click('#cast-controls [data-cast="right"]');
     await tv.waitFor((left) => parseFloat(document.querySelector("#stage img").style.left) > left, { message: "картинка не зсунулась" }, before);

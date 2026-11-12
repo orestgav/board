@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   addToCast, calibratedPpi, castItem, defaultPpi, emptyCast, itemFrame, moved, parseCast, parsePpi,
-  refitted, rememberTransforms, removeFromCast, rotated, scaled, updateItem,
+  parseRotation, refitted, rememberTransforms, removeFromCast, rotated, scaled, updateItem,
 } from "../public/cast.js";
 
 const battleMap = { path: "board/media/maps/street-33x16.webp", name: "street", grid: { columns: 33, rows: 16 } };
@@ -117,4 +117,12 @@ test("updateItem changes only the given item", () => {
   const state = updateItem(addToCast(addToCast(emptyCast(), map), portrait), map.id, (item) => rotated(item, 1));
   assert.equal(state.items[0].rotation, 90);
   assert.equal(state.items[1].rotation, 0);
+});
+
+test("new pictures lie the way the TV lies; remembered ones keep their own turn", () => {
+  assert.equal(castItem(art, null, { rotation: 270 }).rotation, 270);
+  assert.equal(castItem(art, { rotation: 90 }, { rotation: 270 }).rotation, 90);
+  assert.equal(parseRotation("270"), 270);
+  assert.equal(parseRotation("45"), 0);
+  assert.equal(parseRotation(null), 0);
 });

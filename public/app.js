@@ -26,7 +26,7 @@ import { LayoutConflictError, createStorage } from "./storage.js";
 import { clipboardPayload, noteTargets, parseClipboard, placedItems, withoutNodes } from "./clipboard.js";
 import { backlinks, matchesEntity } from "./entities.js";
 import { iconElement } from "./icons.js";
-import { CAST_CHANNEL, CAST_PPI_KEY, addToCast, calibratedPpi, castItem, centered, defaultPpi, emptyCast, moved, parseCast, parseMemory, parsePpi, refitted, rememberTransforms, removeFromCast, rotated, scaled, updateItem } from "./cast.js";
+import { CAST_CHANNEL, CAST_PPI_KEY, CAST_ROTATION_KEY, addToCast, calibratedPpi, castItem, centered, defaultPpi, emptyCast, moved, parseCast, parseMemory, parsePpi, parseRotation, refitted, rememberTransforms, removeFromCast, rotated, scaled, updateItem } from "./cast.js";
 import { renderInline, renderMarkdown } from "./markdown.js";
 import {
   creatureHitPoints, creatureLabel, creatureList, maxHitPoints, parseHitPoints, spellSlots, spellTexts, spellTooltipMarkup,
@@ -4183,7 +4183,8 @@ async function castNode(node, { replace }) {
     console.warn(error);
     return showToast(`Не вдалося прочитати картинку: ${error.message}`);
   }
-  setCast(addToCast(castState, castItem(source, castMemory[source.path]), { replace }));
+  const rotation = parseRotation(readStorage(CAST_ROTATION_KEY));
+  setCast(addToCast(castState, castItem(source, castMemory[source.path], { rotation }), { replace }));
   setCastOpen(true);
   if (!castScreen) showToast("Екран трансляції ще не відкрито — «Відкрити екран трансляції» в панелі");
 }
@@ -4200,6 +4201,10 @@ function renderCastPanel() {
   castBlackoutButton.setAttribute("aria-pressed", String(castState.blackout));
   castCalibrateButton.setAttribute("aria-pressed", String(castState.calibrating));
   castCalibration.hidden = !castState.calibrating;
+  const rotation = String(parseRotation(readStorage(CAST_ROTATION_KEY)));
+  for (const button of castPanelElement.querySelectorAll("[data-cast-rotation]")) {
+    button.setAttribute("aria-pressed", String(button.dataset.castRotation === rotation));
+  }
   const ppi = castPpi();
   const across = castScreen ? ` · ${(castScreen.width / ppi).toLocaleString("uk-UA", { maximumFractionDigits: 1 })}″ у ширину` : "";
   castPpiOutput.textContent = `${ppi.toLocaleString("uk-UA", { maximumFractionDigits: 1 })} пкс/″${across}`;
@@ -4318,6 +4323,11 @@ document.querySelector("#cast-open").addEventListener("click", () => {
 castBlackoutButton.addEventListener("click", () => setCast({ ...castState, blackout: !castState.blackout }, { remember: false }));
 castCalibrateButton.addEventListener("click", () => setCast({ ...castState, calibrating: !castState.calibrating }, { remember: false }));
 castPanelElement.addEventListener("click", (event) => {
+  const rotationButton = event.target.closest("[data-cast-rotation]");
+  if (rotationButton) {
+    writeStorage(CAST_ROTATION_KEY, rotationButton.dataset.castRotation);
+    return renderCastPanel();
+  }
   const ppiButton = event.target.closest("[data-cast-ppi]");
   if (ppiButton) {
     writeStorage(CAST_PPI_KEY, String(calibratedPpi(castPpi(), Number(ppiButton.dataset.castPpi))));

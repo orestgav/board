@@ -8,6 +8,9 @@
 
 export const CAST_CHANNEL = "crown-board.cast";
 export const CAST_PPI_KEY = "board.cast-ppi";
+// Як лежить телевізор: куди дивиться верх нової картинки. Як і калібрування,
+// це властивість столу, а не кампанії — спільне для всіх кампаній.
+export const CAST_ROTATION_KEY = "board.cast-rotation";
 // Поки телевізор не відкалібровано, вважаємо, що в ширину на нього стає
 // стільки дюймів — так ДМ оцінив свій екран (карта 30×20″).
 export const DEFAULT_SCREEN_INCHES = 30;
@@ -24,13 +27,13 @@ export function emptyCast() {
 
 // Що саме транслюється: файл картинки (не вузол — на ТВ не має потрапити нічого
 // з того, що лежить на карті на дошці) і, якщо це бойова карта, її сітка.
-export function castItem({ path, name, grid = null }, remembered = null) {
+export function castItem({ path, name, grid = null }, remembered = null, { rotation = 0 } = {}) {
   const item = {
     id: `cast-${Math.random().toString(36).slice(2, 10)}`,
     path,
     name: name || path.split("/").at(-1),
     grid: grid ? { columns: grid.columns, rows: grid.rows } : null,
-    rotation: 0,
+    rotation: parseRotation(rotation),
     scale: 1,
     x: 0,
     y: 0,
@@ -122,6 +125,11 @@ export function itemFrame(item, { ppi, screen, image }) {
     centerY: screen.height / 2 + item.y * ppi,
     rotation: item.rotation,
   };
+}
+
+export function parseRotation(value) {
+  const number = Number(value);
+  return [0, 90, 180, 270].includes(number) ? number : 0;
 }
 
 export function defaultPpi(screenWidth) {
